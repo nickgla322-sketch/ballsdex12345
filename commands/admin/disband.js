@@ -339,7 +339,7 @@ module.exports = {
                     teamRoleId: team.roleId,
                   });
 
-                  // Separate staff from actual players.
+                 
                   const staffIds = new Set(
                     staffEntries.map(staff => staff.userId)
                   );
@@ -352,17 +352,30 @@ module.exports = {
                     id => !staffIds.has(id)
                   );
 
-                  // Create the embed. A custom image URL is needed for
-                  // a real team thumbnail; an emoji alone is not enough.
+                  const formatMembers = (ids, includePosition = false) => {
+                    if (!ids.length) return '• None';
+
+                    return ids
+                      .map(id => {
+                        const staff = staffEntries.find(
+                          entry => entry.userId === id
+                        );
+
+                        return includePosition && staff
+                          ? `• <@${id}> — ${prettyPosition(staff.position)}`
+                          : `• <@${id}>`;
+                      })
+                      .join('\n')
+                      .slice(0, 1024);
+                  };
+
                   const embed = new EmbedBuilder()
-                    .setColor(
-                      failedMembers.length ? '#e67e22' : '#c0392b'
-                    )
-                    .setTitle('Team Roster Cleared')
+                    .setColor('#c0392b')
                     .setAuthor({
                       name: guild.name,
                       iconURL: guild.iconURL({ size: 256 }) || undefined,
                     })
+                    .setTitle('Team Disbanded')
                     .addFields(
                       {
                         name: 'Team',
@@ -370,52 +383,47 @@ module.exports = {
                         inline: false,
                       },
                       {
-                        name: 'Actual Players Removed',
-                        value: String(removedPlayerIds.length),
-                        inline: true,
+                        name: 'Staff Records Deleted',
+                        value: String(deleteResult.deletedCount || 0),
+                        inline: false,
                       },
                       {
-                        name: 'Staff Members Removed',
-                        value: String(removedStaffIds.length),
-                        inline: true,
-                      },
-                      {
-                        name: 'Staff Roles Removed',
-                        value: String(removedStaffRoles.length),
-                        inline: true,
-                      },
-                      {
-                        name: 'Players',
-                        value: makeMemberList(removedPlayerIds, staffByUserId),
+                        name: 'Disbanded By',
+                        value: `<@${interaction.user.id}>`,
                         inline: false,
                       },
                       {
                         name: 'Staff Members',
-                        value: makeMemberList(removedStaffIds, staffByUserId),
+                        value: formatMembers(removedStaffIds, true),
                         inline: false,
                       },
                       {
-                        name: 'Staff Records Deleted',
-                        value: String(deleteResult.deletedCount || 0),
-                        inline: true,
-                      },
-                      {
-                        name: 'Failed Role Removals',
-                        value: String(failedMembers.length),
-                        inline: true,
-                      },
-                      {
-                        name: 'Team Record',
-                        value: 'Kept in MongoDB.',
-                        inline: true,
-                      },
-                      {
-                        name: 'Command Used By',
-                        value: `<@${interaction.user.id}>`,
+                        name: 'Players',
+                        value: formatMembers(removedPlayerIds),
                         inline: false,
                       }
                     )
                     .setTimestamp();
+
+                  // Ping the command user and everyone who had their
+                  // team role successfully removed.
+                  const pingIds = [
+                    ...new Set([
+                      interaction.user.id,
+                      ...removedStaffIds,
+                      ...removedPlayerIds,
+                    ]),
+                  ];
+
+                  await logAction(client, {
+                    content: pingIds.map(id => `<@${id}>`).join(' ').slice(0, 2000),
+                    embeds: [embed],
+                    allowedMentions: {
+                      users: pingIds,
+                      parse: [],
+                    },
+                  });
+
 
                   // Only set a thumbnail if a valid image URL is saved.
                   if (team.imageUrl) {
