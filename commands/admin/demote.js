@@ -1,29 +1,61 @@
+
 const {
   SlashCommandBuilder,
-  EmbedBuilder
+  EmbedBuilder,
+  MessageFlags,
 } = require('discord.js');
 
 const {
   DEMOTE_ROLE,
   ASSISTANT_MANAGER_ROLE,
   MANAGER_ROLE,
-  CHAIRMAN_ROLE
+  CHAIRMAN_ROLE,
 } = require('../../utils/permissions');
 
 const { logAction } = require('../../utils/logger');
 const Staffs = require('../../models/staffs');
-const Teams = require('../../models/teams'); // ⭐ Needed to fetch team emoji
+const Teams = require('../../models/teams');
 
 const HIERARCHY = ['assistant', 'manager', 'chairman'];
 
-// ⭐ Position → Role ID mapping
 function getStaffRoleId(position) {
   switch (position) {
-    case 'assistant': return '1374495166651437169';
-    case 'manager': return '1374495160632610918';
-    case 'chairman': return CHAIRMAN_ROLE;
-    default: return null;
+    case 'assistant':
+      return ASSISTANT_MANAGER_ROLE;
+    case 'manager':
+      return MANAGER_ROLE;
+    case 'chairman':
+      return CHAIRMAN_ROLE;
+    default:
+      return null;
   }
+}
+
+function pretty(position) {
+  switch (position) {
+    case 'assistant':
+      return 'Assistant Manager';
+    case 'manager':
+      return 'Manager';
+    case 'chairman':
+      return 'Chairman';
+    case 'none':
+      return 'Team Player';
+    default:
+      return 'Unknown';
+  }
+}
+
+function getTeamLogoUrl(emoji) {
+  if (!emoji) return null;
+
+  const match = emoji.match(/<a?:\w+:(\d+)>/);
+
+  if (!match) return null;
+
+  const extension = emoji.startsWith('<a:') ? 'gif' : 'webp';
+
+  return `https://cdn.discordapp.com/emojis/${match[1]}.${extension}?size=256&quality=lossless`;
 }
 
 module.exports = {
@@ -31,12 +63,14 @@ module.exports = {
     .setName('demote')
     .setDescription('Demote a person to a lower position')
     .addUserOption(opt =>
-      opt.setName('user')
+      opt
+        .setName('user')
         .setDescription('User to demote')
         .setRequired(true)
     )
     .addStringOption(opt =>
-      opt.setName('to')
+      opt
+        .setName('to')
         .setDescription('Position to demote to')
         .setRequired(true)
         .addChoices(
@@ -47,148 +81,245 @@ module.exports = {
     ),
 
   async execute(interaction, client) {
+    try {
+      // Permission check
+      const allowedRoles = Array.isArray(DEMOTE_ROLE)
+        ? DEMOTE_ROLE
+        : [DEMOTE_ROLE];
 
-    // --- PERMISSION CHECK ---
-    const allowedRoles = Array.isArray(DEMOTE_ROLE) ? DEMOTE_ROLE : [DEMOTE_ROLE];
-    if (!allowedRoles.some(roleId => interaction.member.roles.cache.has(roleId))) {
-      return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
-    }
-
-    const targetUser = interaction.options.getUser('user');
-    const toPosition = interaction.options.getString('to');
-
-    // ⭐ Load executor staff entry
-    const executorEntry = await Staffs.findOne({ userId: interaction.user.id });
-    if (!executorEntry) {
-      return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
-    }
-
-    // ⭐ Load team to get emoji
-    const team = await Teams.findOne({ roleId: executorEntry.teamRoleId });
-
-    const executorRank = HIERARCHY.indexOf(executorEntry.position);
-    const toRank = HIERARCHY.indexOf(toPosition);
-
-    const guildMember = await interaction.guild.members.fetch(targetUser.id);
-
-    // ⭐ Must be on the same team
-    if (!guildMember.roles.cache.has(executorEntry.teamRoleId)) {
-      return interaction.reply({ content: `<@${targetUser.id}> is not on your team.`, ephemeral: true });
-    }
-
-    // ⭐ Must already be staff
-    const targetEntry = await Staffs.findOne({
-      userId: targetUser.id,
-      teamRoleId: executorEntry.teamRoleId
-    });
-
-    if (!targetEntry) {
-      return interaction.reply({ content: `<@${targetUser.id}> is not in a management position on your team.`, ephemeral: true });
-    }
-
-    const targetRank = HIERARCHY.indexOf(targetEntry.position);
-
-    // ⭐ Executor must outrank the target
-    if (executorRank <= targetRank) {
-      return interaction.reply({ content: 'You cannot demote someone equal to or above your rank.', ephemeral: true });
-    }
-
-    // ⭐ Prevent selecting a role higher than the target’s current one
-    if (toPosition !== 'none' && toRank >= targetRank) {
-      return interaction.reply({
-        content: `You can only demote <@${targetUser.id}> to a LOWER position.`,
-        ephemeral: true
-      });
-    }
-
-    // ⭐ Prevent duplicate positions
-    if (toPosition !== 'none') {
-      const conflicting = await Staffs.findOne({
-        teamRoleId: executorEntry.teamRoleId,
-        position: toPosition,
-        userId: { $ne: targetUser.id }
-      });
-
-      if (conflicting) {
+      if (
+        !allowedRoles.some(
+          roleId =>
+            roleId && interaction.member.roles.cache.has(roleId)
+        )
+      ) {
         return interaction.reply({
-          content: `There is already a **${toPosition}** on this team. Remove them first.`,
-          ephemeral: true
+          content: 'You do not have permission to use this command.',
+          flags: MessageFlags.Ephemeral,
         });
       }
-    }
 
-    // 🔥 REMOVE OLD STAFF ROLE
-    const oldRoleId = getStaffRoleId(targetEntry.position);
-    if (oldRoleId) await guildMember.roles.remove(oldRoleId);
+      const targetUser = interaction.options.getUser('user');
+      const toPosition = interaction.options.getString('to');
 
-    const oldPosition = targetEntry.position;
-    const teamName = executorEntry.teamName;
-    const teamRoleId = executorEntry.teamRoleId;
+      // Load the executor's staff record
+      const executorEntry = await Staffs.findOne({
+        userId: interaction.user.id,
+      });
 
-    const guild = interaction.guild;
+      if (!executorEntry) {
+        return interaction.reply({
+          content: 'You do not have permission to use this command.',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
 
-    // ⭐ TEAM LOGO TOP-RIGHT (corrected)
-    const teamThumbnail = team?.emoji && team.emoji.startsWith('<')
-      ? `https://cdn.discordapp.com/emojis/${team.emoji.replace(/\D/g, '')}.png?size=256&quality=lossless`
-      : guild.iconURL({ size: 256 });
+      // Load team information
+      const team = await Teams.findOne({
+        roleId: executorEntry.teamRoleId,
+      });
 
-    // ⭐ If demoting to normal member
-    if (toPosition === 'none') {
-      await Staffs.deleteOne({ _id: targetEntry._id });
+      if (!team) {
+        return interaction.reply({
+          content: 'Your team could not be found in the database.',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
 
+      const executorRank = HIERARCHY.indexOf(executorEntry.position);
+      const toRank = HIERARCHY.indexOf(toPosition);
+
+      const guildMember = await interaction.guild.members
+        .fetch(targetUser.id)
+        .catch(() => null);
+
+      if (!guildMember) {
+        return interaction.reply({
+          content: 'That user is not a member of this server.',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      // Target must be on the same team
+      if (!guildMember.roles.cache.has(executorEntry.teamRoleId)) {
+        return interaction.reply({
+          content: `<@${targetUser.id}> is not on your team.`,
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { parse: [] },
+        });
+      }
+
+      // Target must already be staff on this team
+      const targetEntry = await Staffs.findOne({
+        userId: targetUser.id,
+        teamRoleId: executorEntry.teamRoleId,
+      });
+
+      if (!targetEntry) {
+        return interaction.reply({
+          content:
+            `<@${targetUser.id}> is not in a management position on your team.`,
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { parse: [] },
+        });
+      }
+
+      const targetRank = HIERARCHY.indexOf(targetEntry.position);
+
+      if (executorRank === -1 || targetRank === -1) {
+        return interaction.reply({
+          content: 'A staff position in the database is invalid.',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      // Executor must outrank the target
+      if (executorRank <= targetRank) {
+        return interaction.reply({
+          content: 'You cannot demote someone equal to or above your rank.',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      // Prevent selecting a position equal to or higher than the target's
+      if (toPosition !== 'none' && toRank >= targetRank) {
+        return interaction.reply({
+          content:
+            `You can only demote <@${targetUser.id}> to a lower position.`,
+          flags: MessageFlags.Ephemeral,
+          allowedMentions: { parse: [] },
+        });
+      }
+
+      // Prevent duplicate staff positions
+      if (toPosition !== 'none') {
+        const conflicting = await Staffs.findOne({
+          teamRoleId: executorEntry.teamRoleId,
+          position: toPosition,
+          userId: { $ne: targetUser.id },
+        });
+
+        if (conflicting) {
+          return interaction.reply({
+            content:
+              `There is already a **${pretty(toPosition)}** on this team. ` +
+              'Remove them first.',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+      }
+
+      const oldPosition = targetEntry.position;
+      const oldRoleId = getStaffRoleId(oldPosition);
+      const newRoleId = getStaffRoleId(toPosition);
+      const guild = interaction.guild;
+
+      // Remove the old staff role
+      if (oldRoleId && guildMember.roles.cache.has(oldRoleId)) {
+        await guildMember.roles.remove(oldRoleId);
+      }
+
+      // Demote to a normal team member
+      if (toPosition === 'none') {
+        await Staffs.deleteOne({
+          _id: targetEntry._id,
+        });
+      } else {
+        // Apply the new staff role
+        if (!newRoleId) {
+          return interaction.reply({
+            content: 'The selected staff role is not configured correctly.',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
+        await guildMember.roles.add(newRoleId);
+
+        // Update staff record
+        targetEntry.position = toPosition;
+        await targetEntry.save();
+      }
+
+      // Build demotion log
       const embed = new EmbedBuilder()
-        .setColor('#e74c3c')
+        .setColor(toPosition === 'none' ? '#e74c3c' : '#e67e22')
         .setAuthor({
-          name: guild.name, // league logo top-left
-          iconURL: guild.iconURL({ size: 256 })
+          name: guild.name,
+          iconURL: guild.iconURL({ size: 256 }) || undefined,
         })
         .setTitle('Team Demotion')
-        .setThumbnail(teamThumbnail) // ⭐ team logo top-right
         .addFields(
-          { name: 'Team', value: `${team.emoji} <@&${teamRoleId}>`, inline: false },
-          { name: 'Old Position', value: oldRoleId ? `<@&${oldRoleId}>` : '*None*', inline: true },
-          { name: 'New Position', value: `Team Player`, inline: true },
-          { name: 'Demoted User', value: `<@${targetUser.id}>`, inline: false },
-          { name: 'Demoted By', value: `<@${interaction.user.id}>`, inline: false }
+          {
+            name: 'Division',
+            value: team.division || 'Unknown',
+            inline: false,
+          },
+          {
+            name: 'Team',
+            value: `${team.emoji || ''} <@&${team.roleId}>`,
+            inline: false,
+          },
+          {
+            name: 'Old Position',
+            value: oldRoleId
+              ? `<@&${oldRoleId}>`
+              : pretty(oldPosition),
+            inline: true,
+          },
+          {
+            name: 'New Position',
+            value: newRoleId
+              ? `<@&${newRoleId}>`
+              : 'Team Player',
+            inline: true,
+          },
+          {
+            name: 'Demoted User',
+            value: `<@${targetUser.id}>`,
+            inline: false,
+          },
+          {
+            name: 'Demoted By',
+            value: `<@${interaction.user.id}>`,
+            inline: false,
+          }
         )
         .setTimestamp();
 
-      await logAction(client, { embeds: [embed] });
+      const teamLogoUrl = getTeamLogoUrl(team.emoji);
+
+      if (teamLogoUrl) {
+        embed.setThumbnail(teamLogoUrl);
+      }
+
+      await logAction(client, {
+        embeds: [embed],
+        allowedMentions: { parse: [] },
+      });
+
+      // Confirmation
+      const confirmation =
+        toPosition === 'none'
+          ? `<@${targetUser.id}> is now a **Team Player** of ${team.emoji || ''} **${team.name}**.`
+          : `<@${targetUser.id}> has been demoted to **${pretty(toPosition)}** in ${team.emoji || ''} **${team.name}**.`;
 
       return interaction.reply({
-        content: `<@${targetUser.id}> is now a **Team Player** of **${teamName}**.`
+        content: confirmation,
+        allowedMentions: { parse: [] },
       });
+    } catch (error) {
+      console.error('Error in /demote:', error);
+
+      const errorMessage = {
+        content: 'An error occurred while demoting this user. Check the bot console for details.',
+        flags: MessageFlags.Ephemeral,
+      };
+
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(errorMessage).catch(() => {});
+      } else {
+        await interaction.reply(errorMessage).catch(() => {});
+      }
     }
-
-    // 🔥 APPLY NEW STAFF ROLE
-    const newRoleId = getStaffRoleId(toPosition);
-    if (newRoleId) await guildMember.roles.add(newRoleId);
-
-    // 🔥 UPDATE DATABASE
-    targetEntry.position = toPosition;
-    await targetEntry.save();
-
-    const embed = new EmbedBuilder()
-      .setColor('#e67e22')
-      .setAuthor({
-        name: guild.name, // league logo top-left
-        iconURL: guild.iconURL({ size: 256 })
-      })
-      .setTitle('Team Demotion')
-      .setThumbnail(teamThumbnail) // ⭐ team logo top-right
-      .addFields(
-        { name: 'Team', value: `${team.emoji} <@&${teamRoleId}>`, inline: false },
-        { name: 'Old Position', value: `<@&${oldRoleId}>`, inline: true },
-        { name: 'New Position', value: `<@&${newRoleId}>`, inline: true },
-        { name: 'Demoted User', value: `<@${targetUser.id}>`, inline: false },
-        { name: 'Demoted By', value: `<@${interaction.user.id}>`, inline: false }
-      )
-      .setTimestamp();
-
-    await logAction(client, { embeds: [embed] });
-
-    await interaction.reply({
-      content: `<@${targetUser.id}> has been demoted to <@&${newRoleId}> in **${teamName}**.`
-    });
-  }
+  },
 };
