@@ -41,7 +41,7 @@ function hasDivisionPermission(interaction) {
   return (
     allowedRoles.length === 0 ||
     allowedRoles.some(roleId =>
-      interaction.member.roles.cache.has(roleId)
+      interaction.member?.roles?.cache?.has(roleId)
     )
   );
 }
@@ -52,53 +52,68 @@ module.exports = {
     .setDescription('View all divisions and their teams'),
 
   async execute(interaction, client) {
-    if (!hasDivisionPermission(interaction)) {
-      return interaction.reply({
-        content: 'You do not have permission to use this command.',
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    const divisions = await Divisions.find().sort({ name: 1 });
-
-    if (divisions.length === 0) {
-      return interaction.reply({
-        content: 'There are no divisions yet.',
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    if (divisions.length > 25) {
-      return interaction.reply({
-        content: 'There are too many divisions to display in one menu.',
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    const options = divisions.map(division => {
-      const option = new StringSelectMenuOptionBuilder()
-        .setLabel(division.name.slice(0, 100))
-        .setValue(division.name);
-
-      if (division.emoji) {
-        option.setEmoji(division.emoji);
+    try {
+      if (!hasDivisionPermission(interaction)) {
+        return interaction.reply({
+          content: 'You do not have permission to use this command.',
+          flags: MessageFlags.Ephemeral,
+        });
       }
 
-      return option;
-    });
+      const divisions = await Divisions.find().sort({ name: 1 });
 
-    const select = new StringSelectMenuBuilder()
-      .setCustomId('select_division')
-      .setPlaceholder('Choose a division...')
-      .addOptions(options);
+      if (divisions.length === 0) {
+        return interaction.reply({
+          content: 'There are no divisions yet.',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
 
-    const row = new ActionRowBuilder().addComponents(select);
+      if (divisions.length > 25) {
+        return interaction.reply({
+          content: 'There are too many divisions to display in one menu.',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
 
-    await interaction.reply({
-      content: 'Select a division to view its teams:',
-      components: [row],
-      flags: MessageFlags.Ephemeral,
-    });
+      const options = divisions.map(division => {
+        const option = new StringSelectMenuOptionBuilder()
+          .setLabel(division.name.slice(0, 100))
+          .setValue(division.name);
+
+        if (division.emoji) {
+          option.setEmoji(division.emoji);
+        }
+
+        return option;
+      });
+
+      const select = new StringSelectMenuBuilder()
+        .setCustomId('select_division')
+        .setPlaceholder('Choose a division...')
+        .addOptions(options);
+
+      const row = new ActionRowBuilder().addComponents(select);
+
+      return interaction.reply({
+        content: 'Select a division to post its teams in this channel:',
+        components: [row],
+        flags: MessageFlags.Ephemeral,
+      });
+    } catch (error) {
+      console.error('Error executing division command:', error);
+
+      const reply = {
+        content: 'An error occurred while loading the divisions.',
+        flags: MessageFlags.Ephemeral,
+      };
+
+      if (interaction.replied || interaction.deferred) {
+        return interaction.followUp(reply).catch(() => {});
+      }
+
+      return interaction.reply(reply).catch(() => {});
+    }
   },
 
   async handleSelect(interaction, client) {
@@ -191,9 +206,7 @@ module.exports = {
           ? `<@${assistant.userId}>`
           : 'Vacant';
 
-        const role = interaction.guild.roles.cache.get(
-          team.roleId
-        );
+        const role = interaction.guild.roles.cache.get(team.roleId);
 
         const playerCount = role
           ? role.members.size
@@ -209,7 +222,6 @@ module.exports = {
           inline: false,
         };
 
-        // Discord embeds support at most 25 fields and 6000 total characters.
         const currentLength =
           (embed.data.title || '').length +
           (embed.data.description || '').length +
@@ -232,20 +244,23 @@ module.exports = {
       }
 
       if (omittedTeams > 0) {
-        const footerText =
-          `${omittedTeams} additional team(s) could not fit in this embed.`;
-
         embed.setFooter({
-          text: footerText.slice(0, 2048),
+          text: `${omittedTeams} additional team(s) could not fit in this embed.`,
         });
       }
 
-await interaction.followUp({
-  content: '',
-  embeds: [embed],
-  allowedMentions: { parse: [] },
-  ephemeral: false,
-});
+      // Post the division information publicly in the channel.
+      await interaction.channel.send({
+        embeds: [embed],
+        allowedMentions: { parse: [] },
+      });
+
+      // Clean up the original private selection menu.
+      await interaction.editReply({
+        content: 'Division information has been posted in the channel.',
+        embeds: [],
+        components: [],
+      });
     } catch (error) {
       console.error('Error handling division select:', error);
 
