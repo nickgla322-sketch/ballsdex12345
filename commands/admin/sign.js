@@ -1,208 +1,335 @@
+
 const {
   SlashCommandBuilder,
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ComponentType
+  ComponentType,
+  MessageFlags,
 } = require('discord.js');
 
 const { SIGN_ROLE } = require('../../utils/permissions');
 const { logAction } = require('../../utils/logger');
 
-// ⭐ MongoDB Models
 const Staffs = require('../../models/staffs');
 const Teams = require('../../models/teams');
+
+function getTeamLogoUrl(emoji) {
+  if (!emoji) return null;
+
+  const match = emoji.match(/<a?:\w+:(\d+)>/);
+
+  if (!match) return null;
+
+  const extension = emoji.startsWith('<a:') ? 'gif' : 'webp';
+
+  return `https://cdn.discordapp.com/emojis/${match[1]}.${extension}?size=256&quality=lossless`;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('sign')
     .setDescription('Sign a player to your team')
     .addUserOption(opt =>
-      opt.setName('player')
+      opt
+        .setName('player')
         .setDescription('Player to sign')
         .setRequired(true)
     ),
 
   async execute(interaction, client) {
+    const allowedRoles = (
+      Array.isArray(SIGN_ROLE) ? SIGN_ROLE : [SIGN_ROLE]
+    ).filter(Boolean);
 
-    // --- PERMISSION CHECK ---
-    const allowedRoles = Array.isArray(SIGN_ROLE) ? SIGN_ROLE : [SIGN_ROLE];
-    if (!allowedRoles.some(roleId => interaction.member.roles.cache.has(roleId))) {
+    if (
+      allowedRoles.length === 0 ||
+      !allowedRoles.some(roleId =>
+        interaction.member.roles.cache.has(roleId)
+      )
+    ) {
       return interaction.reply({
         content: 'You do not have permission to use this command.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral,
       });
     }
-    // -------------------------
 
-    // ⭐ Load staff entry for executor
-    const staffEntry = await Staffs.findOne({ userId: interaction.user.id });
+    const staffEntry = await Staffs.findOne({
+      userId: interaction.user.id,
+    });
 
     if (!staffEntry) {
       return interaction.reply({
         content: 'You are not assigned to any team.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral,
       });
     }
 
-    // ⭐ Load team from DB
-    const team = await Teams.findOne({ roleId: staffEntry.teamRoleId });
+    const team = await Teams.findOne({
+      roleId: staffEntry.teamRoleId,
+    });
 
     if (!team) {
       return interaction.reply({
         content: 'Your team no longer exists.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral,
       });
     }
 
     const player = interaction.options.getUser('player');
-    const member = await interaction.guild.members.fetch(player.id);
 
-    // ⭐ Check if player is already on ANY team
-    const allTeams = await Teams.find();
-    const alreadyOnTeam = allTeams.find(t => member.roles.cache.has(t.roleId));
-
-    if (alreadyOnTeam) {
+    if (player.id === interaction.user.id) {
       return interaction.reply({
-        content: `<@${player.id}> is already on **${alreadyOnTeam.name}**!`,
-        ephemeral: true
+        content: 'You cannot sign yourself.',
+        flags: MessageFlags.Ephemeral,
       });
     }
 
-    // ⭐ SIGN PLAYER
-    await member.roles.add(team.roleId);
+    let member;
+
+    try {
+      member = await interaction.guild.members.fetch(player.id);
+    } catch {
+      return interaction.reply({
+        content: 'This player could not be found in the server.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    const allTeams = await Teams.find();
+
+    const alreadyOnTeam = allTeams.find(t =>
+      member.roles.cache.has(t.roleId)
+    );
+
+    if (alreadyOnTeam) {
+      return interaction.reply({
+        content: `<@${player.id}> is already on **${alreadyOnTeam.name}**.`,
+        allowedMentions: { parse: [] },
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    try {
+      await member.roles.add(
+        team.roleId,
+        `Signed by ${interaction.user.tag}`
+      );
+    } catch (error) {
+      console.error('Error assigning team role:', error);
+
+      return interaction.reply({
+        content: 'The player could not be signed. Check the bot role permissions.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
 
     const guild = interaction.guild;
+    const teamLogoUrl = getTeamLogoUrl(team.emoji);
 
-    // --- LOG EMBED (PING USERS) ---
     const logEmbed = new EmbedBuilder()
       .setColor('#00AEEF')
       .setAuthor({
         name: guild.name,
-        iconURL: guild.iconURL({ size: 256 })
+        iconURL: guild.iconURL({ size: 256 }) || undefined,
       })
       .setTitle('Player Signed')
-      .setThumbnail(
-        team.emoji && team.emoji.startsWith('<')
-          ? `https://cdn.discordapp.com/emojis/${team.emoji.replace(/\D/g, '')}.png?size=256&quality=lossless`
-          : guild.iconURL({ size: 256 })
-      )
       .addFields(
-        { name: 'Team', value: `${team.emoji} <@&${team.roleId}>`, inline: false },
-        { name: 'Signed Player', value: `<@${player.id}>`, inline: false },
-        { name: 'Signed By', value: `<@${interaction.user.id}>`, inline: false }
+        {
+          name: 'Division',
+          value: team.division || 'Unknown',
+          inline: false,
+        },
+        {
+          name: 'Team',
+          value: `${team.emoji || ''} <@&${team.roleId}>`,
+          inline: false,
+        },
+        {
+          name: 'Signed Player',
+          value: `<@${player.id}>`,
+          inline: false,
+        },
+        {
+          name: 'Signed By',
+          value: `<@${interaction.user.id}>`,
+          inline: false,
+        }
       )
       .setTimestamp();
 
-    await logAction(client, { embeds: [logEmbed] });
+    if (teamLogoUrl) {
+      logEmbed.setThumbnail(teamLogoUrl);
+    }
 
-    await interaction.reply({
-      content: `<@${player.id}> has been signed to **${team.name}**.`
+    await logAction(client, {
+      embeds: [logEmbed],
+      allowedMentions: { parse: [] },
     });
 
-    // --- DM TO PLAYER ---
+    await interaction.reply({
+      content: `<@${player.id}> has been signed to **${team.name}**.`,
+      allowedMentions: { parse: [] },
+    });
+
     const dmEmbed = new EmbedBuilder()
       .setColor('#00AEEF')
       .setAuthor({
-        name: 'League Notification',
-        iconURL: guild.iconURL({ size: 256 }) // league logo top-left
+        name: 'Team Notification',
+        iconURL: guild.iconURL({ size: 256 }) || undefined,
       })
       .setTitle('You Have Been Signed!')
-      .setThumbnail(
-        team.emoji && team.emoji.startsWith('<')
-          ? `https://cdn.discordapp.com/emojis/${team.emoji.replace(/\D/g, '')}.png?size=256&quality=lossless`
-          : guild.iconURL({ size: 256 }) // fallback
-      )
       .setDescription(
-        `You have been signed to ${team.emoji} **${team.name}** in the **${guild.name} League**.`
+        `You have been signed to ${team.emoji || ''} **${team.name}** ` +
+        `in the **${guild.name}** server.`
       )
       .setTimestamp();
 
+    if (teamLogoUrl) {
+      dmEmbed.setThumbnail(teamLogoUrl);
+    }
+
     const forceBtn = new ButtonBuilder()
       .setCustomId(`force_sign_${team.roleId}_${Date.now()}`)
-      .setLabel('I was Forced to Sign for this Team')
+      .setLabel('I Was Forced to Sign for This Team')
       .setStyle(ButtonStyle.Danger);
 
     const row = new ActionRowBuilder().addComponents(forceBtn);
 
     let dmMessage;
+
     try {
       dmMessage = await player.send({
         embeds: [dmEmbed],
-        components: [row]
+        components: [row],
       });
     } catch {
-      // Player has DMs closed — ignore
+      // The player may have DMs disabled.
     }
 
-    // --- BUTTON HANDLER (24 hours) ---
-    if (dmMessage) {
-      const collector = dmMessage.createMessageComponentCollector({
-        componentType: ComponentType.Button,
-        time: 24 * 60 * 60 * 1000
-      });
+    if (!dmMessage) return;
 
-      collector.on('collect', async (btnInteraction) => {
-        if (btnInteraction.user.id !== player.id) {
-          return btnInteraction.reply({
-            content: 'This button is not for you.',
-            ephemeral: true
-          });
-        }
+    const collector = dmMessage.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      time: 24 * 60 * 60 * 1000,
+    });
 
-        // ⭐ Remove the team role
-        await member.roles.remove(team.roleId);
+    collector.on('collect', async btnInteraction => {
+      if (btnInteraction.user.id !== player.id) {
+        return btnInteraction.reply({
+          content: 'This button is not for you.',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
 
-        await btnInteraction.reply({
-          content: `Your signing to **${team.name}** has been revoked.`,
-          ephemeral: true
+      try {
+        await btnInteraction.deferReply({
+          flags: MessageFlags.Ephemeral,
         });
 
-        // ⭐ LOG FORCED SIGNING
+        const currentMember = await interaction.guild.members
+          .fetch(player.id)
+          .catch(() => null);
+
+        if (!currentMember) {
+          await btnInteraction.editReply({
+            content: 'You could not be found in the server. Please contact a server administrator.',
+          });
+
+          return;
+        }
+
+        // Remove the team role.
+        if (currentMember.roles.cache.has(team.roleId)) {
+          await currentMember.roles.remove(
+            team.roleId,
+            'Player reported a forced signing'
+          );
+        }
+
         const forcedEmbed = new EmbedBuilder()
           .setColor('#e74c3c')
           .setAuthor({
             name: guild.name,
-            iconURL: guild.iconURL({ size: 256 })
+            iconURL: guild.iconURL({ size: 256 }) || undefined,
           })
           .setTitle('Forced Signing Reported')
-          .setThumbnail(
-            team.emoji && team.emoji.startsWith('<')
-              ? `https://cdn.discordapp.com/emojis/${team.emoji.replace(/\D/g, '')}.png?size=256&quality=lossless`
-              : guild.iconURL({ size: 256 })
-          )
           .addFields(
-            { name: 'Team', value: `${team.emoji} <@&${team.roleId}>`, inline: false },
-            { name: 'Player Removed', value: `<@${player.id}>`, inline: false },
-            { name: 'Originally Signed By', value: `<@${interaction.user.id}>`, inline: false },
-            { name: 'Reason', value: '**Player reported forced signing**', inline: false }
+            {
+              name: 'Division',
+              value: team.division || 'Unknown',
+              inline: false,
+            },
+            {
+              name: 'Team',
+              value: `${team.emoji || ''} <@&${team.roleId}>`,
+              inline: false,
+            },
+            {
+              name: 'Player Removed',
+              value: `<@${player.id}>`,
+              inline: false,
+            },
+            {
+              name: 'Originally Signed By',
+              value: `<@${interaction.user.id}>`,
+              inline: false,
+            },
+            {
+              name: 'Reason',
+              value: 'Player reported a forced signing.',
+              inline: false,
+            }
           )
           .setTimestamp();
 
-        await logAction(client, { embeds: [forcedEmbed] });
+        if (teamLogoUrl) {
+          forcedEmbed.setThumbnail(teamLogoUrl);
+        }
 
-        // Disable button
+        await logAction(client, {
+          embeds: [forcedEmbed],
+          allowedMentions: { parse: [] },
+        });
+
+        await btnInteraction.editReply({
+          content: `Your signing to **${team.name}** has been revoked.`,
+        });
+
         const disabledRow = new ActionRowBuilder().addComponents(
           ButtonBuilder.from(forceBtn).setDisabled(true)
         );
 
         await dmMessage.edit({
-          components: [disabledRow]
+          components: [disabledRow],
         });
 
-        collector.stop('clicked');
-      });
+        collector.stop('reported');
+      } catch (error) {
+        console.error('Error handling forced signing report:', error);
 
-      collector.on('end', async () => {
-        const disabledRow = new ActionRowBuilder().addComponents(
-          ButtonBuilder.from(forceBtn).setDisabled(true)
-        );
+        if (btnInteraction.deferred || btnInteraction.replied) {
+          await btnInteraction.editReply({
+            content: 'An error occurred while processing your report. Please contact a server administrator.',
+          }).catch(() => {});
+        } else {
+          await btnInteraction.reply({
+            content: 'An error occurred while processing your report.',
+            flags: MessageFlags.Ephemeral,
+          }).catch(() => {});
+        }
+      }
+    });
 
-        await dmMessage.edit({
-          components: [disabledRow]
-        });
-      });
-    }
-  }
+    collector.on('end', async () => {
+      const disabledRow = new ActionRowBuilder().addComponents(
+        ButtonBuilder.from(forceBtn).setDisabled(true)
+      );
+
+      await dmMessage.edit({
+        components: [disabledRow],
+      }).catch(() => {});
+    });
+  },
 };
