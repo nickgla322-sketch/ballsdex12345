@@ -240,12 +240,12 @@ module.exports = {
         });
       }
 
-      await interaction.editReply({
-        content: '',
-        embeds: [embed],
-        components: [],
-        allowedMentions: { parse: [] },
-      });
+await interaction.followUp({
+  content: '',
+  embeds: [embed],
+  allowedMentions: { parse: [] },
+  ephemeral: false,
+});
     } catch (error) {
       console.error('Error handling division select:', error);
 
