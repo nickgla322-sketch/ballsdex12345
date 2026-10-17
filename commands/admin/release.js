@@ -1,114 +1,173 @@
+
 const {
   SlashCommandBuilder,
-  EmbedBuilder
+  EmbedBuilder,
+  MessageFlags,
 } = require('discord.js');
 
 const { RELEASE_ROLE } = require('../../utils/permissions');
 const { logAction } = require('../../utils/logger');
 
-// ⭐ MongoDB Models
 const Staffs = require('../../models/staffs');
 const Teams = require('../../models/teams');
+
+function getTeamLogoUrl(emoji) {
+  if (!emoji) return null;
+
+  const match = emoji.match(/<a?:\w+:(\d+)>/);
+
+  if (!match) return null;
+
+  const extension = emoji.startsWith('<a:') ? 'gif' : 'webp';
+
+  return `https://cdn.discordapp.com/emojis/${match[1]}.${extension}?size=256&quality=lossless`;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('release')
     .setDescription('Release a player from your team')
     .addUserOption(opt =>
-      opt.setName('player')
+      opt
+        .setName('player')
         .setDescription('Player to release')
         .setRequired(true)
     ),
 
   async execute(interaction, client) {
-
-    // --- PERMISSION CHECK ---
     const allowedRoles = Array.isArray(RELEASE_ROLE)
       ? RELEASE_ROLE
       : [RELEASE_ROLE];
 
-    if (!allowedRoles.some(roleId => interaction.member.roles.cache.has(roleId))) {
+    if (
+      !allowedRoles.some(
+        roleId =>
+          roleId && interaction.member.roles.cache.has(roleId)
+      )
+    ) {
       return interaction.reply({
         content: 'You do not have permission to use this command.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral,
       });
     }
-    // -------------------------
 
-    // ⭐ Load staff entry for executor
-    const staffEntry = await Staffs.findOne({ userId: interaction.user.id });
+    const staffEntry = await Staffs.findOne({
+      userId: interaction.user.id,
+    });
 
     if (!staffEntry) {
       return interaction.reply({
         content: 'You are not on any team.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral,
       });
     }
 
-    // ⭐ Load team from DB
-    const team = await Teams.findOne({ roleId: staffEntry.teamRoleId });
+    const team = await Teams.findOne({
+      roleId: staffEntry.teamRoleId,
+    });
 
     if (!team) {
       return interaction.reply({
-        content: 'Your team no longer exists.',
-        ephemeral: true
+        content: 'Your team could not be found.',
+        flags: MessageFlags.Ephemeral,
       });
     }
 
     const player = interaction.options.getUser('player');
-    const member = await interaction.guild.members.fetch(player.id);
 
-    // ⭐ Check if player is on this team
-    if (!member.roles.cache.has(team.roleId)) {
+    let member;
+
+    try {
+      member = await interaction.guild.members.fetch(player.id);
+    } catch {
       return interaction.reply({
-        content: `<@${player.id}> is not on **${team.name}**.`,
-        ephemeral: true
+        content: 'That player could not be found in the server.',
+        flags: MessageFlags.Ephemeral,
       });
     }
 
-    // ⭐ BLOCK releasing staff
+    if (!member.roles.cache.has(team.roleId)) {
+      return interaction.reply({
+        content: `<@${player.id}> is not on **${team.name}**.`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
     const targetStaffEntry = await Staffs.findOne({
       userId: player.id,
-      teamRoleId: team.roleId
+      teamRoleId: team.roleId,
     });
 
     if (targetStaffEntry) {
       return interaction.reply({
-        content: `Demote <@${player.id}> from their **${targetStaffEntry.position}** role before releasing them.`,
-        ephemeral: true
+        content:
+          `Demote <@${player.id}> from their **${targetStaffEntry.position}** position before releasing them.`,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
-    // ⭐ SAFE TO RELEASE
-    await member.roles.remove(team.roleId);
+    try {
+      await member.roles.remove(
+        team.roleId,
+        `Released from ${team.name} by ${interaction.user.tag}`
+      );
+    } catch (error) {
+      console.error('Failed to remove team role:', error);
+
+      return interaction.reply({
+        content:
+          'Could not remove the team role. Check the bot permissions and role hierarchy.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
 
     const guild = interaction.guild;
 
-    // --- EMBED LOG ---
     const embed = new EmbedBuilder()
       .setColor('#9b59b6')
       .setAuthor({
         name: guild.name,
-        iconURL: guild.iconURL({ size: 256 })
+        iconURL: guild.iconURL({ size: 256 }) || undefined,
       })
       .setTitle('Player Released')
-      .setThumbnail(
-        team.emoji && team.emoji.startsWith('<')
-          ? `https://cdn.discordapp.com/emojis/${team.emoji.replace(/\D/g, '')}.png?size=256&quality=lossless`
-          : guild.iconURL({ size: 256 })
-      )
       .addFields(
-        { name: 'Team', value: `${team.emoji} <@&${team.roleId}>`, inline: false },
-        { name: 'Released Player', value: `<@${player.id}>`, inline: false },
-        { name: 'Released By', value: `<@${interaction.user.id}>`, inline: false }
+        {
+          name: 'Division',
+          value: team.division || 'Unknown',
+          inline: false,
+        },
+        {
+          name: 'Team',
+          value: `${team.emoji || ''} <@&${team.roleId}>`,
+          inline: false,
+        },
+        {
+          name: 'Released Player',
+          value: `<@${player.id}>`,
+          inline: false,
+        },
+        {
+          name: 'Released By',
+          value: `<@${interaction.user.id}>`,
+          inline: false,
+        }
       )
       .setTimestamp();
 
-    await logAction(client, { embeds: [embed] });
+    const teamThumbnail = getTeamLogoUrl(team.emoji);
 
-    // User confirmation
-    await interaction.reply({
-      content: `<@${player.id}> has been released from **${team.name}**.`
+    if (teamThumbnail) {
+      embed.setThumbnail(teamThumbnail);
+    }
+
+    await logAction(client, {
+      embeds: [embed],
+      allowedMentions: { parse: [] },
     });
-  }
+
+    await interaction.reply({
+      content: `<@${player.id}> has been released from **${team.name}**.`,
+      allowedMentions: { parse: [] },
+    });
+  },
 };
