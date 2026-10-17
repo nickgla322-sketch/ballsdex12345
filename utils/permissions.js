@@ -8,11 +8,10 @@ module.exports = {
   ],
 
   ADD_TEAM_ROLE: [
-    "1374495059470188636" // [Vice President]
+       "1374495054231638107" // [President]
   ],
 
   REMOVE_TEAM_ROLE: [
-    "1374495059470188636", // [Vice President]
     "1374495054231638107"  // [President]
   ],
 
