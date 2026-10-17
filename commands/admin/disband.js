@@ -48,6 +48,21 @@ function prettyPosition(position) {
   }
 }
 
+function makeMemberList(ids, staffByUserId) {
+  if (!ids.length) return '*None.*';
+
+  return ids
+    .map(id => {
+      const staff = staffByUserId.get(id);
+
+      return staff
+        ? `• <@${id}> — ${prettyPosition(staff.position)}`
+        : `• <@${id}>`;
+    })
+    .join('\n')
+    .slice(0, 1024);
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('disband')
@@ -227,13 +242,12 @@ module.exports = {
 
                   const guild = interaction.guild;
 
-                  // Read staff records BEFORE making any changes.
+                  // Read staff records before making changes.
                   const staffEntries = await Staffs.find({
                     teamRoleId: team.roleId,
                   });
 
-                  // Fetch the guild member list ONCE so that the command
-                  // can find team-role holders beyond the existing cache.
+                  // Fetch members once so uncached team members are included.
                   let members;
 
                   try {
@@ -256,23 +270,14 @@ module.exports = {
                     staffEntries.map(staff => [staff.userId, staff])
                   );
 
-                  const staffRoleIds = [
-                    ASSISTANT_MANAGER_ROLE,
-                    MANAGER_ROLE,
-                    CHAIRMAN_ROLE,
-                  ]
-                    .flat()
-                    .filter(Boolean);
-
                   const removedStaffRoles = [];
                   const removedTeamRoles = [];
                   const failedMembers = [];
 
-                  // First, remove the correct staff role from each
-                  // staff member recorded for this specific team.
+                  // Remove hierarchy roles only from staff recorded
+                  // for this specific team.
                   for (const staff of staffEntries) {
                     const member = members.get(staff.userId);
-
                     if (!member) continue;
 
                     const staffRoleId = getStaffRoleId(staff.position);
@@ -297,13 +302,14 @@ module.exports = {
                           error
                         );
 
-                        failedMembers.push(staff.userId);
+                        if (!failedMembers.includes(staff.userId)) {
+                          failedMembers.push(staff.userId);
+                        }
                       }
                     }
                   }
 
-                  // Then remove the team role from EVERY member found
-                  // with that role, including players and staff.
+                  // Remove the team role from every member who has it.
                   const teamRoleMembers = members.filter(member =>
                     member.roles.cache.has(team.roleId)
                   );
@@ -328,20 +334,26 @@ module.exports = {
                     }
                   }
 
-                  // Only delete staff records after the role-removal
-                  // attempts. The TEAM record is deliberately preserved.
-                  await Staffs.deleteMany({
+                  // Delete this team's staff records, not its team record.
+                  const deleteResult = await Staffs.deleteMany({
                     teamRoleId: team.roleId,
                   });
 
-                  const staffList = staffEntries.length
-                    ? staffEntries
-                        .map(staff =>
-                          `• <@${staff.userId}> — ${prettyPosition(staff.position)}`
-                        )
-                        .join('\n')
-                    : '*No staff records found.*';
+                  // Separate staff from actual players.
+                  const staffIds = new Set(
+                    staffEntries.map(staff => staff.userId)
+                  );
 
+                  const removedStaffIds = removedTeamRoles.filter(
+                    id => staffIds.has(id)
+                  );
+
+                  const removedPlayerIds = removedTeamRoles.filter(
+                    id => !staffIds.has(id)
+                  );
+
+                  // Create the embed. A custom image URL is needed for
+                  // a real team thumbnail; an emoji alone is not enough.
                   const embed = new EmbedBuilder()
                     .setColor(
                       failedMembers.length ? '#e67e22' : '#c0392b'
@@ -358,13 +370,13 @@ module.exports = {
                         inline: false,
                       },
                       {
-                        name: 'League',
-                        value: divisionName,
+                        name: 'Actual Players Removed',
+                        value: String(removedPlayerIds.length),
                         inline: true,
                       },
                       {
-                        name: 'Players and Staff Removed',
-                        value: String(removedTeamRoles.length),
+                        name: 'Staff Members Removed',
+                        value: String(removedStaffIds.length),
                         inline: true,
                       },
                       {
@@ -373,17 +385,19 @@ module.exports = {
                         inline: true,
                       },
                       {
-                        name: 'Staff Records Deleted',
-                        value: String(staffEntries.length),
-                        inline: true,
+                        name: 'Players',
+                        value: makeMemberList(removedPlayerIds, staffByUserId),
+                        inline: false,
                       },
                       {
                         name: 'Staff Members',
-                        value:
-                          staffList.length <= 1024
-                            ? staffList
-                            : `${staffList.slice(0, 950)}\n...list shortened.`,
+                        value: makeMemberList(removedStaffIds, staffByUserId),
                         inline: false,
+                      },
+                      {
+                        name: 'Staff Records Deleted',
+                        value: String(deleteResult.deletedCount || 0),
+                        inline: true,
                       },
                       {
                         name: 'Failed Role Removals',
@@ -396,21 +410,50 @@ module.exports = {
                         inline: true,
                       },
                       {
-                        name: 'Disbanded By',
+                        name: 'Command Used By',
                         value: `<@${interaction.user.id}>`,
-                        inline: true,
+                        inline: false,
                       }
                     )
                     .setTimestamp();
 
-                  await logAction(client, { embeds: [embed] });
+                  // Only set a thumbnail if a valid image URL is saved.
+                  if (team.imageUrl) {
+                    embed.setThumbnail(team.imageUrl);
+                  }
+
+                  // Send pings in message content. Embed mentions alone
+                  // do not generate notifications.
+                  const uniquePingIds = [
+                    ...new Set([
+                      interaction.user.id,
+                      ...removedStaffIds,
+                      ...removedPlayerIds,
+                    ]),
+                  ];
+
+                  const pingContent = uniquePingIds
+                    .map(id => `<@${id}>`)
+                    .join(' ');
+
+                  // Keep the log message within Discord's 2000-character limit.
+                  // Large rosters may need multiple ping messages.
+                  await logAction(client, {
+                    content: pingContent.slice(0, 2000),
+                    embeds: [embed],
+                    allowedMentions: {
+                      users: uniquePingIds,
+                      parse: [],
+                    },
+                  });
 
                   await interaction.editReply({
                     content:
                       `Finished emptying **${team.name}**.\n\n` +
-                      `• Team roles removed: **${removedTeamRoles.length}**\n` +
+                      `• Actual players removed: **${removedPlayerIds.length}**\n` +
+                      `• Staff members removed: **${removedStaffIds.length}**\n` +
                       `• Staff roles removed: **${removedStaffRoles.length}**\n` +
-                      `• Staff records deleted: **${staffEntries.length}**\n` +
+                      `• Staff records deleted: **${deleteResult.deletedCount || 0}**\n` +
                       `• Members with role-removal errors: **${failedMembers.length}**\n\n` +
                       'The team record, team Discord role, and league were kept.',
                     components: [],
