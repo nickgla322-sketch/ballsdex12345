@@ -4,6 +4,7 @@ const {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   EmbedBuilder,
+  MessageFlags,
 } = require('discord.js');
 
 const { REMOVE_TEAM_ROLE } = require('../../utils/permissions');
@@ -19,15 +20,14 @@ function getTeamLogoUrl(emoji) {
   const match = emoji.match(/<a?:\w+:(\d+)>/);
   if (!match) return null;
 
-  const isAnimated = emoji.startsWith('<a:');
-  const extension = isAnimated ? 'gif' : 'webp';
+  const extension = emoji.startsWith('<a:') ? 'gif' : 'webp';
 
-  return `https://cdn.discordapp.com/emojis/${match[1]}.${extension}?size=256`;
+  return `https://cdn.discordapp.com/emojis/${match[1]}.${extension}?size=256&quality=lossless`;
 }
 
 function limitField(text, maxLength = 1024) {
   if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength - 20) + '\n...and more.';
+  return `${text.slice(0, maxLength - 20)}\n...and more.`;
 }
 
 module.exports = {
@@ -36,278 +36,339 @@ module.exports = {
     .setDescription('Remove a team'),
 
   async execute(interaction, client) {
-    // --- PERMISSION CHECK ---
     const allowedRoles = Array.isArray(REMOVE_TEAM_ROLE)
       ? REMOVE_TEAM_ROLE
       : [REMOVE_TEAM_ROLE];
 
     if (
-      !allowedRoles.some(roleId =>
-        interaction.member.roles.cache.has(roleId)
+      !allowedRoles.some(
+        roleId =>
+          roleId && interaction.member.roles.cache.has(roleId)
       )
     ) {
       return interaction.reply({
         content: 'You do not have permission to use this command.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
-    // --- LOAD DIVISIONS ---
-    const divisions = await Divisions.find();
+    await interaction.deferReply({
+      flags: MessageFlags.Ephemeral,
+    });
 
-    if (!divisions.length) {
-      return interaction.reply({
-        content: 'There are no divisions to select.',
-        ephemeral: true,
+    try {
+      const divisions = await Divisions.find().sort({ name: 1 });
+
+      if (!divisions.length) {
+        return interaction.editReply(
+          'There are no divisions to select.'
+        );
+      }
+
+      if (divisions.length > 25) {
+        return interaction.editReply(
+          'There are too many divisions to display. The maximum is 25.'
+        );
+      }
+
+      const divisionMenu = new StringSelectMenuBuilder()
+        .setCustomId('remove-team-division-select')
+        .setPlaceholder('Select a division')
+        .addOptions(
+          divisions.map(division => ({
+            label: division.name.slice(0, 100),
+            value: division.name,
+            ...(division.emoji ? { emoji: division.emoji } : {}),
+          }))
+        );
+
+      await interaction.editReply({
+        content: 'First, choose the division containing the team:',
+        components: [
+          new ActionRowBuilder().addComponents(divisionMenu),
+        ],
       });
-    }
 
-    // --- DIVISION DROPDOWN ---
-    const divisionMenu = new StringSelectMenuBuilder()
-      .setCustomId('remove-team-division-select')
-      .setPlaceholder('Select a division')
-      .addOptions(
-        divisions.slice(0, 25).map(division => ({
-          label: division.name,
-          value: division.name,
-        }))
-      );
+      const response = await interaction.fetchReply();
 
-    const divisionRow = new ActionRowBuilder().addComponents(
-      divisionMenu
-    );
+      const collector = response.createMessageComponentCollector({
+        filter: i =>
+          i.user.id === interaction.user.id &&
+          [
+            'remove-team-division-select',
+            'remove-team-team-select',
+          ].includes(i.customId),
+        time: 60_000,
+      });
 
-    await interaction.reply({
-      content: 'First, choose the division containing the team:',
-      components: [divisionRow],
-      ephemeral: true,
-    });
+      collector.on('collect', async i => {
+        try {
+          if (i.customId === 'remove-team-division-select') {
+            await i.deferUpdate();
 
-    const response = await interaction.fetchReply();
+            const divisionName = i.values[0];
 
-    // --- COLLECTOR ---
-    const collector = response.createMessageComponentCollector({
-      filter: i =>
-        i.user.id === interaction.user.id &&
-        [
-          'remove-team-division-select',
-          'remove-team-team-select',
-        ].includes(i.customId),
-      time: 60000,
-    });
+            const teams = await Teams.find({
+              division: divisionName,
+            }).sort({ name: 1 });
 
-    collector.on('collect', async i => {
-      try {
-        // --- DIVISION SELECTED ---
-        if (i.customId === 'remove-team-division-select') {
-          const divisionName = i.values[0];
+            if (!teams.length) {
+              return interaction.editReply({
+                content: `There are no teams in **${divisionName}**.`,
+                components: [],
+              });
+            }
 
-          const teams = await Teams.find({
-            division: divisionName,
-          });
+            if (teams.length > 25) {
+              return interaction.editReply({
+                content: `**${divisionName}** has too many teams to display. The maximum is 25.`,
+                components: [],
+              });
+            }
 
-          if (!teams.length) {
-            return i.update({
-              content: `There are no teams in **${divisionName}**.`,
+            const teamMenu = new StringSelectMenuBuilder()
+              .setCustomId('remove-team-team-select')
+              .setPlaceholder('Select a team to remove')
+              .addOptions(
+                teams.map(team => ({
+                  label: team.name.slice(0, 100),
+                  value: team.roleId,
+                  ...(team.emoji ? { emoji: team.emoji } : {}),
+                }))
+              );
+
+            return interaction.editReply({
+              content:
+                `Division: **${divisionName}**\n` +
+                'Now choose the team you want to remove:',
+              components: [
+                new ActionRowBuilder().addComponents(teamMenu),
+              ],
+            });
+          }
+
+          await i.deferUpdate();
+
+          const teamRoleId = i.values[0];
+
+          // Find the team within the selected division.
+          const currentMessage = await interaction.fetchReply();
+          const selectedDivisionMatch = currentMessage.content.match(
+            /Division: \*\*(.+?)\*\*/
+          );
+
+          if (!selectedDivisionMatch) {
+            collector.stop('error');
+
+            return interaction.editReply({
+              content: 'Could not determine the selected division. Try again.',
               components: [],
             });
           }
 
-          // --- TEAM DROPDOWN ---
-          const teamMenu = new StringSelectMenuBuilder()
-            .setCustomId('remove-team-team-select')
-            .setPlaceholder('Select a team to remove')
-            .addOptions(
-              teams.slice(0, 25).map(team => ({
-                label: team.name,
-                value: team.roleId,
-                emoji: team.emoji || undefined,
-              }))
+          const divisionName = selectedDivisionMatch[1];
+
+          const team = await Teams.findOne({
+            roleId: teamRoleId,
+            division: divisionName,
+          });
+
+          if (!team) {
+            collector.stop('team-missing');
+
+            return interaction.editReply({
+              content: 'This team no longer exists in that division.',
+              components: [],
+            });
+          }
+
+          const guild = interaction.guild;
+          const role = guild.roles.cache.get(team.roleId);
+
+          const staffEntries = await Staffs.find({
+            teamRoleId,
+          });
+
+          const removedPlayers = [];
+          const failedMembers = [];
+
+          // Fetch members so uncached members can also be handled.
+          let members;
+
+          try {
+            members = await guild.members.fetch();
+          } catch (error) {
+            console.error('Failed to fetch guild members:', error);
+
+            collector.stop('error');
+
+            return interaction.editReply({
+              content:
+                'Could not load all server members. No database records were deleted. Try again later.',
+              components: [],
+            });
+          }
+
+          if (role) {
+            const roleMembers = members.filter(member =>
+              member.roles.cache.has(team.roleId)
             );
 
-          const teamRow = new ActionRowBuilder().addComponents(
-            teamMenu
-          );
+            for (const member of roleMembers.values()) {
+              try {
+                await member.roles.remove(
+                  team.roleId,
+                  `Removing team ${team.name}`
+                );
 
-          return i.update({
-            content: `Division: **${divisionName}**\nNow choose the team you want to remove:`,
-            components: [teamRow],
-          });
-        }
+                removedPlayers.push(member);
+              } catch (error) {
+                console.error(
+                  `Failed to remove team role from ${member.user.tag}:`,
+                  error
+                );
 
-        // --- TEAM SELECTED ---
-        const teamRoleId = i.values[0];
-
-        const team = await Teams.findOne({
-          roleId: teamRoleId,
-        });
-
-        if (!team) {
-          collector.stop('team-missing');
-
-          return i.update({
-            content: 'This team no longer exists.',
-            components: [],
-          });
-        }
-
-        const guild = interaction.guild;
-        const role = guild.roles.cache.get(team.roleId);
-
-        // --- REMOVE TEAM ROLE FROM PLAYERS ---
-        const removedPlayers = [];
-
-        if (role) {
-          for (const [, member] of role.members) {
-            try {
-              await member.roles.remove(team.roleId);
-              removedPlayers.push(member);
-            } catch (err) {
-              console.error(
-                `Failed to remove team role from ${member.user.tag}:`,
-                err
-              );
+                failedMembers.push(member.id);
+              }
             }
           }
-        }
 
-        // --- REMOVE STAFF RECORDS ---
-        const staffEntries = await Staffs.find({
-          teamRoleId,
-        });
+          // Remove staff records only after attempting role removals.
+          const removedStaff = staffEntries.length;
 
-        const removedStaff = staffEntries.length;
+          await Staffs.deleteMany({ teamRoleId });
 
-        await Staffs.deleteMany({
-          teamRoleId,
-        });
+          await Teams.deleteOne({
+            _id: team._id,
+          });
 
-        // --- REMOVE TEAM FROM DATABASE ---
-        await Teams.deleteOne({
-          roleId: teamRoleId,
-        });
+          const playerList = removedPlayers.length
+            ? removedPlayers
+                .map(
+                  member =>
+                    `• <@${member.id}> - removed from **${team.name}**`
+                )
+                .join('\n')
+            : '*No players had the role or no role was found.*';
 
-        // --- BUILD PLAYER LIST ---
-        const playerList = removedPlayers.length
-          ? removedPlayers
-              .map(
-                member =>
-                  `• <@${member.id}> — removed from **${team.name}**`
-              )
-              .join('\n')
-          : '*No players had the role.*';
+          const staffList = removedStaff
+            ? staffEntries
+                .map(
+                  staff =>
+                    `• <@${staff.userId}> - removed from **${staff.position}**`
+                )
+                .join('\n')
+            : '*No staff positions existed.*';
 
-        // --- BUILD STAFF LIST ---
-        const staffList = removedStaff
-          ? staffEntries
-              .map(
-                staff =>
-                  `• <@${staff.userId}> — removed from **${staff.position}**`
-              )
-              .join('\n')
-          : '*No staff positions existed.*';
+          const embed = new EmbedBuilder()
+            .setColor('#e74c3c')
+            .setAuthor({
+              name: guild.name,
+              iconURL: guild.iconURL({ size: 256 }) || undefined,
+            })
+            .setTitle('Team Removed')
+            .addFields(
+              {
+                name: 'Division',
+                value: team.division || 'Unknown',
+                inline: false,
+              },
+              {
+                name: 'Team',
+                value: `${team.emoji || ''} **${team.name}**`,
+                inline: false,
+              },
+              {
+                name: 'Players Removed',
+                value: String(removedPlayers.length),
+                inline: true,
+              },
+              {
+                name: 'Staff Records Deleted',
+                value: String(removedStaff),
+                inline: true,
+              },
+              {
+                name: 'Role Removal Errors',
+                value: String(failedMembers.length),
+                inline: true,
+              },
+              {
+                name: 'Removed By',
+                value: `<@${interaction.user.id}>`,
+                inline: false,
+              },
+              {
+                name: 'Players Affected',
+                value: limitField(playerList),
+                inline: false,
+              },
+              {
+                name: 'Staff Affected',
+                value: limitField(staffList),
+                inline: false,
+              }
+            )
+            .setTimestamp();
 
-        // --- BUILD LOG EMBED ---
-        const embed = new EmbedBuilder()
-          .setColor('#e74c3c')
-          .setAuthor({
-            name: guild.name,
-            iconURL: guild.iconURL({ size: 256 }) || undefined,
-          })
-          .setTitle('Team Removed')
-          .addFields(
-            {
-              name: 'Division',
-              value: team.division || 'Unknown',
-              inline: false,
-            },
-            {
-              name: 'Team',
-              value: `${team.emoji || ''} **${team.name}**`,
-              inline: false,
-            },
-            {
-              name: 'Players Removed',
-              value: `${removedPlayers.length}`,
-              inline: true,
-            },
-            {
-              name: 'Staff Removed',
-              value: `${removedStaff}`,
-              inline: true,
-            },
-            {
-              name: 'Removed By',
-              value: `<@${interaction.user.id}>`,
-              inline: false,
-            },
-            {
-              name: 'Players Affected',
-              value: limitField(playerList),
-              inline: false,
-            },
-            {
-              name: 'Staff Affected',
-              value: limitField(staffList),
-              inline: false,
-            }
-          )
-          .setTimestamp();
+          const teamLogoUrl = getTeamLogoUrl(team.emoji);
 
-        const teamLogoUrl = getTeamLogoUrl(team.emoji);
+          if (teamLogoUrl) {
+            embed.setThumbnail(teamLogoUrl);
+          } else if (guild.iconURL()) {
+            embed.setThumbnail(guild.iconURL({ size: 256 }));
+          }
 
-        if (teamLogoUrl) {
-          embed.setThumbnail(teamLogoUrl);
-        } else if (guild.iconURL()) {
-          embed.setThumbnail(guild.iconURL({ size: 256 }));
-        }
+          await logAction(client, {
+            embeds: [embed],
+            allowedMentions: { parse: [] },
+          });
 
-        // --- SEND LOG WITHOUT PINGING ANYONE ---
-        await logAction(client, {
-          embeds: [embed],
-          allowedMentions: { parse: [] },
-        });
+          collector.stop('completed');
 
-        collector.stop('completed');
-
-        await i.update({
-          content:
-            `Team **${team.emoji || ''} ${team.name}** from **${team.division || 'Unknown'}** has been removed.\n` +
-            `Removed **${removedPlayers.length}** players and **${removedStaff}** staff.\n` +
-            `Removed by <@${interaction.user.id}>.`,
-          components: [],
-          allowedMentions: { parse: [] },
-        });
-      } catch (err) {
-        console.error('Error in /removeteam:', err);
-
-        if (i.deferred || i.replied) {
-          await i.editReply({
-            content: 'An error occurred while removing the team.',
+          await interaction.editReply({
+            content:
+              `Team **${team.emoji || ''} ${team.name}** from **${team.division || 'Unknown'}** has been removed.\n` +
+              `Removed **${removedPlayers.length}** players and deleted **${removedStaff}** staff records.\n` +
+              `Members with role-removal errors: **${failedMembers.length}**.\n` +
+              `Removed by <@${interaction.user.id}>.`,
             components: [],
-          }).catch(() => {});
-        } else {
-          await i.update({
-            content: 'An error occurred while removing the team.',
+            allowedMentions: { parse: [] },
+          });
+        } catch (error) {
+          console.error('Error in /removeteam:', error);
+
+          collector.stop('error');
+
+          await interaction.editReply({
+            content: 'An error occurred while removing the team. Check the bot console.',
             components: [],
           }).catch(() => {});
         }
+      });
 
-        collector.stop('error');
-      }
-    });
+      collector.on('end', async (collected, reason) => {
+        if (
+          reason === 'completed' ||
+          reason === 'team-missing' ||
+          reason === 'error'
+        ) {
+          return;
+        }
 
-    collector.on('end', (collected, reason) => {
-      if (reason === 'completed' || reason === 'team-missing') return;
+        if (reason === 'time' || collected.size === 0) {
+          await interaction.editReply({
+            content: 'No selection made. Command cancelled.',
+            components: [],
+          }).catch(() => {});
+        }
+      });
+    } catch (error) {
+      console.error('Remove team command failed:', error);
 
-      if (reason === 'error') return;
-
-      if (collected.size === 0) {
-        interaction.editReply({
-          content: 'No selection made. Command cancelled.',
-          components: [],
-        }).catch(() => {});
-      }
-    });
+      await interaction.editReply(
+        'Something went wrong loading the divisions. Check the bot console.'
+      ).catch(() => {});
+    }
   },
 };
