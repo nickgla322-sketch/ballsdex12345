@@ -2,6 +2,7 @@
 const {
   SlashCommandBuilder,
   StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
   ActionRowBuilder,
   EmbedBuilder,
   MessageFlags,
@@ -9,6 +10,7 @@ const {
 
 const getGuildMembers = require('../../utils/getGuildMembers');
 
+const Divisions = require('../../models/divisions');
 const Teams = require('../../models/teams');
 const Staffs = require('../../models/staffs');
 
@@ -24,202 +26,292 @@ function getTeamLogoUrl(emoji) {
   return `https://cdn.discordapp.com/emojis/${match[1]}.${extension}?size=256&quality=lossless`;
 }
 
+function createDivisionMenu(divisions, customId) {
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(customId)
+    .setPlaceholder('Select a division...')
+    .addOptions(
+      divisions.map(division => {
+        const option = new StringSelectMenuOptionBuilder()
+          .setLabel(division.name.slice(0, 100))
+          .setValue(division.name);
+
+        if (division.emoji) {
+          option.setEmoji(division.emoji);
+        }
+
+        return option;
+      })
+    );
+
+  return new ActionRowBuilder().addComponents(menu);
+}
+
+function createTeamMenu(teams, customId) {
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(customId)
+    .setPlaceholder('Select a team...')
+    .addOptions(
+      teams.map(team => {
+        const option = new StringSelectMenuOptionBuilder()
+          .setLabel(team.name.slice(0, 100))
+          .setValue(team.roleId);
+
+        if (team.emoji) {
+          option.setEmoji(team.emoji);
+        }
+
+        return option;
+      })
+    );
+
+  return new ActionRowBuilder().addComponents(menu);
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('teaminfo')
     .setDescription('View detailed information about any team'),
 
   async execute(interaction, client) {
-    const teams = await Teams.find().sort({ name: 1 });
+    const divisions = await Divisions.find().sort({ name: 1 });
 
-    if (!teams.length) {
+    if (divisions.length === 0) {
       return interaction.reply({
-        content: 'There are no teams yet.',
+        content: 'There are no divisions yet.',
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    if (teams.length > 25) {
+    if (divisions.length > 25) {
       return interaction.reply({
-        content: 'There are too many teams to display in one menu.',
+        content: 'There are too many divisions to display in one menu.',
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId('teaminfo-select')
-      .setPlaceholder('Select a team...')
-      .addOptions(
-        teams.map(team => {
-          const option = {
-            label: team.name.slice(0, 100),
-            value: team.roleId,
-          };
-
-          if (team.emoji) {
-            option.emoji = team.emoji;
-          }
-
-          return option;
-        })
-      );
-
-    const row = new ActionRowBuilder().addComponents(menu);
+    const row = createDivisionMenu(
+      divisions,
+      `teaminfo-division-${interaction.id}`
+    );
 
     await interaction.reply({
-      content: 'Choose a team to view its information:',
+      content: 'Select a division to view its teams:',
       components: [row],
       flags: MessageFlags.Ephemeral,
     });
   },
 
   async handleSelect(interaction, client) {
-    await interaction.deferUpdate();
-
     try {
-      const teamRoleId = interaction.values[0];
+      await interaction.deferUpdate();
 
-      const team = await Teams.findOne({
-        roleId: teamRoleId,
-      });
+      const customId = interaction.customId;
 
-      if (!team) {
+      // Step 1: A division was selected.
+      if (customId.startsWith('teaminfo-division-')) {
+        const divisionName = interaction.values[0];
+
+        const division = await Divisions.findOne({
+          name: divisionName,
+        });
+
+        if (!division) {
+          return interaction.editReply({
+            content: 'This division no longer exists.',
+            components: [],
+            embeds: [],
+          });
+        }
+
+        const teams = await Teams.find({
+          division: division.name,
+        }).sort({ name: 1 });
+
+        if (teams.length === 0) {
+          return interaction.editReply({
+            content: `**${division.emoji || ''} ${division.name}** has no teams yet.`,
+            components: [],
+            embeds: [],
+          });
+        }
+
+        if (teams.length > 25) {
+          return interaction.editReply({
+            content: `There are too many teams in **${division.name}** to display in one menu.`,
+            components: [],
+            embeds: [],
+          });
+        }
+
+        const row = createTeamMenu(
+          teams,
+          `teaminfo-team-${interaction.id}`
+        );
+
         return interaction.editReply({
-          content: 'This team no longer exists.',
-          components: [],
+          content: `**${division.emoji || ''} ${division.name}**\nSelect a team to view its information:`,
+          components: [row],
           embeds: [],
         });
       }
 
-      const staff = await Staffs.find({
-        teamRoleId,
-      });
+      // Step 2: A team was selected.
+      if (customId.startsWith('teaminfo-team-')) {
+        const teamRoleId = interaction.values[0];
 
-      const chairman = staff.find(s => s.position === 'chairman');
-      const manager = staff.find(s => s.position === 'manager');
-      const assistant = staff.find(s => s.position === 'assistant');
+        const team = await Teams.findOne({
+          roleId: teamRoleId,
+        });
 
-      const chairmanText = chairman
-        ? `<@${chairman.userId}>`
-        : 'Vacant';
-
-      const managerText = manager
-        ? `<@${manager.userId}>`
-        : 'Vacant';
-
-      const assistantText = assistant
-        ? `<@${assistant.userId}>`
-        : 'Vacant';
-
-      await getGuildMembers(interaction.guild);
-
-      const role = interaction.guild.roles.cache.get(teamRoleId);
-      const membersWithRole = role ? role.members : new Map();
-
-      const playerLines = [];
-
-      for (const [id] of membersWithRole) {
-        let label = '(Player)';
-
-        if (chairman && chairman.userId === id) {
-          label = '(Chairman)';
-        } else if (manager && manager.userId === id) {
-          label = '(Manager)';
-        } else if (assistant && assistant.userId === id) {
-          label = '(Assistant Manager)';
+        if (!team) {
+          return interaction.editReply({
+            content: 'This team no longer exists.',
+            components: [],
+            embeds: [],
+          });
         }
 
-        playerLines.push(`• <@${id}> ${label}`);
-      }
+        const staff = await Staffs.find({
+          teamRoleId,
+        });
 
-      if (playerLines.length === 0) {
-        playerLines.push('*No players signed yet.*');
-      }
+        const chairman = staff.find(s => s.position === 'chairman');
+        const manager = staff.find(s => s.position === 'manager');
+        const assistant = staff.find(s => s.position === 'assistant');
 
-      let playerList = '';
-      let omitted = 0;
+        const chairmanText = chairman
+          ? `<@${chairman.userId}>`
+          : 'Vacant';
 
-      for (const line of playerLines) {
-        const next = playerList
-          ? `${playerList}\n${line}`
-          : line;
+        const managerText = manager
+          ? `<@${manager.userId}>`
+          : 'Vacant';
 
-        if (next.length > 900) {
-          omitted++;
-          continue;
-        }
+        const assistantText = assistant
+          ? `<@${assistant.userId}>`
+          : 'Vacant';
 
-        playerList = next;
-      }
+        await getGuildMembers(interaction.guild);
 
-      if (omitted > 0) {
-        const suffix = `\n...and ${omitted} more member(s).`;
+        const role = interaction.guild.roles.cache.get(teamRoleId);
+        const membersWithRole = role ? role.members : new Map();
 
-        playerList = playerList.slice(0, 1024 - suffix.length) + suffix;
-      }
+        const playerLines = [];
 
-      const guildIcon = interaction.guild.iconURL({
-        size: 256,
-      });
+        for (const [id] of membersWithRole) {
+          let label = '(Player)';
 
-      const embed = new EmbedBuilder()
-        .setColor('#3498db')
-        .setAuthor({
-          name: interaction.guild.name,
-          iconURL: guildIcon || undefined,
-        })
-        .setTitle(`${team.emoji || ''} ${team.name} Team Information`)
-        .addFields(
-          {
-            name: 'Division',
-            value: team.division || 'Unknown',
-            inline: false,
-          },
-          {
-            name: 'Chairman',
-            value: chairmanText,
-            inline: true,
-          },
-          {
-            name: 'Manager',
-            value: managerText,
-            inline: true,
-          },
-          {
-            name: 'Assistant Manager',
-            value: assistantText,
-            inline: true,
-          },
-          {
-            name: `Players (${membersWithRole.size})`,
-            value: playerList || '*No players signed yet.*',
-            inline: false,
+          if (chairman && chairman.userId === id) {
+            label = '(Chairman)';
+          } else if (manager && manager.userId === id) {
+            label = '(Manager)';
+          } else if (assistant && assistant.userId === id) {
+            label = '(Assistant Manager)';
           }
-        )
-        .setTimestamp();
 
-      const teamLogoUrl = getTeamLogoUrl(team.emoji);
+          playerLines.push(`• <@${id}> ${label}`);
+        }
 
-      if (teamLogoUrl) {
-        embed.setThumbnail(teamLogoUrl);
-      } else if (guildIcon) {
-        embed.setThumbnail(guildIcon);
+        if (playerLines.length === 0) {
+          playerLines.push('*No players signed yet.*');
+        }
+
+        let playerList = '';
+        let omitted = 0;
+
+        for (const line of playerLines) {
+          const next = playerList
+            ? `${playerList}\n${line}`
+            : line;
+
+          if (next.length > 900) {
+            omitted++;
+            continue;
+          }
+
+          playerList = next;
+        }
+
+        if (omitted > 0) {
+          const suffix = `\n...and ${omitted} more member(s).`;
+
+          playerList =
+            playerList.slice(0, 1024 - suffix.length) + suffix;
+        }
+
+        const guildIcon = interaction.guild.iconURL({
+          size: 256,
+        });
+
+        const embed = new EmbedBuilder()
+          .setColor('#3498db')
+          .setAuthor({
+            name: interaction.guild.name,
+            iconURL: guildIcon || undefined,
+          })
+          .setTitle(`${team.emoji || ''} ${team.name} Team Information`)
+          .addFields(
+            {
+              name: 'Division',
+              value: team.division || 'Unknown',
+              inline: false,
+            },
+            {
+              name: 'Chairman',
+              value: chairmanText,
+              inline: true,
+            },
+            {
+              name: 'Manager',
+              value: managerText,
+              inline: true,
+            },
+            {
+              name: 'Assistant Manager',
+              value: assistantText,
+              inline: true,
+            },
+            {
+              name: `Players (${membersWithRole.size})`,
+              value: playerList || '*No players signed yet.*',
+              inline: false,
+            }
+          )
+          .setTimestamp();
+
+        const teamLogoUrl = getTeamLogoUrl(team.emoji);
+
+        if (teamLogoUrl) {
+          embed.setThumbnail(teamLogoUrl);
+        } else if (guildIcon) {
+          embed.setThumbnail(guildIcon);
+        }
+
+        return interaction.editReply({
+          content: '',
+          embeds: [embed],
+          components: [],
+          allowedMentions: { parse: [] },
+        });
       }
-
-      await interaction.editReply({
-        content: '',
-        embeds: [embed],
-        components: [],
-        allowedMentions: { parse: [] },
-      });
     } catch (error) {
-      console.error('Error handling teaminfo select:', error);
+      console.error('Error handling teaminfo selection:', error);
 
-      await interaction.editReply({
-        content: 'An error occurred while loading team information. Please try again later.',
+      const errorMessage = {
+        content: 'An error occurred while loading the information. Please try again later.',
         components: [],
         embeds: [],
-      }).catch(() => {});
+      };
+
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply(errorMessage).catch(() => {});
+      } else {
+        await interaction.reply({
+          ...errorMessage,
+          flags: MessageFlags.Ephemeral,
+        }).catch(() => {});
+      }
     }
   },
 };
