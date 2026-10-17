@@ -1,3 +1,4 @@
+
 const {
   SlashCommandBuilder,
   StringSelectMenuBuilder,
@@ -11,17 +12,17 @@ const Divisions = require("../../models/divisions");
 const Teams = require("../../models/teams");
 const Staffs = require("../../models/staffs");
 
-// Escape regex special characters so "GFC | EPL" is treated literally
+// Escape regex special characters
 function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Normalize Unicode (removes zero‑width chars, weird spacing, etc.)
+// Normalize Unicode and unusual spacing
 function normalizeName(str) {
   return str
     .normalize("NFKD")
-    .replace(/[\u200B-\u200D\uFEFF]/g, '')
-    .replace(/\s+/g, ' ')
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -37,7 +38,9 @@ module.exports = {
 
     if (
       allowedRoles.length > 0 &&
-      !allowedRoles.some((roleId) => interaction.member.roles.cache.has(roleId))
+      !allowedRoles.some((roleId) =>
+        interaction.member.roles.cache.has(roleId)
+      )
     ) {
       return interaction.reply({
         content: "You do not have permission to use this command.",
@@ -82,7 +85,9 @@ module.exports = {
 
     if (
       allowedRoles.length > 0 &&
-      !allowedRoles.some((roleId) => interaction.member.roles.cache.has(roleId))
+      !allowedRoles.some((roleId) =>
+        interaction.member.roles.cache.has(roleId)
+      )
     ) {
       return interaction.reply({
         content: "You do not have permission.",
@@ -115,7 +120,10 @@ module.exports = {
       });
     }
 
-    // ⭐ OPTIMIZED: No full guild fetch — fetch only members with each team role
+    // Fetch guild members ONCE to refresh the member cache.
+    // Requires the Server Members Intent to be enabled.
+    await interaction.guild.members.fetch();
+
     const embed = new EmbedBuilder()
       .setTitle(`${division.emoji} ${division.name}`)
       .setColor(0x5865f2)
@@ -125,24 +133,37 @@ module.exports = {
       .setTimestamp();
 
     for (const team of teams) {
-      const teamStaff = staff.filter((s) => s.teamRoleId === team.roleId);
+      const teamStaff = staff.filter(
+        (s) => s.teamRoleId === team.roleId
+      );
 
-      const chairman = teamStaff.find((s) => s.position === "chairman");
-      const manager = teamStaff.find((s) => s.position === "manager");
-      const assistant = teamStaff.find((s) => s.position === "assistant");
+      const chairman = teamStaff.find(
+        (s) => s.position === "chairman"
+      );
 
-      const chairmanText = chairman ? `<@${chairman.userId}>` : "Vacant";
-      const managerText = manager ? `<@${manager.userId}>` : "Vacant";
-      const assistantText = assistant ? `<@${assistant.userId}>` : "Vacant";
+      const manager = teamStaff.find(
+        (s) => s.position === "manager"
+      );
 
-      // ⭐ Fetch ONLY members with this team role (no rate limits)
+      const assistant = teamStaff.find(
+        (s) => s.position === "assistant"
+      );
+
+      const chairmanText = chairman
+        ? `<@${chairman.userId}>`
+        : "Vacant";
+
+      const managerText = manager
+        ? `<@${manager.userId}>`
+        : "Vacant";
+
+      const assistantText = assistant
+        ? `<@${assistant.userId}>`
+        : "Vacant";
+
+      // Count members who have this team's role
       const role = interaction.guild.roles.cache.get(team.roleId);
-      let playerCount = 0;
-
-      if (role) {
-        const membersWithRole = await role.members;
-        playerCount = membersWithRole.size;
-      }
+      const playerCount = role ? role.members.size : 0;
 
       embed.addFields({
         name: `${team.emoji} **${team.name}**`,
