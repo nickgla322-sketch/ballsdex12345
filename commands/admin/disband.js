@@ -68,7 +68,7 @@ function formatMembers(ids, staffByUserId, includePosition = false) {
     const staff = staffByUserId.get(id);
 
     if (includePosition && staff) {
-      return `• <@${id}> — ${prettyPosition(staff.position)}`;
+      return `• <@${id}> - ${prettyPosition(staff.position)}`;
     }
 
     return `• <@${id}>`;
@@ -113,19 +113,19 @@ module.exports = {
 
       if (!divisions.length) {
         return interaction.editReply(
-          'There are no leagues in the database.'
+          'There are no divisions in the database.'
         );
       }
 
       if (divisions.length > 25) {
         return interaction.editReply(
-          'There are too many leagues to display (maximum 25).'
+          'There are too many divisions to display. The maximum is 25.'
         );
       }
 
       const divisionMenu = new StringSelectMenuBuilder()
         .setCustomId('disband-division-select')
-        .setPlaceholder('Select a league')
+        .setPlaceholder('Select a division')
         .addOptions(
           divisions.map(division => ({
             label: division.name.slice(0, 100),
@@ -135,7 +135,7 @@ module.exports = {
         );
 
       await interaction.editReply({
-        content: 'Select the league containing the team:',
+        content: 'Select the division containing the team:',
         components: [
           new ActionRowBuilder().addComponents(divisionMenu),
         ],
@@ -169,7 +169,7 @@ module.exports = {
 
           if (teams.length > 25) {
             return interaction.editReply({
-              content: `**${divisionName}** has too many teams to display (maximum 25).`,
+              content: `**${divisionName}** has too many teams to display. The maximum is 25.`,
               components: [],
             });
           }
@@ -186,7 +186,7 @@ module.exports = {
             );
 
           await interaction.editReply({
-            content: `League: **${divisionName}**\nSelect the team to empty:`,
+            content: `Division: **${divisionName}**\nSelect the team to empty:`,
             components: [
               new ActionRowBuilder().addComponents(teamMenu),
             ],
@@ -235,7 +235,7 @@ module.exports = {
                   `Are you sure you want to empty <@&${team.roleId}>?\n\n` +
                   'This removes the team role from its players and staff, ' +
                   'removes team-specific staff roles, and deletes its staff records.\n\n' +
-                  '**The team, team role, and league will remain.**',
+                  '**The team, team role, and division will remain.**',
                 components: [confirmRow],
               });
 
@@ -379,6 +379,11 @@ module.exports = {
                     .setTitle('Team Disbanded')
                     .addFields(
                       {
+                        name: 'Division',
+                        value: team.division || 'Unknown',
+                        inline: false,
+                      },
+                      {
                         name: 'Team',
                         value: `${team.emoji || ''} <@&${team.roleId}>`,
                         inline: false,
@@ -413,14 +418,12 @@ module.exports = {
                     )
                     .setTimestamp();
 
-                  // Set the thumbnail only when a valid custom emoji URL exists.
                   const teamLogoUrl = getTeamLogoUrl(team.emoji);
 
                   if (teamLogoUrl) {
                     embed.setThumbnail(teamLogoUrl);
                   }
 
-                  // Send the log once. No message content means no pings.
                   await logAction(client, {
                     embeds: [embed],
                     allowedMentions: {
@@ -436,7 +439,7 @@ module.exports = {
                       `• Staff roles removed: **${removedStaffRoles.length}**\n` +
                       `• Staff records deleted: **${deleteResult.deletedCount || 0}**\n` +
                       `• Members with role-removal errors: **${failedMembers.length}**\n\n` +
-                      'The team record, team Discord role, and league were kept.',
+                      'The team record, team Discord role, and division were kept.',
                     allowedMentions: { parse: [] },
                     components: [],
                   });
@@ -479,10 +482,10 @@ module.exports = {
             }
           });
         } catch (error) {
-          console.error('League selection failed:', error);
+          console.error('Division selection failed:', error);
 
           await interaction.editReply({
-            content: 'Something went wrong selecting the league.',
+            content: 'Something went wrong selecting the division.',
             components: [],
           }).catch(() => {});
         }
@@ -491,7 +494,7 @@ module.exports = {
       divisionCollector.on('end', async collected => {
         if (collected.size === 0) {
           await interaction.editReply({
-            content: 'No league selected. Command cancelled.',
+            content: 'No division selected. Command cancelled.',
             components: [],
           }).catch(() => {});
         }
@@ -500,7 +503,7 @@ module.exports = {
       console.error('Disband command failed:', error);
 
       await interaction.editReply(
-        'Something went wrong loading the leagues. Check the bot console.'
+        'Something went wrong loading the divisions. Check the bot console.'
       ).catch(() => {});
     }
   },
