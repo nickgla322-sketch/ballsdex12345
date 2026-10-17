@@ -1,27 +1,43 @@
+
 const {
   SlashCommandBuilder,
-  EmbedBuilder
+  EmbedBuilder,
+  MessageFlags,
 } = require('discord.js');
 
 const {
   PROMOTE_ROLE,
   ASSISTANT_MANAGER_ROLE,
-  MANAGER_ROLE
+  MANAGER_ROLE,
 } = require('../../utils/permissions');
 
 const { logAction } = require('../../utils/logger');
 const Staffs = require('../../models/staffs');
-const Teams = require('../../models/teams'); // ⭐ Needed to fetch team emoji
+const Teams = require('../../models/teams');
 
 const HIERARCHY = ['assistant', 'manager', 'chairman'];
 
-// ⭐ Position → Role ID mapping
 function getStaffRoleId(position) {
   switch (position) {
-    case 'assistant': return '1374495166651437169';
-    case 'manager': return '1374495160632610918';
-    default: return null;
+    case 'assistant':
+      return ASSISTANT_MANAGER_ROLE;
+    case 'manager':
+      return MANAGER_ROLE;
+    default:
+      return null;
   }
+}
+
+function getTeamLogoUrl(emoji) {
+  if (!emoji) return null;
+
+  const match = emoji.match(/<a?:\w+:(\d+)>/);
+
+  if (!match) return null;
+
+  const extension = emoji.startsWith('<a:') ? 'gif' : 'webp';
+
+  return `https://cdn.discordapp.com/emojis/${match[1]}.${extension}?size=256&quality=lossless`;
 }
 
 module.exports = {
@@ -29,12 +45,14 @@ module.exports = {
     .setName('promote')
     .setDescription('Promote a team member to a higher management position')
     .addUserOption(opt =>
-      opt.setName('user')
+      opt
+        .setName('user')
         .setDescription('User to promote')
         .setRequired(true)
     )
     .addStringOption(opt =>
-      opt.setName('to')
+      opt
+        .setName('to')
         .setDescription('Position to promote to')
         .setRequired(true)
         .addChoices(
@@ -44,120 +62,219 @@ module.exports = {
     ),
 
   async execute(interaction, client) {
+    const allowedRoles = Array.isArray(PROMOTE_ROLE)
+      ? PROMOTE_ROLE
+      : [PROMOTE_ROLE];
 
-    // --- PERMISSION CHECK ---
-    const allowedRoles = Array.isArray(PROMOTE_ROLE) ? PROMOTE_ROLE : [PROMOTE_ROLE];
-    if (!allowedRoles.some(roleId => interaction.member.roles.cache.has(roleId))) {
-      return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
+    if (
+      !allowedRoles.some(
+        roleId =>
+          roleId && interaction.member.roles.cache.has(roleId)
+      )
+    ) {
+      return interaction.reply({
+        content: 'You do not have permission to use this command.',
+        flags: MessageFlags.Ephemeral,
+      });
     }
 
     const targetUser = interaction.options.getUser('user');
     const toPosition = interaction.options.getString('to');
 
-    // ⭐ Load executor staff entry
-    const executorEntry = await Staffs.findOne({ userId: interaction.user.id });
+    const executorEntry = await Staffs.findOne({
+      userId: interaction.user.id,
+    });
+
     if (!executorEntry) {
-      return interaction.reply({ content: 'You are not a staff member of any team.', ephemeral: true });
+      return interaction.reply({
+        content: 'You are not a staff member of any team.',
+        flags: MessageFlags.Ephemeral,
+      });
     }
 
-    // ⭐ Load team to get emoji
-    const team = await Teams.findOne({ roleId: executorEntry.teamRoleId });
+    const team = await Teams.findOne({
+      roleId: executorEntry.teamRoleId,
+    });
+
+    if (!team) {
+      return interaction.reply({
+        content: 'Your team could not be found.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
 
     const executorRank = HIERARCHY.indexOf(executorEntry.position);
     const toRank = HIERARCHY.indexOf(toPosition);
 
-    // ⭐ Must outrank the position being assigned
+    if (executorRank === -1 || toRank === -1) {
+      return interaction.reply({
+        content: 'Your staff position or the selected position is invalid.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
     if (executorRank <= toRank) {
-      return interaction.reply({ content: 'You cannot assign a position equal to or above your own.', ephemeral: true });
+      return interaction.reply({
+        content: 'You cannot assign a position equal to or above your own.',
+        flags: MessageFlags.Ephemeral,
+      });
     }
 
-    const guildMember = await interaction.guild.members.fetch(targetUser.id);
+    let guildMember;
 
-    // ⭐ Must be on the same team
+    try {
+      guildMember = await interaction.guild.members.fetch(targetUser.id);
+    } catch {
+      return interaction.reply({
+        content: 'That user could not be found in the server.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
     if (!guildMember.roles.cache.has(executorEntry.teamRoleId)) {
-      return interaction.reply({ content: `${targetUser} is not on your team.`, ephemeral: true });
+      return interaction.reply({
+        content: `${targetUser} is not on your team.`,
+        flags: MessageFlags.Ephemeral,
+      });
     }
 
-    // ⭐ Find existing staff entry
     let targetEntry = await Staffs.findOne({
       userId: targetUser.id,
-      teamRoleId: executorEntry.teamRoleId
+      teamRoleId: executorEntry.teamRoleId,
     });
 
     const oldPosition = targetEntry?.position;
     const oldRank = HIERARCHY.indexOf(oldPosition);
 
-    // ⭐ Prevent promoting to same or lower rank
-    if (oldPosition && toRank <= oldRank) {
+    if (oldPosition && oldRank === -1) {
       return interaction.reply({
-        content: `${targetUser} can only be promoted to a HIGHER position.`,
-        ephemeral: true
+        content: 'The target user has an invalid staff position in the database.',
+        flags: MessageFlags.Ephemeral,
       });
     }
 
-    // ⭐ Prevent duplicate positions
+    if (oldPosition && toRank <= oldRank) {
+      return interaction.reply({
+        content: `${targetUser} can only be promoted to a higher position.`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
     const conflicting = await Staffs.findOne({
       teamRoleId: executorEntry.teamRoleId,
       position: toPosition,
-      userId: { $ne: targetUser.id }
+      userId: { $ne: targetUser.id },
     });
 
     if (conflicting) {
       return interaction.reply({
         content: `There is already a **${toPosition}** on this team. Demote them first.`,
-        ephemeral: true
+        flags: MessageFlags.Ephemeral,
       });
     }
 
-    // ⭐ Create or update staff entry
-    if (!targetEntry) {
-      targetEntry = await Staffs.create({
-        userId: targetUser.id,
-        teamRoleId: executorEntry.teamRoleId,
-        teamName: executorEntry.teamName,
-        position: toPosition
-      });
-    } else {
-      targetEntry.position = toPosition;
-      await targetEntry.save();
-    }
-
-    // ⭐ Apply role changes
     const oldRoleId = getStaffRoleId(oldPosition);
     const newRoleId = getStaffRoleId(toPosition);
 
-    if (oldRoleId) await guildMember.roles.remove(oldRoleId);
-    if (newRoleId) await guildMember.roles.add(newRoleId);
+    if (!newRoleId || Array.isArray(newRoleId)) {
+      return interaction.reply({
+        content: 'The role for that position is not configured correctly.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    const oldRoleIds = Array.isArray(oldRoleId)
+      ? oldRoleId
+      : oldRoleId
+        ? [oldRoleId]
+        : [];
 
     const guild = interaction.guild;
 
-    // ⭐ TEAM LOGO IN TOP RIGHT (corrected)
-    const teamThumbnail = team?.emoji && team.emoji.startsWith('<')
-      ? `https://cdn.discordapp.com/emojis/${team.emoji.replace(/\D/g, '')}.png?size=256&quality=lossless`
-      : guild.iconURL({ size: 256 });
+    for (const roleId of oldRoleIds) {
+      if (guildMember.roles.cache.has(roleId)) {
+        await guildMember.roles.remove(
+          roleId,
+          `Promoting to ${toPosition}`
+        );
+      }
+    }
 
-    // --- EMBED LOG ---
+    await guildMember.roles.add(
+      newRoleId,
+      `Promoting to ${toPosition}`
+    );
+
+    if (!targetEntry) {
+      targetEntry = new Staffs({
+        userId: targetUser.id,
+        teamRoleId: executorEntry.teamRoleId,
+        teamName: executorEntry.teamName,
+        position: toPosition,
+      });
+    } else {
+      targetEntry.position = toPosition;
+    }
+
+    await targetEntry.save();
+
     const embed = new EmbedBuilder()
       .setColor('#2ecc71')
       .setAuthor({
-        name: guild.name, // league logo top-left
-        iconURL: guild.iconURL({ size: 256 })
+        name: guild.name,
+        iconURL: guild.iconURL({ size: 256 }) || undefined,
       })
       .setTitle('Team Promotion')
-      .setThumbnail(teamThumbnail) // ⭐ TEAM LOGO TOP-RIGHT
       .addFields(
-        { name: 'Team', value: `${team.emoji} <@&${executorEntry.teamRoleId}>`, inline: false },
-        { name: 'Old Position', value: oldRoleId ? `<@&${oldRoleId}>` : '*None*', inline: true },
-        { name: 'New Position', value: `<@&${newRoleId}>`, inline: true },
-        { name: 'Promoted User', value: `<@${targetUser.id}>`, inline: false },
-        { name: 'Promoted By', value: `<@${interaction.user.id}>`, inline: false }
+        {
+          name: 'Division',
+          value: team.division || 'Unknown',
+          inline: false,
+        },
+        {
+          name: 'Team',
+          value: `${team.emoji || ''} <@&${executorEntry.teamRoleId}>`,
+          inline: false,
+        },
+        {
+          name: 'Old Position',
+          value: oldRoleIds.length
+            ? oldRoleIds.map(id => `<@&${id}>`).join('\n')
+            : '*None*',
+          inline: true,
+        },
+        {
+          name: 'New Position',
+          value: `<@&${newRoleId}>`,
+          inline: true,
+        },
+        {
+          name: 'Promoted User',
+          value: `<@${targetUser.id}>`,
+          inline: false,
+        },
+        {
+          name: 'Promoted By',
+          value: `<@${interaction.user.id}>`,
+          inline: false,
+        }
       )
       .setTimestamp();
 
-    await logAction(client, { embeds: [embed] });
+    const teamThumbnail = getTeamLogoUrl(team.emoji);
+
+    if (teamThumbnail) {
+      embed.setThumbnail(teamThumbnail);
+    }
+
+    await logAction(client, {
+      embeds: [embed],
+      allowedMentions: { parse: [] },
+    });
 
     await interaction.reply({
-      content: `<@${targetUser.id}> has been promoted to <@&${newRoleId}> in **${executorEntry.teamName}**.`
+      content: `<@${targetUser.id}> has been promoted to <@&${newRoleId}> in **${executorEntry.teamName}**.`,
+      allowedMentions: { parse: [] },
     });
-  }
+  },
 };
