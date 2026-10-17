@@ -61,7 +61,7 @@ function getTeamLogoUrl(emoji) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('sack')
-    .setDescription('Sack a staff member and release them from their team')
+    .setDescription('Remove a staff member from their management position')
     .addUserOption(opt =>
       opt
         .setName('user')
@@ -244,15 +244,11 @@ async function sackStaff(interaction, client, user, staffEntry) {
     });
   }
 
-  // Remove the team role.
-  if (member.roles.cache.has(team.roleId)) {
-    await member.roles.remove(
-      team.roleId,
-      `Sacked from ${team.name} by ${interaction.user.tag}`
-    );
-  }
+  const staffRoleIds = (
+    Array.isArray(staffRoleId) ? staffRoleId : [staffRoleId]
+  ).filter(Boolean);
 
-  // Delete this staff position.
+  // Remove only this staff position from the database.
   await Staffs.deleteOne({
     _id: staffEntry._id,
   });
@@ -263,22 +259,19 @@ async function sackStaff(interaction, client, user, staffEntry) {
     position: staffEntry.position,
   });
 
-  const staffRoleIds = Array.isArray(staffRoleId)
-    ? staffRoleId
-    : staffRoleId
-      ? [staffRoleId]
-      : [];
-
+  // Remove the management role only if the user has no other matching position.
   if (!remainingPosition) {
     for (const roleId of staffRoleIds) {
       if (member.roles.cache.has(roleId)) {
         await member.roles.remove(
           roleId,
-          `Removing staff role after sacking from ${team.name}`
+          `Sacked from ${pretty(staffEntry.position)} at ${team.name}`
         );
       }
     }
   }
+
+  // The team role is intentionally left untouched.
 
   const guild = interaction.guild;
 
@@ -333,8 +326,7 @@ async function sackStaff(interaction, client, user, staffEntry) {
 
   return interaction.editReply({
     content:
-      `<@${user.id}> has been sacked from **${team.name}** ` +
-      `(was **${pretty(staffEntry.position)}**).`,
+      `<@${user.id}> has been removed from the **${pretty(staffEntry.position)}** position at **${team.name}**. They remain on the team.`,
     allowedMentions: { parse: [] },
     components: [],
   });
