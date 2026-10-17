@@ -68,42 +68,136 @@ function createTeamMenu(teams, customId) {
   return new ActionRowBuilder().addComponents(menu);
 }
 
+function createPlayerList(membersWithRole, staff) {
+  const staffByUser = new Map();
+
+  for (const member of staff) {
+    if (!staffByUser.has(member.userId)) {
+      staffByUser.set(member.userId, []);
+    }
+
+    staffByUser.get(member.userId).push(member.position);
+  }
+
+  const lines = [];
+
+  for (const [id] of membersWithRole) {
+    const positions = staffByUser.get(id) || [];
+
+    let label = '(Player)';
+
+    if (positions.includes('chairman')) {
+      label = '(Chairman)';
+    } else if (positions.includes('manager')) {
+      label = '(Manager)';
+    } else if (positions.includes('assistant')) {
+      label = '(Assistant Manager)';
+    }
+
+    lines.push(`• <@${id}> ${label}`);
+  }
+
+  if (lines.length === 0) {
+    return '*No players signed yet.*';
+  }
+
+  let playerList = '';
+  let included = 0;
+
+  for (const line of lines) {
+    const suffix = `\n...and ${lines.length - included} more member(s).`;
+    const separator = playerList ? '\n' : '';
+    const next = playerList + separator + line;
+
+    if (next.length > 1024) {
+      break;
+    }
+
+    playerList = next;
+    included++;
+  }
+
+  if (included < lines.length) {
+    const suffix = `\n...and ${lines.length - included} more member(s).`;
+
+    while (playerList.length + suffix.length > 1024) {
+      const lastNewline = playerList.lastIndexOf('\n');
+
+      if (lastNewline === -1) {
+        playerList = playerList.slice(0, 1024 - suffix.length);
+        break;
+      }
+
+      playerList = playerList.slice(0, lastNewline);
+      included--;
+    }
+
+    playerList += suffix;
+  }
+
+  return playerList;
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('teaminfo')
     .setDescription('View detailed information about any team'),
 
   async execute(interaction, client) {
-    const divisions = await Divisions.find().sort({ name: 1 });
-
-    if (divisions.length === 0) {
-      return interaction.reply({
-        content: 'There are no divisions yet.',
+    try {
+      // Acknowledge the command immediately to prevent a timeout.
+      await interaction.deferReply({
         flags: MessageFlags.Ephemeral,
       });
-    }
 
-    if (divisions.length > 25) {
-      return interaction.reply({
-        content: 'There are too many divisions to display in one menu.',
-        flags: MessageFlags.Ephemeral,
+      const divisions = await Divisions.find().sort({ name: 1 });
+
+      if (divisions.length === 0) {
+        return interaction.editReply({
+          content: 'There are no divisions yet.',
+          components: [],
+        });
+      }
+
+      if (divisions.length > 25) {
+        return interaction.editReply({
+          content: 'There are too many divisions to display in one menu.',
+          components: [],
+        });
+      }
+
+      const row = createDivisionMenu(
+        divisions,
+        `teaminfo-division-${interaction.id}`
+      );
+
+      return interaction.editReply({
+        content: 'Select a division to view its teams:',
+        components: [row],
       });
+    } catch (error) {
+      console.error('Error executing teaminfo:', error);
+
+      const message =
+        'An error occurred while loading divisions. Please try again later.';
+
+      if (interaction.deferred || interaction.replied) {
+        return interaction.editReply({
+          content: message,
+          components: [],
+        }).catch(() => {});
+      }
+
+      return interaction.reply({
+        content: message,
+        flags: MessageFlags.Ephemeral,
+      }).catch(() => {});
     }
-
-    const row = createDivisionMenu(
-      divisions,
-      `teaminfo-division-${interaction.id}`
-    );
-
-    await interaction.reply({
-      content: 'Select a division to view its teams:',
-      components: [row],
-      flags: MessageFlags.Ephemeral,
-    });
   },
 
   async handleSelect(interaction, client) {
     try {
+      // Acknowledge the dropdown interaction immediately.
       await interaction.deferUpdate();
 
       const customId = interaction.customId;
@@ -197,48 +291,7 @@ module.exports = {
         const role = interaction.guild.roles.cache.get(teamRoleId);
         const membersWithRole = role ? role.members : new Map();
 
-        const playerLines = [];
-
-        for (const [id] of membersWithRole) {
-          let label = '(Player)';
-
-          if (chairman && chairman.userId === id) {
-            label = '(Chairman)';
-          } else if (manager && manager.userId === id) {
-            label = '(Manager)';
-          } else if (assistant && assistant.userId === id) {
-            label = '(Assistant Manager)';
-          }
-
-          playerLines.push(`• <@${id}> ${label}`);
-        }
-
-        if (playerLines.length === 0) {
-          playerLines.push('*No players signed yet.*');
-        }
-
-        let playerList = '';
-        let omitted = 0;
-
-        for (const line of playerLines) {
-          const next = playerList
-            ? `${playerList}\n${line}`
-            : line;
-
-          if (next.length > 900) {
-            omitted++;
-            continue;
-          }
-
-          playerList = next;
-        }
-
-        if (omitted > 0) {
-          const suffix = `\n...and ${omitted} more member(s).`;
-
-          playerList =
-            playerList.slice(0, 1024 - suffix.length) + suffix;
-        }
+        const playerList = createPlayerList(membersWithRole, staff);
 
         const guildIcon = interaction.guild.iconURL({
           size: 256,
@@ -274,7 +327,7 @@ module.exports = {
             },
             {
               name: `Players (${membersWithRole.size})`,
-              value: playerList || '*No players signed yet.*',
+              value: playerList,
               inline: false,
             }
           )
@@ -292,23 +345,23 @@ module.exports = {
           content: '',
           embeds: [embed],
           components: [],
-          allowedMentions: { parse: [] },
+          allowedMentions: {
+            parse: [],
+          },
         });
       }
     } catch (error) {
       console.error('Error handling teaminfo selection:', error);
 
-      const errorMessage = {
-        content: 'An error occurred while loading the information. Please try again later.',
-        components: [],
-        embeds: [],
-      };
-
       if (interaction.deferred || interaction.replied) {
-        await interaction.editReply(errorMessage).catch(() => {});
+        await interaction.editReply({
+          content: 'An error occurred while loading the information. Please try again later.',
+          components: [],
+          embeds: [],
+        }).catch(() => {});
       } else {
         await interaction.reply({
-          ...errorMessage,
+          content: 'An error occurred while loading the information. Please try again later.',
           flags: MessageFlags.Ephemeral,
         }).catch(() => {});
       }
