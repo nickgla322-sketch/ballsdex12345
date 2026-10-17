@@ -1,3 +1,4 @@
+```js
 const {
   SlashCommandBuilder,
   EmbedBuilder,
@@ -8,17 +9,49 @@ const {
   MessageFlags,
 } = require('discord.js');
 
-const { DISBAND_ROLE } = require('../../utils/permissions');
+const {
+  DISBAND_ROLE,
+  ASSISTANT_MANAGER_ROLE,
+  MANAGER_ROLE,
+  CHAIRMAN_ROLE,
+} = require('../../utils/permissions');
+
 const { logAction } = require('../../utils/logger');
 
 const Teams = require('../../models/teams');
 const Staffs = require('../../models/staffs');
 const Divisions = require('../../models/divisions');
 
+function getStaffRoleId(position) {
+  switch (position) {
+    case 'assistant':
+      return ASSISTANT_MANAGER_ROLE;
+    case 'manager':
+      return MANAGER_ROLE;
+    case 'chairman':
+      return CHAIRMAN_ROLE;
+    default:
+      return null;
+  }
+}
+
+function prettyPosition(position) {
+  switch (position) {
+    case 'assistant':
+      return 'Assistant Manager';
+    case 'manager':
+      return 'Manager';
+    case 'chairman':
+      return 'Chairman';
+    default:
+      return position || 'Unknown';
+  }
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('disband')
-    .setDescription('Remove a team and its staff records from the database'),
+    .setDescription('Remove all players and staff from a team'),
 
   async execute(interaction, client) {
     const allowedRoles = Array.isArray(DISBAND_ROLE)
@@ -27,7 +60,8 @@ module.exports = {
 
     if (
       !allowedRoles.some(
-        roleId => roleId && interaction.member.roles.cache.has(roleId)
+        roleId =>
+          roleId && interaction.member.roles.cache.has(roleId)
       )
     ) {
       return interaction.reply({
@@ -44,7 +78,9 @@ module.exports = {
       const divisions = await Divisions.find().sort({ name: 1 });
 
       if (!divisions.length) {
-        return interaction.editReply('There are no leagues in the database.');
+        return interaction.editReply(
+          'There are no leagues in the database.'
+        );
       }
 
       if (divisions.length > 25) {
@@ -65,7 +101,7 @@ module.exports = {
         );
 
       await interaction.editReply({
-        content: 'Select the league containing the team you want to disband:',
+        content: 'Select the league containing the team:',
         components: [
           new ActionRowBuilder().addComponents(divisionMenu),
         ],
@@ -116,7 +152,7 @@ module.exports = {
             );
 
           await interaction.editReply({
-            content: `League: **${divisionName}**\nSelect the team you want to disband:`,
+            content: `League: **${divisionName}**\nSelect the team to empty:`,
             components: [
               new ActionRowBuilder().addComponents(teamMenu),
             ],
@@ -152,7 +188,7 @@ module.exports = {
               const confirmRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                   .setCustomId('disband-confirm')
-                  .setLabel('Disband Team')
+                  .setLabel('Empty Team')
                   .setStyle(ButtonStyle.Danger),
                 new ButtonBuilder()
                   .setCustomId('disband-cancel')
@@ -162,10 +198,10 @@ module.exports = {
 
               await interaction.editReply({
                 content:
-                  `Are you sure you want to disband **${team.name}** ` +
-                  `from **${divisionName}**?\n\n` +
-                  'This deletes the team and its staff records from the database. ' +
-                  'No Discord roles will be changed.',
+                  `Are you sure you want to empty **${team.name}**?\n\n` +
+                  'This removes the team role from its players and staff, ' +
+                  'removes team-specific staff roles, and deletes its staff records.\n\n' +
+                  '**The team, team role, and league will remain.**',
                 components: [confirmRow],
               });
 
@@ -184,43 +220,136 @@ module.exports = {
 
                   if (confirmInteraction.customId === 'disband-cancel') {
                     return interaction.editReply({
-                      content: 'Disband cancelled.',
+                      content: 'Disband cancelled. Nothing was changed.',
                       components: [],
                     });
                   }
 
-                  // Get the team's staff records before deleting them,
-                  // so they can be included in the log.
+                  const guild = interaction.guild;
+
+                  // Read staff records BEFORE making any changes.
                   const staffEntries = await Staffs.find({
+                    teamRoleId: team.roleId,
+                  });
+
+                  // Fetch the guild member list ONCE so that the command
+                  // can find team-role holders beyond the existing cache.
+                  let members;
+
+                  try {
+                    members = await guild.members.fetch();
+                  } catch (fetchError) {
+                    console.error(
+                      'Could not fetch guild members:',
+                      fetchError
+                    );
+
+                    return interaction.editReply({
+                      content:
+                        'Could not load all server members. No roles or staff records were changed. ' +
+                        'Wait a few seconds and try again.',
+                      components: [],
+                    });
+                  }
+
+                  const staffByUserId = new Map(
+                    staffEntries.map(staff => [staff.userId, staff])
+                  );
+
+                  const staffRoleIds = [
+                    ASSISTANT_MANAGER_ROLE,
+                    MANAGER_ROLE,
+                    CHAIRMAN_ROLE,
+                  ]
+                    .flat()
+                    .filter(Boolean);
+
+                  const removedStaffRoles = [];
+                  const removedTeamRoles = [];
+                  const failedMembers = [];
+
+                  // First, remove the correct staff role from each
+                  // staff member recorded for this specific team.
+                  for (const staff of staffEntries) {
+                    const member = members.get(staff.userId);
+
+                    if (!member) continue;
+
+                    const staffRoleId = getStaffRoleId(staff.position);
+
+                    if (
+                      staffRoleId &&
+                      member.roles.cache.has(staffRoleId)
+                    ) {
+                      try {
+                        await member.roles.remove(
+                          staffRoleId,
+                          `Disbanding ${team.name}: removing team staff role`
+                        );
+
+                        removedStaffRoles.push({
+                          userId: staff.userId,
+                          position: staff.position,
+                        });
+                      } catch (error) {
+                        console.error(
+                          `Failed to remove staff role from ${staff.userId}:`,
+                          error
+                        );
+
+                        failedMembers.push(staff.userId);
+                      }
+                    }
+                  }
+
+                  // Then remove the team role from EVERY member found
+                  // with that role, including players and staff.
+                  const teamRoleMembers = members.filter(member =>
+                    member.roles.cache.has(team.roleId)
+                  );
+
+                  for (const member of teamRoleMembers.values()) {
+                    try {
+                      await member.roles.remove(
+                        team.roleId,
+                        `Disbanding ${team.name}: emptying team roster`
+                      );
+
+                      removedTeamRoles.push(member.id);
+                    } catch (error) {
+                      console.error(
+                        `Failed to remove team role from ${member.id}:`,
+                        error
+                      );
+
+                      if (!failedMembers.includes(member.id)) {
+                        failedMembers.push(member.id);
+                      }
+                    }
+                  }
+
+                  // Only delete staff records after the role-removal
+                  // attempts. The TEAM record is deliberately preserved.
+                  await Staffs.deleteMany({
                     teamRoleId: team.roleId,
                   });
 
                   const staffList = staffEntries.length
                     ? staffEntries
-                        .map(
-                          staff =>
-                            `• <@${staff.userId}> — ${staff.position}`
+                        .map(staff =>
+                          `• <@${staff.userId}> — ${prettyPosition(staff.position)}`
                         )
                         .join('\n')
                     : '*No staff records found.*';
 
-                  // Remove the staff records and team record from MongoDB.
-                  await Staffs.deleteMany({
-                    teamRoleId: team.roleId,
-                  });
-
-                  await Teams.deleteOne({
-                    roleId: team.roleId,
-                    division: divisionName,
-                  });
-
                   const embed = new EmbedBuilder()
-                    .setColor('#c0392b')
-                    .setTitle('Team Disbanded')
+                    .setColor(
+                      failedMembers.length ? '#e67e22' : '#c0392b'
+                    )
+                    .setTitle('Team Roster Cleared')
                     .setAuthor({
-                      name: interaction.guild.name,
-                      iconURL:
-                        interaction.guild.iconURL({ size: 256 }) || undefined,
+                      name: guild.name,
+                      iconURL: guild.iconURL({ size: 256 }) || undefined,
                     })
                     .addFields(
                       {
@@ -234,14 +363,19 @@ module.exports = {
                         inline: true,
                       },
                       {
-                        name: 'Staff Records Deleted',
-                        value: String(staffEntries.length),
+                        name: 'Players and Staff Removed',
+                        value: String(removedTeamRoles.length),
                         inline: true,
                       },
                       {
-                        name: 'Disbanded By',
-                        value: `<@${interaction.user.id}>`,
-                        inline: false,
+                        name: 'Staff Roles Removed',
+                        value: String(removedStaffRoles.length),
+                        inline: true,
+                      },
+                      {
+                        name: 'Staff Records Deleted',
+                        value: String(staffEntries.length),
+                        inline: true,
                       },
                       {
                         name: 'Staff Members',
@@ -252,9 +386,19 @@ module.exports = {
                         inline: false,
                       },
                       {
-                        name: 'Discord Roles',
-                        value: 'No roles were changed.',
-                        inline: false,
+                        name: 'Failed Role Removals',
+                        value: String(failedMembers.length),
+                        inline: true,
+                      },
+                      {
+                        name: 'Team Record',
+                        value: 'Kept in MongoDB.',
+                        inline: true,
+                      },
+                      {
+                        name: 'Disbanded By',
+                        value: `<@${interaction.user.id}>`,
+                        inline: true,
                       }
                     )
                     .setTimestamp();
@@ -263,9 +407,12 @@ module.exports = {
 
                   await interaction.editReply({
                     content:
-                      `**${team.name}** has been disbanded.\n` +
-                      `Deleted **${staffEntries.length}** staff records and the team record from MongoDB.\n` +
-                      'No Discord roles were changed.',
+                      `Finished emptying **${team.name}**.\n\n` +
+                      `• Team roles removed: **${removedTeamRoles.length}**\n` +
+                      `• Staff roles removed: **${removedStaffRoles.length}**\n` +
+                      `• Staff records deleted: **${staffEntries.length}**\n` +
+                      `• Members with role-removal errors: **${failedMembers.length}**\n\n` +
+                      'The team record, team Discord role, and league were kept.',
                     components: [],
                   });
                 } catch (error) {
@@ -273,7 +420,7 @@ module.exports = {
 
                   await interaction.editReply({
                     content:
-                      'Something went wrong while disbanding the team. ' +
+                      'Something went wrong while emptying the team. ' +
                       'Check the bot console for details.',
                     components: [],
                   }).catch(() => {});
@@ -283,7 +430,7 @@ module.exports = {
               confirmCollector.on('end', async collected => {
                 if (collected.size === 0) {
                   await interaction.editReply({
-                    content: 'Confirmation timed out. Disband cancelled.',
+                    content: 'Confirmation timed out. Nothing was changed.',
                     components: [],
                   }).catch(() => {});
                 }
@@ -333,3 +480,4 @@ module.exports = {
     }
   },
 };
+```
