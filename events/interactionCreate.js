@@ -1,72 +1,111 @@
+
 module.exports = {
   name: 'interactionCreate',
-  async execute(interaction, client) {
-    // Ignore anything that isn't a slash command or select menu
-    if (!interaction.isChatInputCommand() && !interaction.isStringSelectMenu()) return;
 
-    // -----------------------------
-    // SLASH COMMAND HANDLER
-    // -----------------------------
+  async execute(interaction, client) {
+    if (
+      !interaction.isChatInputCommand() &&
+      !interaction.isStringSelectMenu()
+    ) {
+      return;
+    }
+
+    // Slash command handler
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
+
       if (!command) return;
 
       try {
         await command.execute(interaction, client);
       } catch (error) {
-        console.error(`Error executing command ${interaction.commandName}:`, error);
-        const reply = { content: 'An error occurred while executing this command.', ephemeral: true };
+        console.error(
+          `Error executing command ${interaction.commandName}:`,
+          error
+        );
 
-        if (interaction.replied || interaction.deferred) {
-          await interaction.followUp(reply);
+        const reply = {
+          content: 'An error occurred while executing this command.',
+          ephemeral: true,
+        };
+
+        if (interaction.deferred || interaction.replied) {
+          await interaction.followUp(reply).catch(() => {});
         } else {
-          await interaction.reply(reply);
+          await interaction.reply(reply).catch(() => {});
         }
       }
+
+      return;
     }
 
-    // -----------------------------
-    // SELECT MENU HANDLER
-    // -----------------------------
+    // Select menu handler
     if (interaction.isStringSelectMenu()) {
+      const customId = interaction.customId;
 
-      // ⭐ DIVISION SELECT HANDLER
-      if (interaction.customId === 'select_division') {
+      // Division command menu
+      if (customId === 'select_division') {
         const command = client.commands.get('division');
-        if (!command || !command.handleSelect) return;
+
+        if (!command?.handleSelect) return;
 
         try {
           await command.handleSelect(interaction, client);
         } catch (error) {
           console.error('Error handling division select:', error);
-          const reply = { content: 'An error occurred.', ephemeral: true };
 
-          if (interaction.replied || interaction.deferred) {
-            await interaction.followUp(reply);
+          const reply = {
+            content: 'An error occurred while loading the division.',
+            ephemeral: true,
+          };
+
+          if (interaction.deferred || interaction.replied) {
+            await interaction.followUp(reply).catch(() => {});
           } else {
-            await interaction.reply(reply);
+            await interaction.reply(reply).catch(() => {});
           }
         }
+
+        return;
       }
 
-      // ⭐ TEAMINFO SELECT HANDLER
-      if (interaction.customId === 'teaminfo-select') {
+      // Teaminfo division and team menus
+      if (
+        customId.startsWith('teaminfo-division-') ||
+        customId.startsWith('teaminfo-team-')
+      ) {
         const command = client.commands.get('teaminfo');
-        if (!command || !command.handleSelect) return;
+
+        if (!command?.handleSelect) {
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+              content: 'The team information handler could not be found.',
+              ephemeral: true,
+            }).catch(() => {});
+          }
+
+          return;
+        }
 
         try {
           await command.handleSelect(interaction, client);
         } catch (error) {
           console.error('Error handling teaminfo select:', error);
-          const reply = { content: 'An error occurred.', ephemeral: true };
 
-          if (interaction.replied || interaction.deferred) {
-            await interaction.followUp(reply);
+          const reply = {
+            content: 'An error occurred while loading team information.',
+            ephemeral: true,
+          };
+
+          if (interaction.deferred || interaction.replied) {
+            await interaction.followUp(reply).catch(() => {});
           } else {
-            await interaction.reply(reply);
+            await interaction.reply(reply).catch(() => {});
           }
         }
+
+        return;
       }
     }
-  }
+  },
 };
