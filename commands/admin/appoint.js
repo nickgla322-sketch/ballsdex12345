@@ -46,7 +46,6 @@ function pretty(position) {
   }
 }
 
-// Get the image URL for a custom Discord emoji.
 function getTeamLogoUrl(emoji) {
   if (!emoji) return null;
 
@@ -102,12 +101,12 @@ module.exports = {
     const position = interaction.options.getString('position');
 
     try {
-      // Load leagues.
+      // Load divisions
       const divisions = await Divisions.find().sort({ name: 1 });
 
       if (!divisions.length) {
         return interaction.reply({
-          content: 'There are no leagues in the database.',
+          content: 'There are no divisions in the database.',
           flags: MessageFlags.Ephemeral,
         });
       }
@@ -115,15 +114,15 @@ module.exports = {
       if (divisions.length > 25) {
         return interaction.reply({
           content:
-            'There are too many leagues to display (maximum 25).',
+            'There are too many divisions to display. The maximum is 25.',
           flags: MessageFlags.Ephemeral,
         });
       }
 
-      // First dropdown: select a league.
+      // First dropdown: select a division
       const divisionMenu = new StringSelectMenuBuilder()
         .setCustomId('appoint-division-select')
-        .setPlaceholder('Select a league')
+        .setPlaceholder('Select a division')
         .addOptions(
           divisions.map(division => ({
             label: division.name.slice(0, 100),
@@ -133,7 +132,7 @@ module.exports = {
         );
 
       await interaction.reply({
-        content: 'Select the league containing the team:',
+        content: 'Select the division containing the team:',
         components: [
           new ActionRowBuilder().addComponents(divisionMenu),
         ],
@@ -147,7 +146,7 @@ module.exports = {
           filter: i =>
             i.customId === 'appoint-division-select' &&
             i.user.id === interaction.user.id,
-          time: 60_000,
+          time: 60000,
           max: 1,
         });
 
@@ -157,14 +156,14 @@ module.exports = {
 
           const divisionName = divisionInteraction.values[0];
 
-          // Load teams belonging to the selected league only.
+          // Load teams in the selected division
           const teams = await Teams.find({
             division: divisionName,
           }).sort({ name: 1 });
 
           if (!teams.length) {
             return interaction.editReply({
-              content: `There are no teams in **${divisionName}**.`,
+              content: `There are no teams in the division **${divisionName}**.`,
               components: [],
             });
           }
@@ -172,13 +171,13 @@ module.exports = {
           if (teams.length > 25) {
             return interaction.editReply({
               content:
-                `**${divisionName}** has too many teams to display ` +
-                '(maximum 25).',
+                `The division **${divisionName}** has too many teams to display. ` +
+                'The maximum is 25.',
               components: [],
             });
           }
 
-          // Second dropdown: select a team in that league.
+          // Second dropdown: select a team
           const teamMenu = new StringSelectMenuBuilder()
             .setCustomId('appoint-team-select')
             .setPlaceholder('Select a team')
@@ -192,7 +191,7 @@ module.exports = {
 
           await interaction.editReply({
             content:
-              `League: **${divisionName}**\n` +
+              `Division: **${divisionName}**\n` +
               'Select the team you want to appoint this user to:',
             components: [
               new ActionRowBuilder().addComponents(teamMenu),
@@ -204,7 +203,7 @@ module.exports = {
               filter: i =>
                 i.customId === 'appoint-team-select' &&
                 i.user.id === interaction.user.id,
-              time: 60_000,
+              time: 60000,
               max: 1,
             });
 
@@ -226,36 +225,36 @@ module.exports = {
                 });
               }
 
-              // Fetch the user who will be appointed.
+              // Fetch the user
               const member = await interaction.guild.members
                 .fetch(user.id)
                 .catch(() => null);
 
               if (!member) {
                 return interaction.editReply({
-                  content:
-                    'That user is not a member of this server.',
+                  content: 'That user is not a member of this server.',
                   components: [],
                 });
               }
 
-              // Check whether the user belongs to another team.
-              const userTeam = teams.find(t =>
+              // Check all teams across every division
+              const allTeams = await Teams.find();
+
+              const userTeam = allTeams.find(t =>
                 member.roles.cache.has(t.roleId)
               );
 
               if (userTeam && userTeam.roleId !== team.roleId) {
                 return interaction.editReply({
                   content:
-                    `<@${user.id}> is already on ` +
-                    `<@&${userTeam.roleId}> and cannot be appointed ` +
-                    `to <@&${team.roleId}>.`,
+                    `<@${user.id}> is already on <@&${userTeam.roleId}> ` +
+                    `and cannot be appointed to <@&${team.roleId}>.`,
                   components: [],
                   allowedMentions: { parse: [] },
                 });
               }
 
-              // Check whether this position is already filled.
+              // Check whether the position is already filled
               const existing = await Staffs.findOne({
                 teamRoleId: team.roleId,
                 position,
@@ -270,7 +269,7 @@ module.exports = {
                 });
               }
 
-              // Prevent appointing someone who is already staff elsewhere.
+              // Prevent appointing someone who is already staff elsewhere
               const alreadyStaff = await Staffs.findOne({
                 userId: user.id,
               });
@@ -295,15 +294,15 @@ module.exports = {
                 });
               }
 
-              // Assign the team role if the user does not have it.
+              // Assign the team role
               if (!member.roles.cache.has(team.roleId)) {
                 await member.roles.add(team.roleId);
               }
 
-              // Assign the staff hierarchy role.
+              // Assign the staff hierarchy role
               await member.roles.add(staffRoleId);
 
-              // Save the staff record.
+              // Save the staff record
               await Staffs.create({
                 userId: user.id,
                 teamRoleId: team.roleId,
@@ -313,16 +312,20 @@ module.exports = {
 
               const guild = interaction.guild;
 
-              // Create the appointment log.
+              // Build appointment log
               const embed = new EmbedBuilder()
                 .setColor('#3498db')
                 .setAuthor({
                   name: guild.name,
-                  iconURL:
-                    guild.iconURL({ size: 256 }) || undefined,
+                  iconURL: guild.iconURL({ size: 256 }) || undefined,
                 })
                 .setTitle('Staff Appointment')
                 .addFields(
+                  {
+                    name: 'Division',
+                    value: team.division || 'Unknown',
+                    inline: false,
+                  },
                   {
                     name: 'Team',
                     value: `${team.emoji || ''} <@&${team.roleId}>`,
@@ -354,15 +357,14 @@ module.exports = {
 
               await logAction(client, {
                 embeds: [embed],
-                allowedMentions: {
-                  parse: [],
-                },
+                allowedMentions: { parse: [] },
               });
 
               await interaction.editReply({
                 content:
-                  `<@${user.id}> has been appointed as ` +
-                  `**${pretty(position)}** of <@&${team.roleId}>.`,
+                  `<@${user.id}> has been appointed as **${pretty(position)}** ` +
+                  `of ${team.emoji || ''} <@&${team.roleId}> in the division ` +
+                  `**${team.division || divisionName}**.`,
                 components: [],
                 allowedMentions: { parse: [] },
               });
@@ -387,7 +389,7 @@ module.exports = {
             }
           });
         } catch (error) {
-          console.error('Appointment league selection failed:', error);
+          console.error('Appointment division selection failed:', error);
 
           await interaction.editReply({
             content:
@@ -401,7 +403,7 @@ module.exports = {
       divisionCollector.on('end', async collected => {
         if (collected.size === 0) {
           await interaction.editReply({
-            content: 'No league selected. Command cancelled.',
+            content: 'No division selected. Command cancelled.',
             components: [],
           }).catch(() => {});
         }
@@ -412,14 +414,14 @@ module.exports = {
       if (interaction.replied || interaction.deferred) {
         await interaction.editReply({
           content:
-            'Something went wrong loading the leagues. ' +
+            'Something went wrong loading the divisions. ' +
             'Check the bot console for details.',
           components: [],
         }).catch(() => {});
       } else {
         await interaction.reply({
           content:
-            'Something went wrong loading the leagues. ' +
+            'Something went wrong loading the divisions. ' +
             'Check the bot console for details.',
           flags: MessageFlags.Ephemeral,
         }).catch(() => {});
