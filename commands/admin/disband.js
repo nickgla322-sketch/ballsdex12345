@@ -381,9 +381,11 @@ module.exports = {
                     .setThumbnail(getTeamLogoUrl(team.emoji))
                     .addFields(
                       {
-                        name: 'Team',
-                        value: `<@&${team.roleId}>`,
-                        inline: false,
+                  {
+                    name: 'Team',
+                    value: `${team.emoji || ''} <@&${team.roleId}>`,
+                      inline: false,
+                    },
                       },
                       {
                         name: 'Staff Records Deleted',
