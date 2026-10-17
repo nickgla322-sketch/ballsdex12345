@@ -352,13 +352,12 @@ module.exports = {
                     }
                   }
 
-                  // Keep the Team record. Delete only its staff records.
+                  // Keep the team record. Delete only its staff records.
                   const deleteResult = await Staffs.deleteMany({
                     teamRoleId: team.roleId,
                   });
 
-                  // Split successfully removed team-role holders into staff
-                  // and actual players so they are not double-counted.
+                  // Separate staff members from regular players.
                   const staffIds = new Set(
                     staffEntries.map(staff => staff.userId)
                   );
@@ -378,14 +377,11 @@ module.exports = {
                       iconURL: guild.iconURL({ size: 256 }) || undefined,
                     })
                     .setTitle('Team Disbanded')
-                    .setThumbnail(getTeamLogoUrl(team.emoji))
                     .addFields(
                       {
-                  {
-                    name: 'Team',
-                    value: `${team.emoji || ''} <@&${team.roleId}>`,
-                      inline: false,
-                    },
+                        name: 'Team',
+                        value: `${team.emoji || ''} <@&${team.roleId}>`,
+                        inline: false,
                       },
                       {
                         name: 'Staff Records Deleted',
@@ -417,25 +413,17 @@ module.exports = {
                     )
                     .setTimestamp();
 
-                  // Ping the command user and members whose team role
-                  // was successfully removed. Send the log only once.
-                  const pingIds = [
-                    ...new Set([
-                      interaction.user.id,
-                      ...removedStaffIds,
-                      ...removedPlayerIds,
-                    ]),
-                  ];
+                  // Set the thumbnail only when a valid custom emoji URL exists.
+                  const teamLogoUrl = getTeamLogoUrl(team.emoji);
 
-                  const pingContent = pingIds
-                    .map(id => `<@${id}>`)
-                    .join(' ');
+                  if (teamLogoUrl) {
+                    embed.setThumbnail(teamLogoUrl);
+                  }
 
+                  // Send the log once. No message content means no pings.
                   await logAction(client, {
-                    content: pingContent.slice(0, 2000),
                     embeds: [embed],
                     allowedMentions: {
-                      users: pingIds,
                       parse: [],
                     },
                   });
@@ -449,6 +437,7 @@ module.exports = {
                       `• Staff records deleted: **${deleteResult.deletedCount || 0}**\n` +
                       `• Members with role-removal errors: **${failedMembers.length}**\n\n` +
                       'The team record, team Discord role, and league were kept.',
+                    allowedMentions: { parse: [] },
                     components: [],
                   });
                 } catch (error) {
