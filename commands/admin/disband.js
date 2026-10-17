@@ -48,19 +48,38 @@ function prettyPosition(position) {
   }
 }
 
-function makeMemberList(ids, staffByUserId) {
-  if (!ids.length) return '*None.*';
+// Get the image URL for a custom Discord emoji.
+function getTeamLogoUrl(emoji) {
+  if (!emoji) return null;
 
-  return ids
-    .map(id => {
-      const staff = staffByUserId.get(id);
+  const match = emoji.match(/<a?:\w+:(\d+)>/);
 
-      return staff
-        ? `• <@${id}> — ${prettyPosition(staff.position)}`
-        : `• <@${id}>`;
-    })
-    .join('\n')
-    .slice(0, 1024);
+  if (!match) return null;
+
+  const extension = emoji.startsWith('<a:') ? 'gif' : 'webp';
+
+  return `https://cdn.discordapp.com/emojis/${match[1]}.${extension}?size=256&quality=lossless`;
+}
+
+function formatMembers(ids, staffByUserId, includePosition = false) {
+  if (!ids.length) return '• None';
+
+  const lines = ids.map(id => {
+    const staff = staffByUserId.get(id);
+
+    if (includePosition && staff) {
+      return `• <@${id}> — ${prettyPosition(staff.position)}`;
+    }
+
+    return `• <@${id}>`;
+  });
+
+  const result = lines.join('\n');
+
+  // Discord embed field values have a 1024-character limit.
+  if (result.length <= 1024) return result;
+
+  return `${result.slice(0, 990)}\n...list shortened.`;
 }
 
 module.exports = {
@@ -213,7 +232,7 @@ module.exports = {
 
               await interaction.editReply({
                 content:
-                  `Are you sure you want to empty **${team.name}**?\n\n` +
+                  `Are you sure you want to empty <@&${team.roleId}>?\n\n` +
                   'This removes the team role from its players and staff, ' +
                   'removes team-specific staff roles, and deletes its staff records.\n\n' +
                   '**The team, team role, and league will remain.**',
@@ -242,12 +261,12 @@ module.exports = {
 
                   const guild = interaction.guild;
 
-                  // Read staff records before making changes.
+                  // Load staff records for this team only.
                   const staffEntries = await Staffs.find({
                     teamRoleId: team.roleId,
                   });
 
-                  // Fetch members once so uncached team members are included.
+                  // Fetch members once to include uncached members.
                   let members;
 
                   try {
@@ -274,8 +293,7 @@ module.exports = {
                   const removedTeamRoles = [];
                   const failedMembers = [];
 
-                  // Remove hierarchy roles only from staff recorded
-                  // for this specific team.
+                  // Remove staff hierarchy roles belonging to this team.
                   for (const staff of staffEntries) {
                     const member = members.get(staff.userId);
                     if (!member) continue;
@@ -309,7 +327,7 @@ module.exports = {
                     }
                   }
 
-                  // Remove the team role from every member who has it.
+                  // Remove the selected team role from all its holders.
                   const teamRoleMembers = members.filter(member =>
                     member.roles.cache.has(team.roleId)
                   );
@@ -334,12 +352,13 @@ module.exports = {
                     }
                   }
 
-                  // Delete this team's staff records, not its team record.
+                  // Keep the Team record. Delete only its staff records.
                   const deleteResult = await Staffs.deleteMany({
                     teamRoleId: team.roleId,
                   });
 
-                 
+                  // Split successfully removed team-role holders into staff
+                  // and actual players so they are not double-counted.
                   const staffIds = new Set(
                     staffEntries.map(staff => staff.userId)
                   );
@@ -352,23 +371,6 @@ module.exports = {
                     id => !staffIds.has(id)
                   );
 
-                  const formatMembers = (ids, includePosition = false) => {
-                    if (!ids.length) return '• None';
-
-                    return ids
-                      .map(id => {
-                        const staff = staffEntries.find(
-                          entry => entry.userId === id
-                        );
-
-                        return includePosition && staff
-                          ? `• <@${id}> — ${prettyPosition(staff.position)}`
-                          : `• <@${id}>`;
-                      })
-                      .join('\n')
-                      .slice(0, 1024);
-                  };
-
                   const embed = new EmbedBuilder()
                     .setColor('#c0392b')
                     .setAuthor({
@@ -376,10 +378,11 @@ module.exports = {
                       iconURL: guild.iconURL({ size: 256 }) || undefined,
                     })
                     .setTitle('Team Disbanded')
+                    .setThumbnail(getTeamLogoUrl(team.emoji))
                     .addFields(
                       {
                         name: 'Team',
-                        value: `${team.emoji || ''} ${team.name}`,
+                        value: `<@&${team.roleId}>`,
                         inline: false,
                       },
                       {
@@ -394,19 +397,26 @@ module.exports = {
                       },
                       {
                         name: 'Staff Members',
-                        value: formatMembers(removedStaffIds, true),
+                        value: formatMembers(
+                          removedStaffIds,
+                          staffByUserId,
+                          true
+                        ),
                         inline: false,
                       },
                       {
                         name: 'Players',
-                        value: formatMembers(removedPlayerIds),
+                        value: formatMembers(
+                          removedPlayerIds,
+                          staffByUserId
+                        ),
                         inline: false,
                       }
                     )
                     .setTimestamp();
 
-                  // Ping the command user and everyone who had their
-                  // team role successfully removed.
+                  // Ping the command user and members whose team role
+                  // was successfully removed. Send the log only once.
                   const pingIds = [
                     ...new Set([
                       interaction.user.id,
@@ -415,8 +425,12 @@ module.exports = {
                     ]),
                   ];
 
+                  const pingContent = pingIds
+                    .map(id => `<@${id}>`)
+                    .join(' ');
+
                   await logAction(client, {
-                    content: pingIds.map(id => `<@${id}>`).join(' ').slice(0, 2000),
+                    content: pingContent.slice(0, 2000),
                     embeds: [embed],
                     allowedMentions: {
                       users: pingIds,
@@ -424,40 +438,9 @@ module.exports = {
                     },
                   });
 
-
-                  // Only set a thumbnail if a valid image URL is saved.
-                  if (team.imageUrl) {
-                    embed.setThumbnail(team.imageUrl);
-                  }
-
-                  // Send pings in message content. Embed mentions alone
-                  // do not generate notifications.
-                  const uniquePingIds = [
-                    ...new Set([
-                      interaction.user.id,
-                      ...removedStaffIds,
-                      ...removedPlayerIds,
-                    ]),
-                  ];
-
-                  const pingContent = uniquePingIds
-                    .map(id => `<@${id}>`)
-                    .join(' ');
-
-                  // Keep the log message within Discord's 2000-character limit.
-                  // Large rosters may need multiple ping messages.
-                  await logAction(client, {
-                    content: pingContent.slice(0, 2000),
-                    embeds: [embed],
-                    allowedMentions: {
-                      users: uniquePingIds,
-                      parse: [],
-                    },
-                  });
-
                   await interaction.editReply({
                     content:
-                      `Finished emptying **${team.name}**.\n\n` +
+                      `Finished emptying <@&${team.roleId}>.\n\n` +
                       `• Actual players removed: **${removedPlayerIds.length}**\n` +
                       `• Staff members removed: **${removedStaffIds.length}**\n` +
                       `• Staff roles removed: **${removedStaffRoles.length}**\n` +
