@@ -60,23 +60,22 @@ module.exports = {
           divisions.map(division => ({
             label: division.name.slice(0, 100),
             value: division.name,
-            emoji: division.emoji || undefined,
+            ...(division.emoji ? { emoji: division.emoji } : {}),
           }))
         );
 
-      const divisionRow = new ActionRowBuilder().addComponents(divisionMenu);
-
       await interaction.editReply({
         content: 'Select the league containing the team you want to disband:',
-        components: [divisionRow],
+        components: [
+          new ActionRowBuilder().addComponents(divisionMenu),
+        ],
       });
 
       const divisionCollector =
         interaction.channel.createMessageComponentCollector({
           filter: i =>
             i.customId === 'disband-division-select' &&
-            i.user.id === interaction.user.id &&
-            i.message.interactionMetadata?.user?.id === interaction.user.id,
+            i.user.id === interaction.user.id,
           time: 60_000,
           max: 1,
         });
@@ -86,8 +85,10 @@ module.exports = {
           await divisionInteraction.deferUpdate();
 
           const divisionName = divisionInteraction.values[0];
-          const teams = await Teams.find({ division: divisionName })
-            .sort({ name: 1 });
+
+          const teams = await Teams.find({
+            division: divisionName,
+          }).sort({ name: 1 });
 
           if (!teams.length) {
             return interaction.editReply({
@@ -110,16 +111,18 @@ module.exports = {
               teams.map(team => ({
                 label: team.name.slice(0, 100),
                 value: team.roleId,
-                emoji: team.emoji || undefined,
+                ...(team.emoji ? { emoji: team.emoji } : {}),
                 description: `League: ${divisionName}`.slice(0, 100),
               }))
             );
 
-          const teamRow = new ActionRowBuilder().addComponents(teamMenu);
-
           await interaction.editReply({
-            content: `League: **${divisionName}**\nSelect the team you want to disband:`,
-            components: [teamRow],
+            content:
+              `League: **${divisionName}**\n` +
+              'Select the team you want to disband:',
+            components: [
+              new ActionRowBuilder().addComponents(teamMenu),
+            ],
           });
 
           const teamCollector =
@@ -137,7 +140,6 @@ module.exports = {
 
               const teamRoleId = teamInteraction.values[0];
 
-              // Recheck the team and league from the database.
               const team = await Teams.findOne({
                 roleId: teamRoleId,
                 division: divisionName,
@@ -163,8 +165,9 @@ module.exports = {
 
               await interaction.editReply({
                 content:
-                  `Are you sure you want to disband **${team.name}** from **${divisionName}**?\n` +
-                  'This will remove its player and matching staff roles from members.',
+                  `Are you sure you want to disband **${team.name}** ` +
+                  `from **${divisionName}**?\n` +
+                  'This removes the team player role and matching staff roles.',
                 components: [confirmRow],
               });
 
@@ -195,21 +198,26 @@ module.exports = {
 
                   const guild = interaction.guild;
 
-                  // Fetch the guild member list so role.members includes
-                  // members who were not previously cached.
-                  await guild.members.fetch();
+                  // IMPORTANT:
+                  // Do NOT call guild.members.fetch() here.
+                  // It requests every guild member and can trigger
+                  // the Gateway opcode 8 rate limit.
 
                   const staffEntries = await Staffs.find({
                     teamRoleId: team.roleId,
                   });
 
+                  // Start with the team's player role.
                   const roleIds = new Set([team.roleId]);
 
-                  // The staff schema has no roleId field, so match each
-                  // stored position to a role with that exact name.
+                  // Your Staffs model stores position names, not role IDs.
+                  // Find matching role names, but avoid adding the team
+                  // role twice.
                   for (const staff of staffEntries) {
                     const staffRole = guild.roles.cache.find(
-                      role => role.name === staff.position
+                      role =>
+                        role.name === staff.position &&
+                        role.id !== team.roleId
                     );
 
                     if (staffRole) {
@@ -228,6 +236,8 @@ module.exports = {
                       continue;
                     }
 
+                    // Only members already present in the cache are
+                    // processed. No full guild-member fetch is performed.
                     const membersWithRole = [...role.members.values()];
 
                     for (const member of membersWithRole) {
@@ -256,8 +266,15 @@ module.exports = {
                     }
                   }
 
+                  // Delete the team's staff records.
                   await Staffs.deleteMany({
                     teamRoleId: team.roleId,
+                  });
+
+                  // Remove the team from the teams collection.
+                  await Teams.deleteOne({
+                    roleId: team.roleId,
+                    division: divisionName,
                   });
 
                   const removedPlayers = removedByRole.filter(
@@ -268,9 +285,9 @@ module.exports = {
                     entry => entry.roleId !== team.roleId
                   );
 
-                  const formatRoleRemoval = entries => {
+                  const formatRemovalList = entries => {
                     if (!entries.length) {
-                      return '*Nobody lost this role.*';
+                      return '*No cached members lost this role.*';
                     }
 
                     const lines = entries.map(
@@ -278,25 +295,25 @@ module.exports = {
                         `• <@${entry.userId}> — **${entry.roleName}**`
                     );
 
-                    const fullText = lines.join('\n');
-                    if (fullText.length <= 1024) {
-                      return fullText;
-                    }
-
-                    let output = '';
+                    let result = '';
                     let shown = 0;
 
                     for (const line of lines) {
-                      const addition = `${output ? '\n' : ''}${line}`;
-                      if ((output + addition).length > 900) break;
-                      output += addition;
+                      const next = `${result ? '\n' : ''}${line}`;
+
+                      if ((result + next).length > 900) {
+                        break;
+                      }
+
+                      result += next;
                       shown++;
                     }
 
-                    return (
-                      `${output}\n...and ${entries.length - shown} more. ` +
-                      'See the server logs for the complete result.'
-                    );
+                    if (shown < entries.length) {
+                      result += `\n...and ${entries.length - shown} more.`;
+                    }
+
+                    return result;
                   };
 
                   const embed = new EmbedBuilder()
@@ -337,12 +354,12 @@ module.exports = {
                       },
                       {
                         name: 'Players Who Lost the Team Role',
-                        value: formatRoleRemoval(removedPlayers),
+                        value: formatRemovalList(removedPlayers),
                         inline: false,
                       },
                       {
                         name: 'Members Who Lost Staff Roles',
-                        value: formatRoleRemoval(removedStaffRoles),
+                        value: formatRemovalList(removedStaffRoles),
                         inline: false,
                       },
                       {
@@ -357,9 +374,8 @@ module.exports = {
 
                   await logAction(client, { embeds: [embed] });
 
-                  // Send the full list in follow-up messages if it is too
-                  // long for the embed, while keeping each message under limits.
-                  const fullRemovalLines = removedByRole.map(
+                  // Send all successfully removed roles in follow-up messages.
+                  const lines = removedByRole.map(
                     entry =>
                       `• <@${entry.userId}> — ${entry.roleName}`
                   );
@@ -367,30 +383,36 @@ module.exports = {
                   const chunks = [];
                   let chunk = '';
 
-                  for (const line of fullRemovalLines) {
-                    if (`${chunk}\n${line}`.length > 1800) {
+                  for (const line of lines) {
+                    const next = `${chunk ? '\n' : ''}${line}`;
+
+                    if ((chunk + next).length > 1800) {
                       chunks.push(chunk);
                       chunk = line;
                     } else {
-                      chunk += `${chunk ? '\n' : ''}${line}`;
+                      chunk += next;
                     }
                   }
 
-                  if (chunk) chunks.push(chunk);
+                  if (chunk) {
+                    chunks.push(chunk);
+                  }
 
                   await interaction.editReply({
                     content:
                       `**${team.name}** has been disbanded.\n` +
                       `Player role removals: **${removedPlayers.length}**\n` +
                       `Staff role removals: **${removedStaffRoles.length}**\n` +
-                      `Failed removals: **${failures.length}**`,
+                      `Failed removals: **${failures.length}**\n\n` +
+                      'Note: only members in the current cache were checked.',
                     components: [],
                   });
 
                   for (let index = 0; index < chunks.length; index++) {
                     await interaction.followUp({
                       content:
-                        `**Role removals (${index + 1}/${chunks.length})**\n${chunks[index]}`,
+                        `**Role removals (${index + 1}/${chunks.length})**\n` +
+                        chunks[index],
                       flags: MessageFlags.Ephemeral,
                     });
                   }
@@ -399,7 +421,8 @@ module.exports = {
 
                   await interaction.editReply({
                     content:
-                      'Something went wrong while disbanding the team. Check the bot console for details.',
+                      'Something went wrong while disbanding the team. ' +
+                      'Check the bot console for details.',
                     components: [],
                   }).catch(() => {});
                 }
