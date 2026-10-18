@@ -7,7 +7,13 @@ const {
   MessageFlags,
 } = require('discord.js');
 
-const { REMOVE_TEAM_ROLE } = require('../../utils/permissions');
+const {
+  REMOVE_TEAM_ROLE,
+  ASSISTANT_MANAGER_ROLE,
+  MANAGER_ROLE,
+  CHAIRMAN_ROLE,
+} = require('../../utils/permissions');
+
 const { logAction } = require('../../utils/logger');
 
 const Teams = require('../../models/teams');
@@ -15,6 +21,17 @@ const Staffs = require('../../models/staffs');
 const Divisions = require('../../models/divisions');
 
 const FREE_AGENT_ROLE_ID = '1374495332846669956';
+
+// Maps each staff position to its Discord role.
+function getStaffRoleId(position) {
+  const roles = {
+    assistant: ASSISTANT_MANAGER_ROLE,
+    manager: MANAGER_ROLE,
+    chairman: CHAIRMAN_ROLE,
+  };
+
+  return roles[position] || null;
+}
 
 function getTeamLogoUrl(emoji) {
   if (!emoji) return null;
@@ -38,14 +55,15 @@ module.exports = {
     .setDescription('Remove a team'),
 
   async execute(interaction, client) {
-    const allowedRoles = Array.isArray(REMOVE_TEAM_ROLE)
-      ? REMOVE_TEAM_ROLE
-      : [REMOVE_TEAM_ROLE];
+    const allowedRoles = (
+      Array.isArray(REMOVE_TEAM_ROLE)
+        ? REMOVE_TEAM_ROLE
+        : [REMOVE_TEAM_ROLE]
+    ).filter(Boolean);
 
     if (
-      !allowedRoles.some(
-        roleId =>
-          roleId && interaction.member.roles.cache.has(roleId)
+      !allowedRoles.some(roleId =>
+        interaction.member.roles.cache.has(roleId)
       )
     ) {
       return interaction.reply({
@@ -123,7 +141,9 @@ module.exports = {
 
             if (teams.length > 25) {
               return interaction.editReply({
-                content: `**${divisionName}** has too many teams to display. The maximum is 25.`,
+                content:
+                  `**${divisionName}** has too many teams to display. ` +
+                  'The maximum is 25.',
                 components: [],
               });
             }
@@ -153,8 +173,9 @@ module.exports = {
 
           const teamRoleId = i.values[0];
 
-          // Find the team within the selected division.
+          // Find the division selected in the previous menu.
           const currentMessage = await interaction.fetchReply();
+
           const selectedDivisionMatch = currentMessage.content.match(
             /Division: \*\*(.+?)\*\*/
           );
@@ -163,7 +184,8 @@ module.exports = {
             collector.stop('error');
 
             return interaction.editReply({
-              content: 'Could not determine the selected division. Try again.',
+              content:
+                'Could not determine the selected division. Try again.',
               components: [],
             });
           }
@@ -185,17 +207,13 @@ module.exports = {
           }
 
           const guild = interaction.guild;
-          const role = guild.roles.cache.get(team.roleId);
 
+          // Find all staff records belonging to this team.
           const staffEntries = await Staffs.find({
-            teamRoleId,
+            teamRoleId: team.roleId,
           });
 
-          const removedPlayers = [];
-          const failedMembers = [];
-          const freeAgentErrors = [];
-
-          // Fetch members so uncached members can also be handled.
+          // Load server members so uncached members can be handled too.
           let members;
 
           try {
@@ -207,72 +225,156 @@ module.exports = {
 
             return interaction.editReply({
               content:
-                'Could not load all server members. No database records were deleted. Try again later.',
+                'Could not load all server members. No database records ' +
+                'were deleted. Try again later.',
               components: [],
             });
           }
 
-          if (role) {
-            const roleMembers = members.filter(member =>
-              member.roles.cache.has(team.roleId)
+          // Find everyone affected by this team removal:
+          // 1. Members with the team role.
+          // 2. Members listed in the team's staff records.
+          const affectedMemberIds = new Set();
+
+          for (const member of members.values()) {
+            if (member.roles.cache.has(team.roleId)) {
+              affectedMemberIds.add(member.id);
+            }
+          }
+
+          for (const staff of staffEntries) {
+            affectedMemberIds.add(staff.userId);
+          }
+
+          const removedPlayers = [];
+          const removedStaffRoles = [];
+          const failedMembers = [];
+          const staffRoleErrors = [];
+          const freeAgentErrors = [];
+          const affectedMembers = [];
+
+          // Process every affected member, including staff who might not
+          // currently have the team role.
+          for (const userId of affectedMemberIds) {
+            const member = members.get(userId);
+
+            if (!member) {
+              failedMembers.push(userId);
+              continue;
+            }
+
+            affectedMembers.push(member);
+
+            // Find this member's staff positions on the selected team.
+            const memberStaffEntries = staffEntries.filter(
+              staff => staff.userId === userId
             );
 
-            for (const member of roleMembers.values()) {
+            // Remove the team role.
+            if (member.roles.cache.has(team.roleId)) {
               try {
-                // Remove the team role.
                 await member.roles.remove(
                   team.roleId,
-                  `Removing team ${team.name}`
+                  `Team ${team.name} was removed`
                 );
 
-                // Add Free Agent role to the member.
-                try {
-                  if (!member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
-                    await member.roles.add(
-                      FREE_AGENT_ROLE_ID,
-                      `Team ${team.name} was removed`
-                    );
-                  }
-
-                  removedPlayers.push(member);
-                } catch (error) {
-                  console.error(
-                    `Failed to add Free Agent role to ${member.user.tag}:`,
-                    error
-                  );
-
-                  // The team role was removed, but Free Agent could not be added.
-                  removedPlayers.push(member);
-                  freeAgentErrors.push(member.id);
-                }
+                removedPlayers.push(member);
               } catch (error) {
                 console.error(
                   `Failed to remove team role from ${member.user.tag}:`,
                   error
                 );
 
-                failedMembers.push(member.id);
+                failedMembers.push(userId);
+              }
+            }
+
+            // Remove every applicable staff role.
+            const staffRoleIds = new Set(
+              memberStaffEntries
+                .map(staff => getStaffRoleId(staff.position))
+                .filter(Boolean)
+            );
+
+            for (const staffRoleId of staffRoleIds) {
+              if (!member.roles.cache.has(staffRoleId)) {
+                continue;
+              }
+
+              try {
+                await member.roles.remove(
+                  staffRoleId,
+                  `Staff position removed because team ${team.name} was removed`
+                );
+
+                removedStaffRoles.push({
+                  userId,
+                  roleId: staffRoleId,
+                });
+              } catch (error) {
+                console.error(
+                  `Failed to remove staff role ${staffRoleId} from ${member.user.tag}:`,
+                  error
+                );
+
+                staffRoleErrors.push({
+                  userId,
+                  roleId: staffRoleId,
+                });
+              }
+            }
+
+            // Give everyone affected the Free Agent role.
+            if (!member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+              try {
+                await member.roles.add(
+                  FREE_AGENT_ROLE_ID,
+                  `Team ${team.name} was removed`
+                );
+              } catch (error) {
+                console.error(
+                  `Failed to add Free Agent role to ${member.user.tag}:`,
+                  error
+                );
+
+                freeAgentErrors.push(userId);
               }
             }
           }
 
-          // Remove staff records only after attempting role removals.
+          // Delete staff records and the team record after role updates
+          // have been attempted for all affected members.
           const removedStaff = staffEntries.length;
 
-          await Staffs.deleteMany({ teamRoleId });
+          await Staffs.deleteMany({
+            teamRoleId: team.roleId,
+          });
 
           await Teams.deleteOne({
             _id: team._id,
           });
 
-          const playerList = removedPlayers.length
-            ? removedPlayers
-                .map(
-                  member =>
-                    `• <@${member.id}> - removed from **${team.name}**, Free Agent role processed`
-                )
+          const playerList = affectedMembers.length
+            ? affectedMembers
+                .map(member => {
+                  const hadTeamRole = member.roles.cache.has(team.roleId);
+                  const teamRoleFailed = failedMembers.includes(member.id);
+                  const freeAgentFailed = freeAgentErrors.includes(member.id);
+
+                  let status;
+
+                  if (teamRoleFailed && hadTeamRole) {
+                    status = 'Team role removal failed';
+                  } else if (freeAgentFailed) {
+                    status = 'Free Agent role addition failed';
+                  } else {
+                    status = 'Processed';
+                  }
+
+                  return `• <@${member.id}> - ${status}`;
+                })
                 .join('\n')
-            : '*No players had the role or no role was found.*';
+            : '*No affected members were found.*';
 
           const staffList = removedStaff
             ? staffEntries
@@ -302,8 +404,18 @@ module.exports = {
                 inline: false,
               },
               {
-                name: 'Players Removed',
+                name: 'Affected Members',
+                value: String(affectedMembers.length),
+                inline: true,
+              },
+              {
+                name: 'Team Roles Removed',
                 value: String(removedPlayers.length),
+                inline: true,
+              },
+              {
+                name: 'Staff Roles Removed',
+                value: String(removedStaffRoles.length),
                 inline: true,
               },
               {
@@ -312,13 +424,27 @@ module.exports = {
                 inline: true,
               },
               {
-                name: 'Team Role Removal Errors',
+                name: 'Team Role Errors',
                 value: String(failedMembers.length),
+                inline: true,
+              },
+              {
+                name: 'Staff Role Errors',
+                value: String(staffRoleErrors.length),
                 inline: true,
               },
               {
                 name: 'Free Agent Role Errors',
                 value: String(freeAgentErrors.length),
+                inline: true,
+              },
+              {
+                name: 'Members Not Found',
+                value: String(
+                  [...affectedMemberIds].filter(
+                    userId => !members.has(userId)
+                  ).length
+                ),
                 inline: true,
               },
               {
@@ -356,10 +482,14 @@ module.exports = {
 
           await interaction.editReply({
             content:
-              `Team **${team.emoji || ''} ${team.name}** from **${team.division || 'Unknown'}** has been removed.\n` +
-              `Removed **${removedPlayers.length}** players from the team.\n` +
+              `Team **${team.emoji || ''} ${team.name}** from ` +
+              `**${team.division || 'Unknown'}** has been removed.\n` +
+              `Affected members: **${affectedMembers.length}**.\n` +
+              `Team roles removed: **${removedPlayers.length}**.\n` +
+              `Staff roles removed: **${removedStaffRoles.length}**.\n` +
               `Free Agent role errors: **${freeAgentErrors.length}**.\n` +
-              `Team role removal errors: **${failedMembers.length}**.\n` +
+              `Team role errors: **${failedMembers.length}**.\n` +
+              `Staff role errors: **${staffRoleErrors.length}**.\n` +
               `Deleted **${removedStaff}** staff records.\n` +
               `Removed by <@${interaction.user.id}>.`,
             components: [],
@@ -371,7 +501,8 @@ module.exports = {
           collector.stop('error');
 
           await interaction.editReply({
-            content: 'An error occurred while removing the team. Check the bot console.',
+            content:
+              'An error occurred while removing the team. Check the bot console.',
             components: [],
           }).catch(() => {});
         }
