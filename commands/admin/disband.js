@@ -22,6 +22,8 @@ const Teams = require('../../models/teams');
 const Staffs = require('../../models/staffs');
 const Divisions = require('../../models/divisions');
 
+const FREE_AGENT_ROLE_ID = '1374495332846669956';
+
 function getStaffRoleId(position) {
   switch (position) {
     case 'assistant':
@@ -234,7 +236,8 @@ module.exports = {
                 content:
                   `Are you sure you want to empty <@&${team.roleId}>?\n\n` +
                   'This removes the team role from its players and staff, ' +
-                  'removes team-specific staff roles, and deletes its staff records.\n\n' +
+                  'removes team-specific staff roles, gives the Free Agent role to removed members, ' +
+                  'and deletes the team staff records.\n\n' +
                   '**The team, team role, and division will remain.**',
                 components: [confirmRow],
               });
@@ -291,6 +294,7 @@ module.exports = {
 
                   const removedStaffRoles = [];
                   const removedTeamRoles = [];
+                  const givenFreeAgentRoles = [];
                   const failedMembers = [];
 
                   // Remove staff hierarchy roles belonging to this team.
@@ -334,15 +338,26 @@ module.exports = {
 
                   for (const member of teamRoleMembers.values()) {
                     try {
+                      // Remove the team role.
                       await member.roles.remove(
                         team.roleId,
                         `Disbanding ${team.name}: emptying team roster`
                       );
 
                       removedTeamRoles.push(member.id);
+
+                      // Give the Free Agent role after removing the team role.
+                      if (!member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+                        await member.roles.add(
+                          FREE_AGENT_ROLE_ID,
+                          `Disbanding ${team.name}: returning member to Free Agent status`
+                        );
+                      }
+
+                      givenFreeAgentRoles.push(member.id);
                     } catch (error) {
                       console.error(
-                        `Failed to remove team role from ${member.id}:`,
+                        `Failed to update roles for ${member.id}:`,
                         error
                       );
 
@@ -434,11 +449,12 @@ module.exports = {
                   await interaction.editReply({
                     content:
                       `Finished emptying <@&${team.roleId}>.\n\n` +
-                      `• Actual players removed: **${removedPlayerIds.length}**\n` +
+                      `• Players removed: **${removedPlayerIds.length}**\n` +
                       `• Staff members removed: **${removedStaffIds.length}**\n` +
                       `• Staff roles removed: **${removedStaffRoles.length}**\n` +
+                      `• Free Agent roles given: **${givenFreeAgentRoles.length}**\n` +
                       `• Staff records deleted: **${deleteResult.deletedCount || 0}**\n` +
-                      `• Members with role-removal errors: **${failedMembers.length}**\n\n` +
+                      `• Members with role-update errors: **${failedMembers.length}**\n\n` +
                       'The team record, team Discord role, and division were kept.',
                     allowedMentions: { parse: [] },
                     components: [],
