@@ -20,6 +20,8 @@ const Teams = require('../../models/teams');
 const Staffs = require('../../models/staffs');
 const Divisions = require('../../models/divisions');
 
+const FREE_AGENT_ROLE_ID = '1374495332846669956';
+
 function getStaffRoleId(position) {
   switch (position) {
     case 'assistant':
@@ -301,6 +303,11 @@ module.exports = {
 
               // Assign the staff hierarchy role
               await member.roles.add(staffRoleId);
+
+              // Remove the Free Agent role if they have it
+              if (member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+                await member.roles.remove(FREE_AGENT_ROLE_ID);
+              }
 
               // Save the staff record
               await Staffs.create({
