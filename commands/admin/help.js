@@ -35,26 +35,31 @@ const TEAM_STAFF = [
 const commandCategories = [
   {
     name: '🏆 Team Management',
-    description: 'Create and manage teams.',
+    description: 'Manage teams, signings, and players.',
+    emoji: '⚽',
     commands: [
       {
         name: '/addteam',
-        description: 'Creates a team.',
+        emoji: '➕',
+        description: 'Creates a new team.',
         permission: ROLES.PRESIDENT,
       },
       {
         name: '/sign',
+        emoji: '📝',
         description: 'Signs a player to your team.',
-        permission: `${TEAM_STAFF} (team staff record required)`,
+        permission: `${TEAM_STAFF} (staff record required)`,
       },
       {
         name: '/release',
+        emoji: '📤',
         description: 'Releases a player from your team.',
-        permission: `${TEAM_STAFF} (team staff record required)`,
+        permission: `${TEAM_STAFF} (staff record required)`,
       },
       {
         name: '/disband',
-        description: 'Clears a team but keeps it registered.',
+        emoji: '🧹',
+        description: 'Removes all players and staff.',
         permission: [
           ROLES.VICE_PRESIDENT,
           ROLES.PRESIDENT,
@@ -63,41 +68,48 @@ const commandCategories = [
       },
       {
         name: '/removeteam',
-        description: 'Permanently removes a team.',
+        emoji: '🗑️',
+        description: 'Permanently deletes a team.',
         permission: ROLES.PRESIDENT,
       },
       {
         name: '/teaminfo',
-        description: 'Shows team information.',
-        permission: 'Check teaminfo.js for access rules.',
+        emoji: '📋',
+        description: 'Views team information.',
+        permission: 'See command access rules.',
       },
     ],
   },
   {
     name: '👔 Staff Management',
-    description: 'Manage team staff positions.',
+    description: 'Appoint, promote, and manage team staff.',
+    emoji: '👥',
     commands: [
       {
         name: '/appoint',
-        description: 'Appoints a staff member.',
+        emoji: '📌',
+        description: 'Appoints a team staff member.',
         permission: LEAGUE_MANAGEMENT,
       },
       {
         name: '/promote',
+        emoji: '⬆️',
         description: 'Promotes a team member.',
         permission:
           `${ROLES.MANAGER}, ${ROLES.CHAIRMAN} ` +
-          '(must outrank the position assigned)',
+          '(must outrank target)',
       },
       {
         name: '/demote',
+        emoji: '⬇️',
         description: 'Demotes a staff member.',
         permission:
           `${ROLES.CHAIRMAN}, ${ROLES.MANAGER} ` +
-          '(must outrank the target on the same team)',
+          '(same team; must outrank target)',
       },
       {
         name: '/sack',
+        emoji: '🚫',
         description: 'Removes a staff position.',
         permission: LEAGUE_MANAGEMENT,
       },
@@ -105,31 +117,46 @@ const commandCategories = [
   },
   {
     name: '🏛️ Division Management',
-    description: 'Create, remove, and view divisions.',
+    description: 'Manage league divisions and their teams.',
+    emoji: '🗂️',
     commands: [
       {
         name: '/createdivision',
+        emoji: '➕',
         description: 'Creates a division.',
         permission: ROLES.PRESIDENT,
       },
       {
         name: '/removedivision',
+        emoji: '🗑️',
         description: 'Deletes a division and its teams.',
         permission: ROLES.PRESIDENT,
       },
       {
         name: '/division',
-        description: 'Shows division information.',
+        emoji: '📊',
+        description: 'Views division information.',
         permission: LEAGUE_MANAGEMENT,
       },
       {
         name: '/debugdivisions',
+        emoji: '🔍',
         description: 'Checks division data for issues.',
-        permission: 'Check debugdivisions.js for access rules.',
+        permission: 'See command access rules.',
       },
     ],
   },
 ];
+
+function createCommandField(command) {
+  return {
+    name: `${command.emoji}  ${command.name}`,
+    value:
+      `${command.description}\n\n` +
+      `🔑 **Access**\n${command.permission}`,
+    inline: true,
+  };
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -139,37 +166,51 @@ module.exports = {
   async execute(interaction) {
     const embeds = [];
 
+    // Main introduction
     const intro = new EmbedBuilder()
       .setColor(PURPLE)
-      .setTitle('📖 League Bot Help')
+      .setAuthor({
+        name: 'LEAGUE BOT  •  COMMAND CENTER',
+      })
+      .setTitle('📖 Command Guide')
       .setDescription(
-        '**Command Guide**\n' +
-        'Find commands by category below.\n\n' +
-        '**Team Management** — Teams and players\n' +
-        '**Staff Management** — Staff positions\n' +
-        '**Division Management** — League divisions'
+        'Welcome to the league command guide.\n' +
+        'Find the command you need using the categories below.\n\n' +
+        '━━━━━━━━━━━━━━━━━━━━\n\n' +
+        '🏆 **TEAM MANAGEMENT**\n' +
+        'Teams, players, and signings.\n\n' +
+        '👔 **STAFF MANAGEMENT**\n' +
+        'Appointments and staff positions.\n\n' +
+        '🏛️ **DIVISION MANAGEMENT**\n' +
+        'Divisions and league organization.\n\n' +
+        '━━━━━━━━━━━━━━━━━━━━\n\n' +
+        '🔑 **Access** indicates which roles can use each command.'
       )
       .setFooter({
-        text: 'League Management Bot',
-      });
+        text: 'League Management Bot • Help Menu',
+      })
+      .setTimestamp();
 
     embeds.push(intro);
 
+    // Category embeds
     for (const category of commandCategories) {
       const embed = new EmbedBuilder()
         .setColor(PURPLE)
+        .setAuthor({
+          name: 'LEAGUE BOT  •  COMMAND DIRECTORY',
+        })
         .setTitle(category.name)
-        .setDescription(category.description);
-
-      for (const command of category.commands) {
-        embed.addFields({
-          name: command.name,
-          value:
-            `${command.description}\n` +
-            `**Allowed roles:** ${command.permission}`,
-          inline: false,
+        .setDescription(
+          `${category.description}\n` +
+          '━━━━━━━━━━━━━━━━━━━━'
+        )
+        .addFields(
+          category.commands.map(createCommandField)
+        )
+        .setFooter({
+          text: `League Management Bot • ${category.commands.length} commands`,
         });
-      }
 
       embeds.push(embed);
     }
