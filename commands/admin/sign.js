@@ -15,6 +15,8 @@ const { logAction } = require('../../utils/logger');
 const Staffs = require('../../models/staffs');
 const Teams = require('../../models/teams');
 
+const FREE_AGENT_ROLE_ID = '1374495332846669956';
+
 function getTeamLogoUrl(emoji) {
   if (!emoji) return null;
 
@@ -111,16 +113,32 @@ module.exports = {
       });
     }
 
+    // Successful signing: add team role and remove Free Agent role.
     try {
       await member.roles.add(
         team.roleId,
         `Signed by ${interaction.user.tag}`
       );
+
+      if (member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+        await member.roles.remove(
+          FREE_AGENT_ROLE_ID,
+          `Signed to ${team.name} by ${interaction.user.tag}`
+        );
+      }
     } catch (error) {
-      console.error('Error assigning team role:', error);
+      console.error('Error updating player roles:', error);
+
+      // If removing Free Agent fails after the team role was added,
+      // attempt to undo the team role assignment.
+      await member.roles.remove(
+        team.roleId,
+        'Rolling back incomplete signing'
+      ).catch(() => {});
 
       return interaction.reply({
-        content: 'The player could not be signed. Check the bot role permissions.',
+        content:
+          'The player could not be signed correctly. Check the bot role permissions and role hierarchy.',
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -234,16 +252,24 @@ module.exports = {
 
         if (!currentMember) {
           await btnInteraction.editReply({
-            content: 'You could not be found in the server. Please contact a server administrator.',
+            content:
+              'You could not be found in the server. Please contact a server administrator.',
           });
 
           return;
         }
 
-        // Remove the team role.
+        // Force signing: remove team role and add Free Agent role.
         if (currentMember.roles.cache.has(team.roleId)) {
           await currentMember.roles.remove(
             team.roleId,
+            'Player reported a forced signing'
+          );
+        }
+
+        if (!currentMember.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+          await currentMember.roles.add(
+            FREE_AGENT_ROLE_ID,
             'Player reported a forced signing'
           );
         }
@@ -294,7 +320,9 @@ module.exports = {
         });
 
         await btnInteraction.editReply({
-          content: `Your signing to **${team.name}** has been revoked.`,
+          content:
+            `Your signing to **${team.name}** has been revoked. ` +
+            'You have been given the Free Agent role.',
         });
 
         const disabledRow = new ActionRowBuilder().addComponents(
@@ -311,7 +339,8 @@ module.exports = {
 
         if (btnInteraction.deferred || btnInteraction.replied) {
           await btnInteraction.editReply({
-            content: 'An error occurred while processing your report. Please contact a server administrator.',
+            content:
+              'An error occurred while processing your report. Please contact a server administrator.',
           }).catch(() => {});
         } else {
           await btnInteraction.reply({
