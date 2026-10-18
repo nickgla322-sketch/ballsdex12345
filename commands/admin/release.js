@@ -13,7 +13,7 @@ const Teams = require('../../models/teams');
 
 const FREE_AGENT_ROLE_ID = '1374495332846669956';
 
-const RELEASE_LIMIT = 5;
+const RELEASE_LIMIT = 2;
 const RELEASE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 const RELEASE_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -33,7 +33,7 @@ function getTeamLogoUrl(emoji) {
 
   const extension = emoji.startsWith('<a:') ? 'gif' : 'webp';
 
-  return `https://cdn.discordapp.com/emojis/${match[1]}.${extension}?size=256&quality=lossless`;
+  return `https://cdn.discordapp.com/emojis/${match[1]}.${extension}?size=26&quality=lossless`;
 }
 
 function getCurrentCooldown(userId) {
