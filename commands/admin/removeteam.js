@@ -14,6 +14,8 @@ const Teams = require('../../models/teams');
 const Staffs = require('../../models/staffs');
 const Divisions = require('../../models/divisions');
 
+const FREE_AGENT_ROLE_ID = '1374495332846669956';
+
 function getTeamLogoUrl(emoji) {
   if (!emoji) return null;
 
@@ -191,6 +193,7 @@ module.exports = {
 
           const removedPlayers = [];
           const failedMembers = [];
+          const freeAgentErrors = [];
 
           // Fetch members so uncached members can also be handled.
           let members;
@@ -216,12 +219,32 @@ module.exports = {
 
             for (const member of roleMembers.values()) {
               try {
+                // Remove the team role.
                 await member.roles.remove(
                   team.roleId,
                   `Removing team ${team.name}`
                 );
 
-                removedPlayers.push(member);
+                // Add Free Agent role to the member.
+                try {
+                  if (!member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+                    await member.roles.add(
+                      FREE_AGENT_ROLE_ID,
+                      `Team ${team.name} was removed`
+                    );
+                  }
+
+                  removedPlayers.push(member);
+                } catch (error) {
+                  console.error(
+                    `Failed to add Free Agent role to ${member.user.tag}:`,
+                    error
+                  );
+
+                  // The team role was removed, but Free Agent could not be added.
+                  removedPlayers.push(member);
+                  freeAgentErrors.push(member.id);
+                }
               } catch (error) {
                 console.error(
                   `Failed to remove team role from ${member.user.tag}:`,
@@ -246,7 +269,7 @@ module.exports = {
             ? removedPlayers
                 .map(
                   member =>
-                    `• <@${member.id}> - removed from **${team.name}**`
+                    `• <@${member.id}> - removed from **${team.name}**, Free Agent role processed`
                 )
                 .join('\n')
             : '*No players had the role or no role was found.*';
@@ -289,8 +312,13 @@ module.exports = {
                 inline: true,
               },
               {
-                name: 'Role Removal Errors',
+                name: 'Team Role Removal Errors',
                 value: String(failedMembers.length),
+                inline: true,
+              },
+              {
+                name: 'Free Agent Role Errors',
+                value: String(freeAgentErrors.length),
                 inline: true,
               },
               {
@@ -329,8 +357,10 @@ module.exports = {
           await interaction.editReply({
             content:
               `Team **${team.emoji || ''} ${team.name}** from **${team.division || 'Unknown'}** has been removed.\n` +
-              `Removed **${removedPlayers.length}** players and deleted **${removedStaff}** staff records.\n` +
-              `Members with role-removal errors: **${failedMembers.length}**.\n` +
+              `Removed **${removedPlayers.length}** players from the team.\n` +
+              `Free Agent role errors: **${freeAgentErrors.length}**.\n` +
+              `Team role removal errors: **${failedMembers.length}**.\n` +
+              `Deleted **${removedStaff}** staff records.\n` +
               `Removed by <@${interaction.user.id}>.`,
             components: [],
             allowedMentions: { parse: [] },
