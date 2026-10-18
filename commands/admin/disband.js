@@ -24,6 +24,13 @@ const Divisions = require('../../models/divisions');
 
 const FREE_AGENT_ROLE_ID = '1374495332846669956';
 
+// Six-hour cooldown per person.
+const DISBAND_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+
+// These maps apply across all uses of this command in this bot process.
+const disbandCooldowns = new Map();
+const activeDisbands = new Set();
+
 function getStaffRoleId(position) {
   switch (position) {
     case 'assistant':
@@ -84,6 +91,19 @@ function formatMembers(ids, staffByUserId, includePosition = false) {
   return `${result.slice(0, 990)}\n...list shortened.`;
 }
 
+function getCooldownMessage(expiry) {
+  const remaining = expiry - Date.now();
+
+  const totalMinutes = Math.ceil(remaining / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return (
+    `You are on cooldown! You must wait **${hours}h ${minutes}m** ` +
+    'before disbanding another team.'
+  );
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('disband')
@@ -102,6 +122,34 @@ module.exports = {
     ) {
       return interaction.reply({
         content: 'You do not have permission to use this command.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    const userId = interaction.user.id;
+
+    // Check the cooldown before opening the selection menus.
+    const cooldownExpiry = disbandCooldowns.get(userId);
+
+    if (cooldownExpiry) {
+      if (Date.now() < cooldownExpiry) {
+        return interaction.reply({
+          content: getCooldownMessage(cooldownExpiry),
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      // Remove an expired cooldown.
+      disbandCooldowns.delete(userId);
+    }
+
+    // Prevent the same person from opening multiple operations
+    // while another disband is being processed.
+    if (activeDisbands.has(userId)) {
+      return interaction.reply({
+        content:
+          'You already have a disband operation in progress. ' +
+          'Please finish it before starting another.',
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -147,7 +195,7 @@ module.exports = {
         interaction.channel.createMessageComponentCollector({
           filter: i =>
             i.customId === 'disband-division-select' &&
-            i.user.id === interaction.user.id,
+            i.user.id === userId,
           time: 60_000,
           max: 1,
         });
@@ -171,7 +219,9 @@ module.exports = {
 
           if (teams.length > 25) {
             return interaction.editReply({
-              content: `**${divisionName}** has too many teams to display. The maximum is 25.`,
+              content:
+                `**${divisionName}** has too many teams to display. ` +
+                'The maximum is 25.',
               components: [],
             });
           }
@@ -188,7 +238,9 @@ module.exports = {
             );
 
           await interaction.editReply({
-            content: `Division: **${divisionName}**\nSelect the team to empty:`,
+            content:
+              `Division: **${divisionName}**\n` +
+              'Select the team to empty:',
             components: [
               new ActionRowBuilder().addComponents(teamMenu),
             ],
@@ -198,7 +250,7 @@ module.exports = {
             interaction.channel.createMessageComponentCollector({
               filter: i =>
                 i.customId === 'disband-team-select' &&
-                i.user.id === interaction.user.id,
+                i.user.id === userId,
               time: 60_000,
               max: 1,
             });
@@ -236,31 +288,66 @@ module.exports = {
                 content:
                   `Are you sure you want to empty <@&${team.roleId}>?\n\n` +
                   'This removes the team role from its players and staff, ' +
-                  'removes team-specific staff roles, gives the Free Agent role to removed members, ' +
-                  'and deletes the team staff records.\n\n' +
-                  '**The team, team role, and division will remain.**',
+                  'removes team-specific staff roles, gives the Free Agent ' +
+                  'role to removed members, and deletes the team staff records.\n\n' +
+                  '**The team, team role, and division will remain.**\n\n' +
+                  '**Cooldown:** After completing this operation, you must ' +
+                  'wait 6 hours before disbanding another team.',
                 components: [confirmRow],
               });
 
               const confirmCollector =
                 interaction.channel.createMessageComponentCollector({
                   filter: i =>
-                    ['disband-confirm', 'disband-cancel'].includes(i.customId) &&
-                    i.user.id === interaction.user.id,
+                    ['disband-confirm', 'disband-cancel'].includes(
+                      i.customId
+                    ) && i.user.id === userId,
                   time: 30_000,
                   max: 1,
                 });
 
               confirmCollector.on('collect', async confirmInteraction => {
+                let ownsDisbandLock = false;
+
                 try {
                   await confirmInteraction.deferUpdate();
 
-                  if (confirmInteraction.customId === 'disband-cancel') {
+                  if (
+                    confirmInteraction.customId === 'disband-cancel'
+                  ) {
                     return interaction.editReply({
                       content: 'Disband cancelled. Nothing was changed.',
                       components: [],
                     });
                   }
+
+                  // Recheck the cooldown in case it changed while
+                  // the user was choosing a division or team.
+                  const currentCooldown = disbandCooldowns.get(userId);
+
+                  if (currentCooldown) {
+                    if (Date.now() < currentCooldown) {
+                      return interaction.editReply({
+                        content: getCooldownMessage(currentCooldown),
+                        components: [],
+                      });
+                    }
+
+                    disbandCooldowns.delete(userId);
+                  }
+
+                  // Prevent two separate confirmation menus from
+                  // processing disbands for the same person at once.
+                  if (activeDisbands.has(userId)) {
+                    return interaction.editReply({
+                      content:
+                        'You already have a disband operation in progress.',
+                      components: [],
+                    });
+                  }
+
+                  activeDisbands.add(userId);
+                  ownsDisbandLock = true;
 
                   const guild = interaction.guild;
 
@@ -282,7 +369,8 @@ module.exports = {
 
                     return interaction.editReply({
                       content:
-                        'Could not load all server members. No roles or staff records were changed. ' +
+                        'Could not load all server members. ' +
+                        'No roles or staff records were changed. ' +
                         'Wait a few seconds and try again.',
                       components: [],
                     });
@@ -300,6 +388,7 @@ module.exports = {
                   // Remove staff hierarchy roles belonging to this team.
                   for (const staff of staffEntries) {
                     const member = members.get(staff.userId);
+
                     if (!member) continue;
 
                     const staffRoleId = getStaffRoleId(staff.position);
@@ -352,9 +441,12 @@ module.exports = {
                           FREE_AGENT_ROLE_ID,
                           `Disbanding ${team.name}: returning member to Free Agent status`
                         );
-                      }
 
-                      givenFreeAgentRoles.push(member.id);
+                        givenFreeAgentRoles.push(member.id);
+                      } else {
+                        // They already have the Free Agent role.
+                        // Do not count it as newly given.
+                      }
                     } catch (error) {
                       console.error(
                         `Failed to update roles for ${member.id}:`,
@@ -385,6 +477,13 @@ module.exports = {
                     id => !staffIds.has(id)
                   );
 
+                  // The team has now been processed. Start the cooldown.
+                  // It applies even if some individual role updates failed.
+                  disbandCooldowns.set(
+                    userId,
+                    Date.now() + DISBAND_COOLDOWN_MS
+                  );
+
                   const embed = new EmbedBuilder()
                     .setColor('#c0392b')
                     .setAuthor({
@@ -410,7 +509,7 @@ module.exports = {
                       },
                       {
                         name: 'Disbanded By',
-                        value: `<@${interaction.user.id}>`,
+                        value: `<@${userId}>`,
                         inline: false,
                       },
                       {
@@ -455,8 +554,11 @@ module.exports = {
                       `• Free Agent roles given: **${givenFreeAgentRoles.length}**\n` +
                       `• Staff records deleted: **${deleteResult.deletedCount || 0}**\n` +
                       `• Members with role-update errors: **${failedMembers.length}**\n\n` +
-                      'The team record, team Discord role, and division were kept.',
-                    allowedMentions: { parse: [] },
+                      'The team record, team Discord role, and division were kept.\n' +
+                      '**Your next disband will be available in 6 hours.**',
+                    allowedMentions: {
+                      parse: [],
+                    },
                     components: [],
                   });
                 } catch (error) {
@@ -468,6 +570,12 @@ module.exports = {
                       'Check the bot console for details.',
                     components: [],
                   }).catch(() => {});
+                } finally {
+                  // Always release the lock, including on errors or
+                  // if fetching members fails.
+                  if (ownsDisbandLock) {
+                    activeDisbands.delete(userId);
+                  }
                 }
               });
 
