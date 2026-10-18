@@ -33,7 +33,7 @@ const tutorialSections = [
       '3. Choose the player and submit.\n\n' +
       '**What it does:** Removes the player’s team role and gives them the Free Agent role.\n\n' +
       '**Who can use it:** Chairmen, Managers, and Assistant Managers.\n\n' +
-      '**Limit:** Releasing too many players will result in a 6-hour cooldown. You must demote a player before releasing them.',
+      '**Limit:** Releasing 5 different players within 5 minutes triggers a 6-hour cooldown after the fifth release succeeds. You must demote a player before releasing them.',
   },
   {
     title: 'Promoting Players',
@@ -184,16 +184,28 @@ module.exports = {
         text: 'Use the sections below as a reference.',
       });
 
-    const embeds = [
+    const sectionEmbeds = tutorialSections.map(createTutorialEmbed);
+
+    const firstMessageEmbeds = [
       introEmbed,
-      ...tutorialSections.map(createTutorialEmbed),
+      ...sectionEmbeds.slice(0, 9),
     ];
 
+    const secondMessageEmbeds = sectionEmbeds.slice(9);
+
     await interaction.reply({
-      embeds,
+      embeds: firstMessageEmbeds,
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] },
     });
+
+    if (secondMessageEmbeds.length > 0) {
+      await interaction.followUp({
+        embeds: secondMessageEmbeds,
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { parse: [] },
+      });
+    }
 
     await logAction(
       interaction.guild,
