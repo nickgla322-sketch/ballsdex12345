@@ -5,8 +5,6 @@ const {
   MessageFlags,
 } = require('discord.js');
 
-const { logAction } = require('../../utils/logger');
-
 const PURPLE = '#9b59b6';
 
 const tutorialSections = [
@@ -77,8 +75,8 @@ const tutorialSections = [
       '**How to use it:**\n' +
       '1. Type `/disband`.\n' +
       '2. Select the division of the team.\n' +
-      '2. Select the team in the division.\n' +
-      '3. Confirm the action.\n\n' +
+      '3. Select the team in the division.\n' +
+      '4. Confirm the action.\n\n' +
       '**What it does:** Clears a team’s roster.\n\n' +
       '**Who can use it:** President, Vice President, Board of Directors, and Executive Director.\n\n' +
       '**Important:** Make sure you selected the correct team before confirming.',
@@ -119,7 +117,7 @@ const tutorialSections = [
       '1. Type `/teaminfo`.\n' +
       '2. Select the division of the team.\n' +
       '3. Select the team in the division.\n' +
-      '3. Submit the command.\n\n' +
+      '4. Submit the command.\n\n' +
       '**What it does:** Displays information about a team.\n\n' +
       '**Who can use it:** Everyone.',
   },
@@ -208,11 +206,5 @@ module.exports = {
         allowedMentions: { parse: [] },
       });
     }
-
-    await logAction(
-      interaction.guild,
-      'Help Command',
-      `${interaction.user.tag} viewed the GFC Bot tutorial.`
-    );
   },
 };
