@@ -33,7 +33,7 @@ const tutorialSections = [
       '3. Choose the player and submit.\n\n' +
       '**What it does:** Removes the player’s team role and gives them the Free Agent role.\n\n' +
       '**Who can use it:** Chairmen, Managers, and Assistant Managers.\n\n' +
-      '**Limit:** Releasing 5 different players within 5 minutes triggers a 6-hour cooldown after the fifth release succeeds. You must demote a player before releasing them.',
+      '**Limit:** Releasing multiple players rapidly triggers a 6-hour cooldown for releasing to prevent abuse. You must demote a player before releasing them.',
   },
   {
     title: 'Promoting Players',
@@ -45,7 +45,7 @@ const tutorialSections = [
       '2. Select the `user` option.\n' +
       '3. Select the `to` option: Assistant Manager or Manager.\n' +
       '4. Submit the command.\n\n' +
-      '**What it does:** Gives the player the selected managerial role and saves their new position.\n\n' +
+      '**What it does:** Gives the player the selected managerial role.\n\n' +
       '**Permissions:**\n' +
       '• Chairmen can promote to Manager or Assistant Manager.\n' +
       '• Managers can promote to Assistant Manager.\n' +
@@ -76,10 +76,11 @@ const tutorialSections = [
       '**Where:** #「💬」▏general\n\n' +
       '**How to use it:**\n' +
       '1. Type `/disband`.\n' +
-      '2. Select the team if prompted.\n' +
-      '3. Confirm the action if prompted.\n\n' +
+      '2. Select the division of the team.\n' +
+      '2. Select the team in the division.\n' +
+      '3. Confirm the action.\n\n' +
       '**What it does:** Clears a team’s roster.\n\n' +
-      '**Who can use it:** League Management.\n\n' +
+      '**Who can use it:** President, Vice President, Board of Directors, and Executive Director.\n\n' +
       '**Important:** Make sure you selected the correct team before confirming.',
   },
   {
@@ -93,7 +94,7 @@ const tutorialSections = [
       '3. Choose the team and position if prompted.\n' +
       '4. Submit the command.\n\n' +
       '**What it does:** Appoints a player to a staff position on a team.\n\n' +
-      '**Who can use it:** League Management.\n\n' +
+      '**Who can use it:** President, Vice President, Board of Directors, Executive Director, and League Coordinator.\n\n' +
       '**Important:** Check the selected player, team, and position before submitting.',
   },
   {
@@ -106,7 +107,7 @@ const tutorialSections = [
       '2. Select the staff member you want to remove.\n' +
       '3. Submit the command.\n\n' +
       '**What it does:** Removes a staff member from their position.\n\n' +
-      '**Who can use it:** League Management.\n\n' +
+      '**Who can use it:** President, Vice President, Board of Directors, Executive Director, and League Coordinator.\n\n' +
       '**Important:** Check that you selected the correct staff member.',
   },
   {
@@ -116,7 +117,8 @@ const tutorialSections = [
       '**Where:** #「💬」▏general\n\n' +
       '**How to use it:**\n' +
       '1. Type `/teaminfo`.\n' +
-      '2. Select the team if prompted.\n' +
+      '2. Select the division of the team.\n' +
+      '3. Select the team in the division.\n' +
       '3. Submit the command.\n\n' +
       '**What it does:** Displays information about a team.\n\n' +
       '**Who can use it:** Everyone.',
