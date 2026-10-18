@@ -13,6 +13,17 @@ const Teams = require('../../models/teams');
 
 const FREE_AGENT_ROLE_ID = '1374495332846669956';
 
+const RELEASE_LIMIT = 5;
+const RELEASE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const RELEASE_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+// Tracks successful releases by each person using the command.
+const releaseHistory = new Map();
+const releaseCooldowns = new Map();
+
+// Prevents someone from processing multiple releases simultaneously.
+const activeReleases = new Set();
+
 function getTeamLogoUrl(emoji) {
   if (!emoji) return null;
 
@@ -23,6 +34,68 @@ function getTeamLogoUrl(emoji) {
   const extension = emoji.startsWith('<a:') ? 'gif' : 'webp';
 
   return `https://cdn.discordapp.com/emojis/${match[1]}.${extension}?size=256&quality=lossless`;
+}
+
+function getCurrentCooldown(userId) {
+  const expiry = releaseCooldowns.get(userId);
+
+  if (!expiry) return null;
+
+  if (Date.now() >= expiry) {
+    releaseCooldowns.delete(userId);
+    return null;
+  }
+
+  return expiry;
+}
+
+function getCooldownMessage(expiry) {
+  const remaining = Math.max(0, expiry - Date.now());
+  const totalMinutes = Math.ceil(remaining / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return (
+    `You have reached the release limit. You must wait **${hours}h ${minutes}m** ` +
+    'before releasing another player.'
+  );
+}
+
+function getRecentReleases(userId) {
+  const cutoff = Date.now() - RELEASE_WINDOW_MS;
+
+  const recent = (releaseHistory.get(userId) || []).filter(
+    release => release.timestamp > cutoff
+  );
+
+  releaseHistory.set(userId, recent);
+
+  return recent;
+}
+
+function recordRelease(actorId, targetUserId) {
+  const recent = getRecentReleases(actorId);
+
+  // Count each player only once within the five-minute window.
+  if (!recent.some(release => release.targetUserId === targetUserId)) {
+    recent.push({
+      targetUserId,
+      timestamp: Date.now(),
+    });
+  }
+
+  releaseHistory.set(actorId, recent);
+
+  if (recent.length >= RELEASE_LIMIT) {
+    const expiry = Date.now() + RELEASE_COOLDOWN_MS;
+
+    releaseCooldowns.set(actorId, expiry);
+    releaseHistory.delete(actorId);
+
+    return expiry;
+  }
+
+  return null;
 }
 
 module.exports = {
@@ -37,14 +110,13 @@ module.exports = {
     ),
 
   async execute(interaction, client) {
-    const allowedRoles = Array.isArray(RELEASE_ROLE)
-      ? RELEASE_ROLE
-      : [RELEASE_ROLE];
+    const allowedRoles = (
+      Array.isArray(RELEASE_ROLE) ? RELEASE_ROLE : [RELEASE_ROLE]
+    ).filter(Boolean);
 
     if (
-      !allowedRoles.some(
-        roleId =>
-          roleId && interaction.member.roles.cache.has(roleId)
+      !allowedRoles.some(roleId =>
+        interaction.member.roles.cache.has(roleId)
       )
     ) {
       return interaction.reply({
@@ -53,8 +125,27 @@ module.exports = {
       });
     }
 
+    const actorId = interaction.user.id;
+
+    // Check the user's personal release cooldown.
+    const cooldownExpiry = getCurrentCooldown(actorId);
+
+    if (cooldownExpiry) {
+      return interaction.reply({
+        content: getCooldownMessage(cooldownExpiry),
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    if (activeReleases.has(actorId)) {
+      return interaction.reply({
+        content: 'You already have a release operation in progress.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
     const staffEntry = await Staffs.findOne({
-      userId: interaction.user.id,
+      userId: actorId,
     });
 
     if (!staffEntry) {
@@ -76,6 +167,13 @@ module.exports = {
     }
 
     const player = interaction.options.getUser('player');
+
+    if (player.id === actorId) {
+      return interaction.reply({
+        content: 'You cannot release yourself.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
 
     let member;
 
@@ -103,10 +201,30 @@ module.exports = {
     if (targetStaffEntry) {
       return interaction.reply({
         content:
-          `Demote <@${player.id}> from their **${targetStaffEntry.position}** position before releasing them.`,
+          `Demote <@${player.id}> from their **${targetStaffEntry.position}** ` +
+          'position before releasing them.',
         flags: MessageFlags.Ephemeral,
       });
     }
+
+    // Recheck immediately before changing roles to prevent overlapping requests.
+    const latestCooldown = getCurrentCooldown(actorId);
+
+    if (latestCooldown) {
+      return interaction.reply({
+        content: getCooldownMessage(latestCooldown),
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    if (activeReleases.has(actorId)) {
+      return interaction.reply({
+        content: 'You already have a release operation in progress.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    activeReleases.add(actorId);
 
     try {
       // Remove the team role.
@@ -127,10 +245,18 @@ module.exports = {
 
       return interaction.reply({
         content:
-          'Could not update the player roles. Check the bot permissions and role hierarchy.',
+          'Could not update the player roles. Check the bot permissions ' +
+          'and role hierarchy. If the team role was already removed, ' +
+          'check the player roles before trying again.',
         flags: MessageFlags.Ephemeral,
       });
+    } finally {
+      // Release the lock even if a role update fails.
+      activeReleases.delete(actorId);
     }
+
+    // Count the release only after the role updates succeed.
+    const newCooldownExpiry = recordRelease(actorId, player.id);
 
     const guild = interaction.guild;
 
@@ -159,7 +285,7 @@ module.exports = {
         },
         {
           name: 'Released By',
-          value: `<@${interaction.user.id}>`,
+          value: `<@${actorId}>`,
           inline: false,
         },
         {
@@ -176,14 +302,33 @@ module.exports = {
       embed.setThumbnail(teamThumbnail);
     }
 
-    await logAction(client, {
-      embeds: [embed],
-      allowedMentions: { parse: [] },
-    });
+    try {
+      await logAction(client, {
+        embeds: [embed],
+        allowedMentions: { parse: [] },
+      });
+    } catch (error) {
+      // The release and cooldown still count even if logging fails.
+      console.error('Failed to log player release:', error);
+    }
 
-    await interaction.reply({
-      content:
-        `<@${player.id}> has been released from **${team.name}** and given the Free Agent role.`,
+    let response =
+      `<@${player.id}> has been released from **${team.name}** ` +
+      'and given the Free Agent role.';
+
+    if (newCooldownExpiry) {
+      response +=
+        '\n\nYou have released **5 different players within 5 minutes**. ' +
+        'You are now on a **6-hour release cooldown**.';
+    } else {
+      const recentCount = getRecentReleases(actorId).length;
+
+      response +=
+        `\n\nReleases in the last 5 minutes: **${recentCount}/${RELEASE_LIMIT}**.`;
+    }
+
+    return interaction.reply({
+      content: response,
       allowedMentions: { parse: [] },
     });
   },
