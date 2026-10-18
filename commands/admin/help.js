@@ -33,7 +33,7 @@ const tutorialSections = [
       '3. Choose the player and submit.\n\n' +
       '**What it does:** Removes the player’s team role and gives them the Free Agent role.\n\n' +
       '**Who can use it:** Chairmen, Managers, and Assistant Managers.\n\n' +
-      '**Limit:** Releasing 5 different players within 5 minutes triggers a 6-hour cooldown. Staff must demote a player before releasing them.',
+      '**Limit:** Releasing too many players will result in a 6-hour cooldown. You must demote a player before releasing them.',
   },
   {
     title: 'Promoting Players',
@@ -45,12 +45,12 @@ const tutorialSections = [
       '2. Select the `user` option.\n' +
       '3. Select the `to` option: Assistant Manager or Manager.\n' +
       '4. Submit the command.\n\n' +
-      '**What it does:** Gives the player the selected staff role and saves their new position.\n\n' +
+      '**What it does:** Gives the player the selected managerial role and saves their new position.\n\n' +
       '**Permissions:**\n' +
       '• Chairmen can promote to Manager or Assistant Manager.\n' +
       '• Managers can promote to Assistant Manager.\n' +
       '• Assistant Managers cannot promote.\n\n' +
-      'The player must be on your team. Each team can only have one person in each staff position.',
+      'The player must be on your team. Each team can only have one person in each manegerial position.',
   },
   {
     title: 'Demoting Staff',
@@ -62,7 +62,7 @@ const tutorialSections = [
       '2. Select the `user` option.\n' +
       '3. Select the `to` option: Manager, Assistant Manager, or Normal Team Member.\n' +
       '4. Submit the command.\n\n' +
-      '**What it does:** Removes the old staff role and applies the new position. Choosing Normal Team Member removes their staff record but keeps their team role.\n\n' +
+      '**What it does:** Removes the old managerial role and applies the new position. Choosing Normal Team Member removes their managerial role but keeps their team role.\n\n' +
       '**Permissions:**\n' +
       '• Chairmen can demote Managers and Assistant Managers.\n' +
       '• Managers can demote Assistant Managers.\n' +
@@ -90,7 +90,7 @@ const tutorialSections = [
       '• Only sign players who agree to join your club.\n' +
       '• Forced signings can result in the responsible staff member being sacked.\n' +
       '• Signings, releases, promotions, and demotions are logged.\n' +
-      '• Deleting a transaction message does not necessarily delete the bot’s console logs.\n' +
+      '• Deleting a transaction message does not delete the bot’s console logs.\n' +
       '• Use commands responsibly and check the selected player before submitting.',
   },
 ];
