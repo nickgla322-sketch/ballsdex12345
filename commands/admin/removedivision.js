@@ -13,6 +13,8 @@ const { logAction } = require('../../utils/logger');
 const Divisions = require('../../models/divisions');
 const Teams = require('../../models/teams');
 
+const FREE_AGENT_ROLE_ID = '1374495332846669956';
+
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -138,15 +140,94 @@ module.exports = {
           });
 
           const removedTeams = teamsInDivision.length;
+          const guild = interaction.guild;
 
-          // Delete the division and its teams.
-          await Divisions.deleteOne({ _id: division._id });
+          const removedPlayers = new Set();
+          const failedRoleRemovals = new Set();
+          const freeAgentErrors = new Set();
+
+          // Fetch all server members before changing roles or deleting records.
+          let members;
+
+          try {
+            members = await guild.members.fetch();
+          } catch (error) {
+            console.error('Failed to fetch guild members:', error);
+
+            return interaction.editReply({
+              content:
+                'Could not load all server members. The division and teams were not deleted. Try again later.',
+              components: [],
+            });
+          }
+
+          // Find the team roles that still exist in the server.
+          const teamRoles = teamsInDivision
+            .map(team => ({
+              team,
+              role: guild.roles.cache.get(team.roleId),
+            }))
+            .filter(entry => entry.role);
+
+          // Remove division team roles and give Free Agent to affected members.
+          for (const member of members.values()) {
+            const memberTeamRoles = teamRoles.filter(({ team }) =>
+              member.roles.cache.has(team.roleId)
+            );
+
+            if (!memberTeamRoles.length) continue;
+
+            let allTeamRolesRemoved = true;
+
+            for (const { team } of memberTeamRoles) {
+              try {
+                await member.roles.remove(
+                  team.roleId,
+                  `Removing division ${division.name} and its teams`
+                );
+              } catch (error) {
+                console.error(
+                  `Failed to remove team role ${team.roleId} from ${member.user.tag}:`,
+                  error
+                );
+
+                failedRoleRemovals.add(member.id);
+                allTeamRolesRemoved = false;
+              }
+            }
+
+            // Only add Free Agent if all of this member's roles
+            // from the deleted division were successfully removed.
+            if (allTeamRolesRemoved) {
+              try {
+                if (!member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+                  await member.roles.add(
+                    FREE_AGENT_ROLE_ID,
+                    `Division ${division.name} was removed`
+                  );
+                }
+
+                removedPlayers.add(member.id);
+              } catch (error) {
+                console.error(
+                  `Failed to add Free Agent role to ${member.user.tag}:`,
+                  error
+                );
+
+                freeAgentErrors.add(member.id);
+                removedPlayers.add(member.id);
+              }
+            }
+          }
+
+          // Delete the division and its teams after processing member roles.
+          await Divisions.deleteOne({
+            _id: division._id,
+          });
 
           await Teams.deleteMany({
             division: division.name,
           });
-
-          const guild = interaction.guild;
 
           const teamList = removedTeams
             ? teamsInDivision
@@ -170,6 +251,23 @@ module.exports = {
               {
                 name: 'Teams Removed',
                 value: String(removedTeams),
+                inline: true,
+              },
+              {
+                name: 'Players Given Free Agent',
+                value: String(
+                  removedPlayers.size - freeAgentErrors.size
+                ),
+                inline: true,
+              },
+              {
+                name: 'Team Role Removal Errors',
+                value: String(failedRoleRemovals.size),
+                inline: true,
+              },
+              {
+                name: 'Free Agent Role Errors',
+                value: String(freeAgentErrors.size),
                 inline: true,
               },
               {
@@ -200,6 +298,9 @@ module.exports = {
             content:
               `Division **${division.emoji || ''} ${division.name}** has been removed.\n` +
               `Removed **${removedTeams}** teams.\n` +
+              `Processed **${removedPlayers.size}** affected players.\n` +
+              `Free Agent role errors: **${freeAgentErrors.size}**.\n` +
+              `Team role removal errors: **${failedRoleRemovals.size}**.\n` +
               `Removed by <@${interaction.user.id}>.`,
             allowedMentions: { parse: [] },
             components: [],
