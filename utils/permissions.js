@@ -64,7 +64,8 @@ module.exports = {
   DISBAND_ROLE: [
     "1374495059470188636", // [Vice President]
     "1374495054231638107",  // [President]
-    "1374495070157406219" // [Director]
+    "1374495070157406219", // [Director]
+    "1374495064901812285" // [Board of Directors]
   ],
 
   ASSISTANT_MANAGER_ROLE: "1374495166651437169",
