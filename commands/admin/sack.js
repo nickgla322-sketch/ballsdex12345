@@ -20,6 +20,17 @@ const { logAction } = require('../../utils/logger');
 const Teams = require('../../models/teams');
 const Staffs = require('../../models/staffs');
 
+const SACK_LIMIT = 3;
+const SACK_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const SACK_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+// Tracks successful sacks by the person using the command.
+const sackHistory = new Map();
+const sackCooldowns = new Map();
+
+// Prevents the same person from processing multiple sacks at once.
+const activeSacks = new Set();
+
 function getStaffRoleId(position) {
   switch (position) {
     case 'assistant':
@@ -58,6 +69,69 @@ function getTeamLogoUrl(emoji) {
   return `https://cdn.discordapp.com/emojis/${match[1]}.${extension}?size=256&quality=lossless`;
 }
 
+function getCooldownMessage(expiry) {
+  const remaining = Math.max(0, expiry - Date.now());
+  const totalMinutes = Math.ceil(remaining / (60 * 1000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return (
+    `You have reached the sack limit. You must wait **${hours}h ${minutes}m** ` +
+    'before sacking another person.'
+  );
+}
+
+function getActiveSacks(userId) {
+  const cutoff = Date.now() - SACK_WINDOW_MS;
+
+  const recent = (sackHistory.get(userId) || []).filter(
+    sack => sack.timestamp > cutoff
+  );
+
+  sackHistory.set(userId, recent);
+
+  return recent;
+}
+
+function recordSack(actorId, targetUserId) {
+  const recent = getActiveSacks(actorId);
+
+  // Count each target only once within the five-minute window.
+  // Removing multiple positions from the same person counts as one person.
+  if (!recent.some(sack => sack.targetUserId === targetUserId)) {
+    recent.push({
+      targetUserId,
+      timestamp: Date.now(),
+    });
+  }
+
+  sackHistory.set(actorId, recent);
+
+  if (recent.length >= SACK_LIMIT) {
+    const expiry = Date.now() + SACK_COOLDOWN_MS;
+
+    sackCooldowns.set(actorId, expiry);
+    sackHistory.delete(actorId);
+
+    return expiry;
+  }
+
+  return null;
+}
+
+function getCurrentCooldown(userId) {
+  const expiry = sackCooldowns.get(userId);
+
+  if (!expiry) return null;
+
+  if (Date.now() >= expiry) {
+    sackCooldowns.delete(userId);
+    return null;
+  }
+
+  return expiry;
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('sack')
@@ -86,7 +160,31 @@ module.exports = {
       });
     }
 
+    const actorId = interaction.user.id;
+    const cooldownExpiry = getCurrentCooldown(actorId);
+
+    if (cooldownExpiry) {
+      return interaction.reply({
+        content: getCooldownMessage(cooldownExpiry),
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    if (activeSacks.has(actorId)) {
+      return interaction.reply({
+        content: 'You already have a sack operation in progress.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
     const user = interaction.options.getUser('user');
+
+    if (user.id === actorId) {
+      return interaction.reply({
+        content: 'You cannot sack yourself.',
+        flags: MessageFlags.Ephemeral,
+      });
+    }
 
     const staffEntries = await Staffs.find({
       userId: user.id,
@@ -172,7 +270,7 @@ module.exports = {
     const collector = reply.createMessageComponentCollector({
       filter: i =>
         i.customId === `sack-position-${interaction.id}` &&
-        i.user.id === interaction.user.id,
+        i.user.id === actorId,
       time: 30_000,
       max: 1,
     });
@@ -220,114 +318,174 @@ module.exports = {
 };
 
 async function sackStaff(interaction, client, user, staffEntry) {
-  const team = await Teams.findOne({
-    roleId: staffEntry.teamRoleId,
-  });
+  const actorId = interaction.user.id;
 
-  if (!team) {
+  // Check again when the position is actually being processed.
+  const cooldownExpiry = getCurrentCooldown(actorId);
+
+  if (cooldownExpiry) {
     return interaction.editReply({
-      content: 'The team associated with this staff position no longer exists.',
+      content: getCooldownMessage(cooldownExpiry),
       components: [],
     });
   }
 
-  const staffRoleId = getStaffRoleId(staffEntry.position);
+  if (activeSacks.has(actorId)) {
+    return interaction.editReply({
+      content: 'You already have a sack operation in progress.',
+      components: [],
+    });
+  }
 
-  let member;
+  activeSacks.add(actorId);
 
   try {
-    member = await interaction.guild.members.fetch(user.id);
-  } catch {
-    return interaction.editReply({
-      content: 'This user could not be found in the server. No changes were made.',
-      components: [],
+    const team = await Teams.findOne({
+      roleId: staffEntry.teamRoleId,
     });
-  }
 
-  const staffRoleIds = (
-    Array.isArray(staffRoleId) ? staffRoleId : [staffRoleId]
-  ).filter(Boolean);
+    if (!team) {
+      return interaction.editReply({
+        content:
+          'The team associated with this staff position no longer exists.',
+        components: [],
+      });
+    }
 
-  // Remove only this staff position from the database.
-  await Staffs.deleteOne({
-    _id: staffEntry._id,
-  });
+    const staffRoleId = getStaffRoleId(staffEntry.position);
 
-  // Keep the hierarchy role if the user still holds this position in another team.
-  const remainingPosition = await Staffs.exists({
-    userId: user.id,
-    position: staffEntry.position,
-  });
+    let member;
 
-  // Remove the management role only if the user has no other matching position.
-  if (!remainingPosition) {
-    for (const roleId of staffRoleIds) {
-      if (member.roles.cache.has(roleId)) {
-        await member.roles.remove(
-          roleId,
-          `Sacked from ${pretty(staffEntry.position)} at ${team.name}`
-        );
+    try {
+      member = await interaction.guild.members.fetch(user.id);
+    } catch {
+      return interaction.editReply({
+        content:
+          'This user could not be found in the server. No changes were made.',
+        components: [],
+      });
+    }
+
+    const staffRoleIds = (
+      Array.isArray(staffRoleId) ? staffRoleId : [staffRoleId]
+    ).filter(Boolean);
+
+    // Remove only this staff position from the database.
+    const deleteResult = await Staffs.deleteOne({
+      _id: staffEntry._id,
+    });
+
+    if (!deleteResult.deletedCount) {
+      return interaction.editReply({
+        content:
+          'This staff position has already been removed. No further changes were made.',
+        components: [],
+      });
+    }
+
+    // Keep the hierarchy role if the user still holds this position in another team.
+    const remainingPosition = await Staffs.exists({
+      userId: user.id,
+      position: staffEntry.position,
+    });
+
+    // Remove the management role only if the user has no other matching position.
+    if (!remainingPosition) {
+      for (const roleId of staffRoleIds) {
+        if (member.roles.cache.has(roleId)) {
+          await member.roles.remove(
+            roleId,
+            `Sacked from ${pretty(staffEntry.position)} at ${team.name}`
+          );
+        }
       }
     }
+
+    // Record the sack after the staff record has been removed.
+    // The third distinct person sacked within five minutes triggers the cooldown.
+    const newCooldownExpiry = recordSack(actorId, user.id);
+
+    const guild = interaction.guild;
+
+    const embed = new EmbedBuilder()
+      .setColor('#e74c3c')
+      .setAuthor({
+        name: guild.name,
+        iconURL: guild.iconURL({ size: 256 }) || undefined,
+      })
+      .setTitle('Staff Member Sacked')
+      .addFields(
+        {
+          name: 'Division',
+          value: team.division || 'Unknown',
+          inline: false,
+        },
+        {
+          name: 'Team',
+          value: `${team.emoji || ''} <@&${team.roleId}>`,
+          inline: false,
+        },
+        {
+          name: 'Position Removed',
+          value: staffRoleIds.length
+            ? `${staffRoleIds.map(id => `<@&${id}>`).join(', ')} (${pretty(staffEntry.position)})`
+            : pretty(staffEntry.position),
+          inline: true,
+        },
+        {
+          name: 'User Sacked',
+          value: `<@${user.id}>`,
+          inline: false,
+        },
+        {
+          name: 'Sacked By',
+          value: `<@${actorId}>`,
+          inline: false,
+        }
+      )
+      .setTimestamp();
+
+    const teamLogoUrl = getTeamLogoUrl(team.emoji);
+
+    if (teamLogoUrl) {
+      embed.setThumbnail(teamLogoUrl);
+    }
+
+    await logAction(client, {
+      embeds: [embed],
+      allowedMentions: { parse: [] },
+    });
+
+    const recentSackCount = getActiveSacks(actorId).length;
+
+    let response =
+      `<@${user.id}> has been removed from the **${pretty(staffEntry.position)}** ` +
+      `position at **${team.name}**. They remain on the team.`;
+
+    if (newCooldownExpiry) {
+      response +=
+        '\n\nYou have sacked **3 different people within 5 minutes**. ' +
+        'You are now on a **6-hour sack cooldown**.';
+    } else {
+      response +=
+        `\n\nSacks in the last 5 minutes: **${recentSackCount}/${SACK_LIMIT}**.`;
+    }
+
+    return interaction.editReply({
+      content: response,
+      allowedMentions: { parse: [] },
+      components: [],
+    });
+  } catch (error) {
+    console.error('Error sacking staff member:', error);
+
+    return interaction.editReply({
+      content:
+        'An error occurred while sacking this staff member. ' +
+        'Check the bot console for details.',
+      components: [],
+    }).catch(() => {});
+  } finally {
+    activeSacks.delete(actorId);
   }
-
-  // The team role is intentionally left untouched.
-
-  const guild = interaction.guild;
-
-  const embed = new EmbedBuilder()
-    .setColor('#e74c3c')
-    .setAuthor({
-      name: guild.name,
-      iconURL: guild.iconURL({ size: 256 }) || undefined,
-    })
-    .setTitle('Staff Member Sacked')
-    .addFields(
-      {
-        name: 'Division',
-        value: team.division || 'Unknown',
-        inline: false,
-      },
-      {
-        name: 'Team',
-        value: `${team.emoji || ''} <@&${team.roleId}>`,
-        inline: false,
-      },
-      {
-        name: 'Position Removed',
-        value: staffRoleIds.length
-          ? `${staffRoleIds.map(id => `<@&${id}>`).join(', ')} (${pretty(staffEntry.position)})`
-          : pretty(staffEntry.position),
-        inline: true,
-      },
-      {
-        name: 'User Sacked',
-        value: `<@${user.id}>`,
-        inline: false,
-      },
-      {
-        name: 'Sacked By',
-        value: `<@${interaction.user.id}>`,
-        inline: false,
-      }
-    )
-    .setTimestamp();
-
-  const teamLogoUrl = getTeamLogoUrl(team.emoji);
-
-  if (teamLogoUrl) {
-    embed.setThumbnail(teamLogoUrl);
-  }
-
-  await logAction(client, {
-    embeds: [embed],
-    allowedMentions: { parse: [] },
-  });
-
-  return interaction.editReply({
-    content:
-      `<@${user.id}> has been removed from the **${pretty(staffEntry.position)}** position at **${team.name}**. They remain on the team.`,
-    allowedMentions: { parse: [] },
-    components: [],
-  });
 }
