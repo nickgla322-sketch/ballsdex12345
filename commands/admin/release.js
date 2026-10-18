@@ -13,7 +13,7 @@ const Teams = require('../../models/teams');
 
 const FREE_AGENT_ROLE_ID = '1374495332846669956';
 
-const RELEASE_LIMIT = 2;
+const RELEASE_LIMIT = 5;
 const RELEASE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 const RELEASE_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -207,7 +207,7 @@ module.exports = {
       });
     }
 
-    // Recheck immediately before changing roles to prevent overlapping requests.
+    // Recheck immediately before changing roles.
     const latestCooldown = getCurrentCooldown(actorId);
 
     if (latestCooldown) {
@@ -251,20 +251,17 @@ module.exports = {
         flags: MessageFlags.Ephemeral,
       });
     } finally {
-      // Release the lock even if a role update fails.
       activeReleases.delete(actorId);
     }
 
     // Count the release only after the role updates succeed.
     const newCooldownExpiry = recordRelease(actorId, player.id);
 
-    const guild = interaction.guild;
-
     const embed = new EmbedBuilder()
       .setColor('#9b59b6')
       .setAuthor({
-        name: guild.name,
-        iconURL: guild.iconURL({ size: 256 }) || undefined,
+        name: interaction.guild.name,
+        iconURL: interaction.guild.iconURL({ size: 256 }) || undefined,
       })
       .setTitle('Player Released')
       .addFields(
@@ -308,7 +305,6 @@ module.exports = {
         allowedMentions: { parse: [] },
       });
     } catch (error) {
-      // The release and cooldown still count even if logging fails.
       console.error('Failed to log player release:', error);
     }
 
@@ -318,13 +314,8 @@ module.exports = {
 
     if (newCooldownExpiry) {
       response +=
-        '\n\nYou have released **5 different players within 5 minutes**. ' +
-        'You are now on a **6-hour release cooldown**.';
-    } else {
-      const recentCount = getRecentReleases(actorId).length;
-
-      response +=
-        `\n\nReleases in the last 5 minutes: **${recentCount}/${RELEASE_LIMIT}**.`;
+        '\n\nYou have reached the release limit and are now on a ' +
+        '**6-hour release cooldown**.';
     }
 
     return interaction.reply({
