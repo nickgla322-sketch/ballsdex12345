@@ -5,222 +5,177 @@ const {
   MessageFlags,
 } = require('discord.js');
 
+const { logAction } = require('../../utils/logger');
+
 const PURPLE = '#9b59b6';
 
 const ROLES = {
   PRESIDENT: 'President',
   VICE_PRESIDENT: 'Vice President',
   BOARD: 'Board of Directors',
-  COORDINATOR: 'League Coordinator',
   DIRECTOR: 'Director',
+  COORDINATOR: 'League Coordinator',
   CHAIRMAN: 'Chairman',
   MANAGER: 'Manager',
-  ASSISTANT: 'Assistant Manager',
+  ASSISTANT_MANAGER: 'Assistant Manager',
 };
 
 const LEAGUE_MANAGEMENT = [
-  ROLES.BOARD,
-  ROLES.VICE_PRESIDENT,
   ROLES.PRESIDENT,
-  ROLES.COORDINATOR,
+  ROLES.VICE_PRESIDENT,
+  ROLES.BOARD,
   ROLES.DIRECTOR,
-].join(', ');
+  ROLES.COORDINATOR,
+];
 
 const TEAM_STAFF = [
-  ROLES.ASSISTANT,
-  ROLES.MANAGER,
   ROLES.CHAIRMAN,
-].join(', ');
+  ROLES.MANAGER,
+  ROLES.ASSISTANT_MANAGER,
+];
 
 const commandCategories = [
   {
-    name: '🏆 Team Management',
-    description: 'Manage teams, signings, and players.',
-    emoji: '⚽',
+    name: 'Team Management',
+    description: 'Manage teams and their players.',
     commands: [
       {
         name: '/addteam',
-        emoji: '➕',
-        description: 'Creates a new team.',
-        permission: ROLES.PRESIDENT,
+        description: 'Add a new team.',
+        roles: LEAGUE_MANAGEMENT,
       },
       {
         name: '/sign',
-        emoji: '📝',
-        description: 'Signs a player to your team.',
-        permission: `${TEAM_STAFF} (staff record required)`,
+        description: 'Sign a player to a team.',
+        roles: TEAM_STAFF,
       },
       {
         name: '/release',
-        emoji: '📤',
-        description: 'Releases a player from your team.',
-        permission: `${TEAM_STAFF} (staff record required)`,
+        description: 'Release a player from a team.',
+        roles: TEAM_STAFF,
       },
       {
         name: '/disband',
-        emoji: '🧹',
-        description: 'Removes all players and staff.',
-        permission: [
-          ROLES.VICE_PRESIDENT,
-          ROLES.PRESIDENT,
-          ROLES.DIRECTOR,
-        ].join(', '),
+        description: 'Clear a team’s roster.',
+        roles: LEAGUE_MANAGEMENT,
       },
       {
         name: '/removeteam',
-        emoji: '🗑️',
-        description: 'Permanently deletes a team.',
-        permission: ROLES.PRESIDENT,
+        description: 'Remove a team from the league.',
+        roles: LEAGUE_MANAGEMENT,
       },
       {
         name: '/teaminfo',
-        emoji: '📋',
-        description: 'Views team information.',
-        permission: 'See command access rules.',
+        description: 'View team information.',
+        roles: [...LEAGUE_MANAGEMENT, ...TEAM_STAFF],
       },
     ],
   },
   {
-    name: '👔 Staff Management',
-    description: 'Appoint, promote, and manage team staff.',
-    emoji: '👥',
+    name: 'Staff Management',
+    description: 'Manage team staff and appointments.',
     commands: [
       {
         name: '/appoint',
-        emoji: '📌',
-        description: 'Appoints a team staff member.',
-        permission: LEAGUE_MANAGEMENT,
+        description: 'Appoint staff to a team.',
+        roles: LEAGUE_MANAGEMENT,
       },
       {
         name: '/promote',
-        emoji: '⬆️',
-        description: 'Promotes a team member.',
-        permission:
-          `${ROLES.MANAGER}, ${ROLES.CHAIRMAN} ` +
-          '(must outrank target)',
+        description: 'Promote a staff member.',
+        roles: LEAGUE_MANAGEMENT,
       },
       {
         name: '/demote',
-        emoji: '⬇️',
-        description: 'Demotes a staff member.',
-        permission:
-          `${ROLES.CHAIRMAN}, ${ROLES.MANAGER} ` +
-          '(same team; must outrank target)',
+        description: 'Demote a staff member.',
+        roles: LEAGUE_MANAGEMENT,
       },
       {
         name: '/sack',
-        emoji: '🚫',
-        description: 'Removes a staff position.',
-        permission: LEAGUE_MANAGEMENT,
+        description: 'Remove a staff member.',
+        roles: LEAGUE_MANAGEMENT,
       },
     ],
   },
   {
-    name: '🏛️ Division Management',
-    description: 'Manage league divisions and their teams.',
-    emoji: '🗂️',
+    name: 'Division Management',
+    description: 'Create and manage league divisions.',
     commands: [
       {
         name: '/createdivision',
-        emoji: '➕',
-        description: 'Creates a division.',
-        permission: ROLES.PRESIDENT,
+        description: 'Create a division.',
+        roles: LEAGUE_MANAGEMENT,
       },
       {
         name: '/removedivision',
-        emoji: '🗑️',
-        description: 'Deletes a division and its teams.',
-        permission: ROLES.PRESIDENT,
+        description: 'Remove a division.',
+        roles: LEAGUE_MANAGEMENT,
       },
       {
         name: '/division',
-        emoji: '📊',
-        description: 'Views division information.',
-        permission: LEAGUE_MANAGEMENT,
+        description: 'View division information.',
+        roles: LEAGUE_MANAGEMENT,
       },
       {
         name: '/debugdivisions',
-        emoji: '🔍',
-        description: 'Checks division data for issues.',
-        permission: 'See command access rules.',
+        description: 'View division debug information.',
+        roles: LEAGUE_MANAGEMENT,
       },
     ],
   },
 ];
 
-function createCommandField(command) {
-  return {
-    name: `${command.emoji}  ${command.name}`,
-    value:
-      `${command.description}\n\n` +
-      `🔑 **Access**\n${command.permission}`,
-    inline: true,
-  };
+function createCategoryEmbed(category) {
+  const embed = new EmbedBuilder()
+    .setColor(PURPLE)
+    .setTitle(category.name)
+    .setDescription(category.description);
+
+  for (const command of category.commands) {
+    embed.addFields({
+      name: `\`${command.name}\``,
+      value: [
+        command.description,
+        `*Access:* ${command.roles.join(', ')}`,
+      ].join('\n'),
+      inline: false,
+    });
+  }
+
+  return embed;
 }
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('help')
-    .setDescription('View commands and their permissions'),
+    .setDescription('View available league bot commands.'),
 
   async execute(interaction) {
-    const embeds = [];
-
-    // Main introduction
-    const intro = new EmbedBuilder()
+    const introEmbed = new EmbedBuilder()
       .setColor(PURPLE)
-      .setAuthor({
-        name: 'LEAGUE BOT  •  COMMAND CENTER',
-      })
-      .setTitle('📖 Command Guide')
+      .setTitle('League Bot — Help')
       .setDescription(
-        'Welcome to the league command guide.\n' +
-        'Find the command you need using the categories below.\n\n' +
-        '━━━━━━━━━━━━━━━━━━━━\n\n' +
-        '🏆 **TEAM MANAGEMENT**\n' +
-        'Teams, players, and signings.\n\n' +
-        '👔 **STAFF MANAGEMENT**\n' +
-        'Appointments and staff positions.\n\n' +
-        '🏛️ **DIVISION MANAGEMENT**\n' +
-        'Divisions and league organization.\n\n' +
-        '━━━━━━━━━━━━━━━━━━━━\n\n' +
-        '🔑 **Access** indicates which roles can use each command.'
+        'Browse the available commands below. Each command lists the roles required to use it.'
       )
       .setFooter({
-        text: 'League Management Bot • Help Menu',
-      })
-      .setTimestamp();
+        text: 'League Management System',
+      });
 
-    embeds.push(intro);
+    const embeds = [
+      introEmbed,
+      ...commandCategories.map(createCategoryEmbed),
+    ];
 
-    // Category embeds
-    for (const category of commandCategories) {
-      const embed = new EmbedBuilder()
-        .setColor(PURPLE)
-        .setAuthor({
-          name: 'LEAGUE BOT  •  COMMAND DIRECTORY',
-        })
-        .setTitle(category.name)
-        .setDescription(
-          `${category.description}\n` +
-          '━━━━━━━━━━━━━━━━━━━━'
-        )
-        .addFields(
-          category.commands.map(createCommandField)
-        )
-        .setFooter({
-          text: `League Management Bot • ${category.commands.length} commands`,
-        });
-
-      embeds.push(embed);
-    }
-
-    return interaction.reply({
+    await interaction.reply({
       embeds,
       flags: MessageFlags.Ephemeral,
-      allowedMentions: {
-        parse: [],
-      },
+      allowedMentions: { parse: [] },
     });
+
+    await logAction(
+      interaction.guild,
+      'Help Command',
+      `${interaction.user.tag} viewed the help menu.`
+    );
   },
 };
