@@ -50,7 +50,7 @@ const tutorialSections = [
       '• Chairmen can promote to Manager or Assistant Manager.\n' +
       '• Managers can promote to Assistant Manager.\n' +
       '• Assistant Managers cannot promote.\n\n' +
-      'The player must be on your team. Each team can only have one person in each manegerial position.',
+      'The player must be on your team. Each team can only have one person in each managerial position.',
   },
   {
     title: 'Demoting Staff',
@@ -70,10 +70,62 @@ const tutorialSections = [
       'You cannot demote someone equal to or above your own rank.',
   },
   {
+    title: 'Disbanding a Team',
+    description:
+      '**Command:** `/disband`\n' +
+      '**Where:** #「💬」▏general\n\n' +
+      '**How to use it:**\n' +
+      '1. Type `/disband`.\n' +
+      '2. Select the team if prompted.\n' +
+      '3. Confirm the action if prompted.\n\n' +
+      '**What it does:** Clears a team’s roster.\n\n' +
+      '**Who can use it:** League Management.\n\n' +
+      '**Important:** Make sure you selected the correct team before confirming.',
+  },
+  {
+    title: 'Appointing Staff',
+    description:
+      '**Command:** `/appoint`\n' +
+      '**Where:** #「💬」▏general\n\n' +
+      '**How to use it:**\n' +
+      '1. Type `/appoint`.\n' +
+      '2. Select the player you want to appoint.\n' +
+      '3. Choose the team and position if prompted.\n' +
+      '4. Submit the command.\n\n' +
+      '**What it does:** Appoints a player to a staff position on a team.\n\n' +
+      '**Who can use it:** League Management.\n\n' +
+      '**Important:** Check the selected player, team, and position before submitting.',
+  },
+  {
+    title: 'Sacking Staff',
+    description:
+      '**Command:** `/sack`\n' +
+      '**Where:** #「💬」▏general\n\n' +
+      '**How to use it:**\n' +
+      '1. Type `/sack`.\n' +
+      '2. Select the staff member you want to remove.\n' +
+      '3. Submit the command.\n\n' +
+      '**What it does:** Removes a staff member from their position.\n\n' +
+      '**Who can use it:** League Management.\n\n' +
+      '**Important:** Check that you selected the correct staff member.',
+  },
+  {
+    title: 'Team Information',
+    description:
+      '**Command:** `/teaminfo`\n' +
+      '**Where:** #「💬」▏general\n\n' +
+      '**How to use it:**\n' +
+      '1. Type `/teaminfo`.\n' +
+      '2. Select the team if prompted.\n' +
+      '3. Submit the command.\n\n' +
+      '**What it does:** Displays information about a team.\n\n' +
+      '**Who can use it:** Everyone.',
+  },
+  {
     title: 'If the Bot Is Down',
     description:
       'If the GFC Bot is offline or a command is not working, post in #「💳」▏transactions.\n\n' +
-      'Include:\n' +
+      '**Include:**\n' +
       '• Player username\n' +
       '• Club name\n' +
       '• Action: Signing, Release, Promotion, or Demotion\n' +
@@ -91,7 +143,7 @@ const tutorialSections = [
       '• Forced signings can result in the responsible staff member being sacked.\n' +
       '• Signings, releases, promotions, and demotions are logged.\n' +
       '• Deleting a transaction message does not delete the bot’s console logs.\n' +
-      '• Use commands responsibly and check the selected player before submitting.',
+      '• Check the selected player and team before submitting commands.',
   },
 ];
 
@@ -121,6 +173,10 @@ module.exports = {
         'Releasing Players\n' +
         'Promoting Players\n' +
         'Demoting Staff\n' +
+        'Disbanding a Team\n' +
+        'Appointing Staff\n' +
+        'Sacking Staff\n' +
+        'Team Information\n' +
         'Bot Issues and Transactions\n' +
         'Rules and Logs'
       )
