@@ -11,6 +11,8 @@ const { logAction } = require('../../utils/logger');
 const Staffs = require('../../models/staffs');
 const Teams = require('../../models/teams');
 
+const FREE_AGENT_ROLE_ID = '1374495332846669956';
+
 function getTeamLogoUrl(emoji) {
   if (!emoji) return null;
 
@@ -107,16 +109,25 @@ module.exports = {
     }
 
     try {
+      // Remove the team role.
       await member.roles.remove(
         team.roleId,
         `Released from ${team.name} by ${interaction.user.tag}`
       );
+
+      // Give the Free Agent role if they don't already have it.
+      if (!member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+        await member.roles.add(
+          FREE_AGENT_ROLE_ID,
+          `Released from ${team.name}: returning to Free Agent status`
+        );
+      }
     } catch (error) {
-      console.error('Failed to remove team role:', error);
+      console.error('Failed to update player roles:', error);
 
       return interaction.reply({
         content:
-          'Could not remove the team role. Check the bot permissions and role hierarchy.',
+          'Could not update the player roles. Check the bot permissions and role hierarchy.',
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -150,6 +161,11 @@ module.exports = {
           name: 'Released By',
           value: `<@${interaction.user.id}>`,
           inline: false,
+        },
+        {
+          name: 'New Status',
+          value: 'Free Agent',
+          inline: false,
         }
       )
       .setTimestamp();
@@ -166,7 +182,8 @@ module.exports = {
     });
 
     await interaction.reply({
-      content: `<@${player.id}> has been released from **${team.name}**.`,
+      content:
+        `<@${player.id}> has been released from **${team.name}** and given the Free Agent role.`,
       allowedMentions: { parse: [] },
     });
   },
