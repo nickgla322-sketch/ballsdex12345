@@ -89,14 +89,14 @@ module.exports = {
       const menu = new StringSelectMenuBuilder()
         .setCustomId('remove-division-select')
         .setPlaceholder('Select a division to remove')
-        .addOptions(
-          divisions.map(division => ({
-            label: division.name.slice(0, 100),
-            value: division.name,
-            ...(division.emoji ? { emoji: division.emoji } : {}),
-          }))
-        );
-
+.addOptions(
+  divisions.map(division => ({
+    label: `${division.emoji || ''} ${division.name}`
+      .trim()
+      .slice(0, 100),
+    value: division.name,
+  }))
+);
       await interaction.editReply({
         content: 'Choose the division you want to remove:',
         components: [
