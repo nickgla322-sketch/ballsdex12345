@@ -76,18 +76,13 @@ module.exports = {
         });
       }
 
-      const options = divisions.map(division => {
-        const option = new StringSelectMenuOptionBuilder()
-          .setLabel(division.name.slice(0, 100))
-          .setValue(division.name);
-
-        if (division.emoji) {
-          option.setEmoji(division.emoji);
-        }
-
-        return option;
-      });
-
+const options = divisions.map(division =>
+  new StringSelectMenuOptionBuilder()
+    .setLabel(
+      `${division.emoji || ''} ${division.name}`.trim().slice(0, 100)
+    )
+    .setValue(division.name)
+);
       const select = new StringSelectMenuBuilder()
         .setCustomId('select_division')
         .setPlaceholder('Choose a division...')
