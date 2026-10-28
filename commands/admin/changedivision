@@ -30,7 +30,6 @@ module.exports = {
     .setDescription("Change a team's division without affecting its players or staff"),
 
   async execute(interaction, client) {
-    // Permission check
     const allowedRoles = (
       Array.isArray(ADD_TEAM_ROLE) ? ADD_TEAM_ROLE : [ADD_TEAM_ROLE]
     ).filter(Boolean);
@@ -57,7 +56,7 @@ module.exports = {
 
       if (divisions.length < 2) {
         return interaction.editReply(
-          'At least two divisions must exist to change a team\'s division.'
+          "At least two divisions must exist to change a team's division."
         );
       }
 
@@ -265,9 +264,8 @@ module.exports = {
             const oldDivisionName = team.division;
             const newDivisionName = targetDivision.name;
 
-            // IMPORTANT:
             // Only update the division field.
-            // Player roles, staff roles, and staff records are untouched.
+            // Existing player roles, staff roles, and staff records stay untouched.
             const result = await Teams.updateOne(
               {
                 _id: team._id,
@@ -358,7 +356,7 @@ module.exports = {
 
           await interaction.editReply({
             content:
-              'An error occurred while changing the team\'s division. Check the bot console.',
+              "An error occurred while changing the team's division. Check the bot console.",
             components: [],
           }).catch(() => {});
         }
