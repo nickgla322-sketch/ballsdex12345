@@ -1,0 +1,47 @@
+name: Validate Node FutBot commands
+
+on:
+  push:
+    branches:
+      - python-api-integration
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Check JavaScript syntax
+        run: |
+          find commands utils -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Validate FutBot slash command definitions
+        run: |
+          node - <<'NODE'
+          const paths = [
+            './commands/general/futbotstatus',
+            './commands/general/futbot',
+            './commands/general/futbotbattle',
+            './commands/general/futbottrade',
+            './commands/general/futbotexchange',
+            './commands/general/futbotmarket',
+            './commands/general/futbotdrop',
+            './commands/general/futbotimage',
+            './commands/admin/futbotadmin',
+          ];
+          for (const path of paths) {
+            const command = require(path);
+            if (!command.data || !command.execute) throw new Error('Invalid command: ' + path);
+            const json = command.data.toJSON();
+            if (!json.name || !json.description) throw new Error('Invalid slash command data: ' + path);
+            console.log('Validated /' + json.name);
+          }
+          NODE
