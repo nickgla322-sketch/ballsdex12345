@@ -34,8 +34,8 @@ function cardPayload(interaction) {
   return fields;
 }
 
-function addCardFields(sub, required) {
-  return sub
+function addCardFields(sub, required, includeRequiredImage = false) {
+  sub
     .addIntegerOption(o => o.setName('card-id').setDescription('Unique card ID').setRequired(true).setMinValue(1))
     .addStringOption(o => o.setName('name').setDescription('Player/card name').setRequired(required).setMaxLength(100))
     .addIntegerOption(o => o.setName('attack').setDescription('Attack stat (0-99)').setRequired(required).setMinValue(0).setMaxValue(99))
@@ -43,13 +43,22 @@ function addCardFields(sub, required) {
     .addIntegerOption(o => o.setName('speed').setDescription('Speed stat (0-99)').setRequired(required).setMinValue(0).setMaxValue(99))
     .addIntegerOption(o => o.setName('overall').setDescription('Overall rating (0-99)').setRequired(required).setMinValue(0).setMaxValue(99))
     .addStringOption(o => o.setName('rarity').setDescription('Card rarity').setRequired(required).setMaxLength(40))
-    .addStringOption(o => o.setName('type').setDescription('Card type, e.g. Standard, Icon, Hero').setRequired(required).setMaxLength(40))
+    .addStringOption(o => o.setName('type').setDescription('Card type, e.g. Standard, Icon, Hero').setRequired(required).setMaxLength(40));
+
+  // Discord requires every required option to appear before optional options.
+  if (includeRequiredImage) {
+    sub.addAttachmentOption(o => o.setName('image').setDescription('Card image (PNG, JPG, WEBP, or GIF)').setRequired(true));
+  }
+
+  sub
     .addStringOption(o => o.setName('player-id').setDescription('Optional player identifier').setMaxLength(100))
     .addStringOption(o => o.setName('height').setDescription('Player height').setMaxLength(30))
     .addStringOption(o => o.setName('club').setDescription('Club').setMaxLength(100))
     .addStringOption(o => o.setName('position').setDescription('Position').setMaxLength(40))
     .addStringOption(o => o.setName('league').setDescription('League').setMaxLength(100))
     .addStringOption(o => o.setName('nation').setDescription('Nation').setMaxLength(100));
+
+  return sub;
 }
 
 module.exports = {
@@ -66,8 +75,7 @@ module.exports = {
     .addSubcommand(s => s.setName('remove-player-card').setDescription('Remove a card from a player inventory')
       .addUserOption(o => o.setName('user').setDescription('Player').setRequired(true))
       .addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true).setMinValue(1)))
-    .addSubcommand(s => addCardFields(s.setName('create-card').setDescription('Create a new card in the catalog'), true)
-      .addAttachmentOption(o => o.setName('image').setDescription('Card image (PNG, JPG, WEBP, or GIF)').setRequired(true)))
+    .addSubcommand(s => addCardFields(s.setName('create-card').setDescription('Create a new card in the catalog'), true, true))
     .addSubcommand(s => addCardFields(s.setName('replace-card').setDescription('Replace selected details or image on a catalog card'), false)
       .addAttachmentOption(o => o.setName('image').setDescription('Optional replacement image')))
     .addSubcommand(s => s.setName('remove-card').setDescription('Delete a card from the catalog')
