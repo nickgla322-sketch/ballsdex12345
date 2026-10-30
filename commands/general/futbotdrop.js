@@ -1,8 +1,8 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { futbotApi, userIdOption, run, post } = require('../../utils/futbotDiscord');
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('futbotdrop').setDescription('Create and collect timed FutBot card drops')
+  data: new SlashCommandBuilder().setName('futbotdrop').setDescription('Create and collect timed FutBot card drops').setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addSubcommand(s => s.setName('create').setDescription('Create a timed card drop').addUserOption(o => o.setName('owner').setDescription('Optional player with collection priority')))
     .addSubcommand(s => s.setName('status').setDescription('View a card drop').addStringOption(o => o.setName('drop-id').setDescription('Drop ID').setRequired(true)))
     .addSubcommand(s => s.setName('collect').setDescription('Collect an available card drop').addStringOption(o => o.setName('drop-id').setDescription('Drop ID').setRequired(true))),
