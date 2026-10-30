@@ -1,7 +1,7 @@
 const futbotApi = require('./futbotApi');
 
 function userIdOption(interaction, name = 'user') {
-  return interaction.options.getUser(name)?.id || interaction.user.id;
+  return interaction.user.id;
 }
 
 function parseIdList(value, label = 'IDs') {
