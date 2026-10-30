@@ -92,34 +92,40 @@ module.exports = {
       return run(interaction, () => post('/api/v1/admin/cards/remove', { admin_id, user_id: user.id, card_id: interaction.options.getInteger('card-id') }), 'Remove player card');
     }
     if (sub === 'create-card') {
-      const payload = cardPayload(interaction);
-      payload.admin_id = admin_id;
-      payload.image_base64 = await attachmentBase64(interaction.options.getAttachment('image'));
-      return run(interaction, () => post('/api/v1/admin/cards/catalog', payload), 'Create catalog card');
+      return run(interaction, async () => {
+        const payload = cardPayload(interaction);
+        payload.admin_id = admin_id;
+        payload.image_base64 = await attachmentBase64(interaction.options.getAttachment('image'));
+        return post('/api/v1/admin/cards/catalog', payload);
+      }, 'Create catalog card');
     }
     if (sub === 'replace-card') {
       const card_id = interaction.options.getInteger('card-id');
-      const payload = cardPayload(interaction);
-      payload.admin_id = admin_id;
-      const image = interaction.options.getAttachment('image');
-      if (image) payload.image_base64 = await attachmentBase64(image);
-      delete payload.card_id;
-      return run(interaction, () => put('/api/v1/admin/cards/catalog/' + card_id, payload), 'Replace catalog card');
+      return run(interaction, async () => {
+        const payload = cardPayload(interaction);
+        payload.admin_id = admin_id;
+        const image = interaction.options.getAttachment('image');
+        if (image) payload.image_base64 = await attachmentBase64(image);
+        delete payload.card_id;
+        return put('/api/v1/admin/cards/catalog/' + card_id, payload);
+      }, 'Replace catalog card');
     }
     if (sub === 'remove-card') {
       const card_id = interaction.options.getInteger('card-id');
       return run(interaction, () => del('/api/v1/admin/cards/catalog/' + card_id, { admin_id }), 'Delete catalog card');
     }
     if (sub === 'import-json') {
-      const file = interaction.options.getAttachment('file');
-      if (!file.name.toLowerCase().endsWith('.json')) throw new Error('Please attach a .json file.');
-      if (file.size > 10 * 1024 * 1024) throw new Error('The JSON file must be 10 MB or smaller.');
-      const response = await fetch(file.url);
-      if (!response.ok) throw new Error('Could not download the JSON file from Discord.');
-      const cards = await response.json().catch(() => { throw new Error('The attached file is not valid JSON.'); });
-      const entries = Array.isArray(cards) ? cards : cards.cards;
-      if (!Array.isArray(entries) || entries.length < 1 || entries.length > 50) throw new Error('The JSON must contain 1-50 cards, either as an array or inside a "cards" property.');
-      return run(interaction, () => post('/api/v1/admin/cards/import', { admin_id, cards: entries }), 'Import card catalog');
+      return run(interaction, async () => {
+        const file = interaction.options.getAttachment('file');
+        if (!file.name.toLowerCase().endsWith('.json')) throw new Error('Please attach a .json file.');
+        if (file.size > 10 * 1024 * 1024) throw new Error('The JSON file must be 10 MB or smaller.');
+        const response = await fetch(file.url);
+        if (!response.ok) throw new Error('Could not download the JSON file from Discord.');
+        const cards = await response.json().catch(() => { throw new Error('The attached file is not valid JSON.'); });
+        const entries = Array.isArray(cards) ? cards : cards.cards;
+        if (!Array.isArray(entries) || entries.length < 1 || entries.length > 50) throw new Error('The JSON must contain 1-50 cards, either as an array or inside a "cards" property.');
+        return post('/api/v1/admin/cards/import', { admin_id, cards: entries });
+      }, 'Import card catalog');
     }
     if (sub === 'expire-market') return run(interaction, () => post('/api/v1/market/expire', {}), 'Expire marketplace listings');
   },
