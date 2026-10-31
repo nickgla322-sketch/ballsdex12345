@@ -78,7 +78,7 @@ module.exports = {
       const response = await futbotApi.request(basePath);
       const lineup = response?.data ?? response;
       const slots = Array.isArray(lineup.slots) ? lineup.slots : [];
-      const baseUrl = (process.env.FUTBOT_API_URL || '').replace(/\\/+$/, '');
+      const baseUrl = (process.env.FUTBOT_API_URL || '').replace(/\/+$/, '');
       const apiKey = process.env.FUTBOT_API_KEY || '';
       if (!baseUrl || !apiKey) throw new Error('FUTBOT_API_URL or FUTBOT_API_KEY is not configured.');
       const imageResponse = await fetch(baseUrl + basePath + '/image', {
