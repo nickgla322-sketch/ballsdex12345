@@ -9,7 +9,6 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('futbot').setDescription('FutBot player, cards, packs and economy')
     .addSubcommandGroup(g => g.setName('player').setDescription('Profiles and rewards')
-      .addSubcommand(s => s.setName('register').setDescription('Create or update your profile'))
       .addSubcommand(s => s.setName('profile').setDescription('View a player profile').addUserOption(o => o.setName('user').setDescription('Player')))
       .addSubcommand(s => s.setName('stats').setDescription('View player statistics').addUserOption(o => o.setName('user').setDescription('Player')))
       .addSubcommand(s => s.setName('inventory').setDescription('View a player inventory').addUserOption(o => o.setName('user').setDescription('Player')))
@@ -52,7 +51,6 @@ module.exports = {
     const cardId = interaction.options.getInteger('card-id');
 
     if (group === 'player') {
-      if (sub === 'register') return run(interaction, () => post(base, {name:interaction.user.username}), 'Register');
       if (sub === 'profile') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid)), 'Profile');
       if (sub === 'stats') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/stats'), 'Stats');
       if (sub === 'inventory') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/inventory'), 'Inventory');
