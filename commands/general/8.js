@@ -8,6 +8,9 @@ module.exports = {
     .addSubcommand(s => s.setName('show').setDescription('Show your eight-player lineup'))
     .addSubcommand(s => s.setName('add').setDescription('Add an owned player to a lineup slot')
       .addStringOption(o => o.setName('player').setDescription('Exact player name').setRequired(true))
+      .addIntegerOption(o => o.setName('slot').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
+    .addSubcommand(s => s.setName('remove').setDescription('Remove a player from a lineup slot')
+      .addStringOption(o => o.setName('player').setDescription('Exact player name in that slot').setRequired(true))
       .addIntegerOption(o => o.setName('slot').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8))),
 
   async execute(interaction) {
@@ -15,6 +18,21 @@ module.exports = {
     try {
       const subcommand = interaction.options.getSubcommand();
       const basePath = '/api/v1/players/' + interaction.user.id + '/lineup';
+      if (subcommand === 'remove') {
+        const player = interaction.options.getString('player', true).trim();
+        const slot = interaction.options.getInteger('slot', true);
+        const removed = await futbotApi.request(basePath + '/remove', {
+          method: 'POST',
+          body: JSON.stringify({ player, slot }),
+        });
+        const lineup = removed?.data ?? removed;
+        const embed = new EmbedBuilder()
+          .setTitle('Player Removed from Lineup')
+          .setColor(0xed4245)
+          .setDescription('**' + player + '** was removed from slot **' + slot + '**.')
+          .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '—') + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
+        return interaction.editReply({ embeds: [embed], content: '' });
+      }
       if (subcommand === 'add') {
         const player = interaction.options.getString('player', true).trim();
         const slot = interaction.options.getInteger('slot', true);
