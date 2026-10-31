@@ -189,12 +189,30 @@ module.exports = {
       const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
       const imageName = 'futbot-lineup-' + interaction.user.id + '.png';
 
-      // Send the PNG as the message itself: no embed and no text.
-      return interaction.editReply({
-        content: '',
-        embeds: [],
+      const helpRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('lineup-penalty-help-' + interaction.user.id)
+          .setLabel('Why the -?')
+          .setStyle(ButtonStyle.Secondary)
+      );
+      const message = await interaction.editReply({
+        content: '', embeds: [],
         files: [{ attachment: imageBuffer, name: imageName }],
+        components: [helpRow],
       });
+      const collector = message.createMessageComponentCollector({
+        filter: component => component.user.id === interaction.user.id,
+        time: 900000,
+      });
+      collector.on('collect', async component => {
+        if (component.customId !== 'lineup-penalty-help-' + interaction.user.id) return;
+        await component.reply({
+          content: 'The **-** means this player is out of position, so their overall rating is reduced.',
+          ephemeral: true,
+        });
+      });
+      collector.on('end', () => interaction.editReply({ components: [] }).catch(() => {}));
+      return message;
     } catch (error) {
       console.error('[8 show]', error);
       return interaction.editReply({
