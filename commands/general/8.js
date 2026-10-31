@@ -11,13 +11,35 @@ module.exports = {
       .addIntegerOption(o => o.setName('slot').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
     .addSubcommand(s => s.setName('remove').setDescription('Remove a player from a lineup slot')
       .addStringOption(o => o.setName('player').setDescription('Exact player name in that slot').setRequired(true))
-      .addIntegerOption(o => o.setName('slot').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8))),
+      .addIntegerOption(o => o.setName('slot').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
+    .addSubcommand(s => s.setName('formation').setDescription('Change your lineup formation')
+      .addStringOption(o => o.setName('name').setDescription('Choose a formation').setRequired(true).addChoices(
+        { name: '2-2-3', value: '2-2-3' },
+        { name: '3-2-2', value: '3-2-2' },
+        { name: '2-3-2', value: '2-3-2' },
+        { name: '4-2-1', value: '4-2-1' },
+        { name: '3-3-1', value: '3-3-1' },
+      ))),
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     try {
       const subcommand = interaction.options.getSubcommand();
       const basePath = '/api/v1/players/' + interaction.user.id + '/lineup';
+      if (subcommand === 'formation') {
+        const formation = interaction.options.getString('name', true);
+        const changed = await futbotApi.request(basePath + '/formation', {
+          method: 'PUT',
+          body: JSON.stringify({ formation }),
+        });
+        const lineup = changed?.data ?? changed;
+        const embed = new EmbedBuilder()
+          .setTitle('Formation Updated')
+          .setColor(0x57f287)
+          .setDescription('Your lineup formation is now **' + (lineup.formation || formation) + '**.')
+          .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '—') + '/8** players assigned. Your players remain in their numbered slots; their position penalties are recalculated for the new formation.' });
+        return interaction.editReply({ embeds: [embed], content: '' });
+      }
       if (subcommand === 'remove') {
         const player = interaction.options.getString('player', true).trim();
         const slot = interaction.options.getInteger('slot', true);
