@@ -440,4 +440,4 @@ function post(path, body) { return futbotApi.request(path, { method: 'POST', bod
 function put(path, body) { return futbotApi.request(path, { method: 'PUT', body: JSON.stringify(body) }); }
 function del(path, body) { return futbotApi.request(path, { method: 'DELETE', body: JSON.stringify(body) }); }
 
-module.exports = { futbotApi, cardFile, userIdOption, parseIdList, queryString, run, runRewardClaim, handleQuickSell, runPlayerBuy, runPlayerSell, handlePlayerBuy, handlePlayerSell, handlePlayerSellCancel, runDailyClaim, handleDailyCollect, post, put, del };
+module.exports = { futbotApi, cardFile, cardEmbed, userIdOption, parseIdList, queryString, run, runRewardClaim, handleQuickSell, runPlayerBuy, runPlayerSell, handlePlayerBuy, handlePlayerSell, handlePlayerSellCancel, runDailyClaim, handleDailyCollect, post, put, del };
