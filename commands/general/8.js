@@ -5,12 +5,37 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('8')
     .setDescription('View and manage your eight-player lineup')
-    .addSubcommand(s => s.setName('show').setDescription('Show your eight-player lineup')),
+    .addSubcommand(s => s.setName('show').setDescription('Show your eight-player lineup'))
+    .addSubcommand(s => s.setName('add').setDescription('Add an owned player to a lineup slot')
+      .addStringOption(o => o.setName('player').setDescription('Exact player name').setRequired(true))
+      .addIntegerOption(o => o.setName('slot').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8))),
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     try {
-      const response = await futbotApi.request('/api/v1/players/' + interaction.user.id + '/lineup');
+      const subcommand = interaction.options.getSubcommand();
+      const basePath = '/api/v1/players/' + interaction.user.id + '/lineup';
+      if (subcommand === 'add') {
+        const player = interaction.options.getString('player', true).trim();
+        const slot = interaction.options.getInteger('slot', true);
+        const added = await futbotApi.request(basePath + '/add', {
+          method: 'POST',
+          body: JSON.stringify({ player, slot }),
+        });
+        const lineup = added?.data ?? added;
+        const assigned = Array.isArray(lineup.slots) ? lineup.slots.find(item => Number(item.slot) === slot) : null;
+        const card = assigned?.card;
+        const penalty = Number(card?.position_penalty || 0);
+        const effective = Number(card?.effective_overall ?? card?.overall ?? 0);
+        const embed = new EmbedBuilder()
+          .setTitle('Player Added to Lineup')
+          .setColor(0x57f287)
+          .setDescription('**' + (card?.name || player) + '** was added to slot **' + slot + '** (' + (assigned?.position || 'position unavailable') + ').')
+          .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '—') + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
+        if (card) embed.addFields({ name: 'Rating', value: card.overall + ' OVR' + (penalty ? ' · 🔴 -' + penalty + ' → ' + effective + ' effective OVR' : ''), inline: true });
+        return interaction.editReply({ embeds: [embed], content: '' });
+      }
+      const response = await futbotApi.request(basePath);
       const lineup = response?.data ?? response;
       const slots = Array.isArray(lineup.slots) ? lineup.slots : [];
       const embed = new EmbedBuilder()
