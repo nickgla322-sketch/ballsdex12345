@@ -32,6 +32,20 @@ module.exports = {
       if (!command) return;
 
       try {
+        const futbotCommands = new Set([
+          '8', 'players', 'futbot', 'futbotbattle', 'futbotdrop',
+          'futbotexchange', 'futbotimage', 'futbotinfo', 'futbotmarket',
+          'futbotstatus', 'futbotsuggest', 'futbottrade', 'futbotadmin',
+        ]);
+
+        if (futbotCommands.has(interaction.commandName)) {
+          const futbotApi = require('../utils/futbotApi');
+          await futbotApi.request('/api/v1/players/' + interaction.user.id, {
+            method: 'POST',
+            body: JSON.stringify({ name: interaction.user.username }),
+          });
+        }
+
         await command.execute(interaction, client);
       } catch (error) {
         console.error(
