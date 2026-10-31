@@ -152,3 +152,5 @@ module.exports = {
     }
   },
 };
+
+// Deployment check: harmless comment to trigger the Discord bot redeploy.
