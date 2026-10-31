@@ -76,6 +76,28 @@ async function cardFile(card) {
   return { attachment: buffer, name };
 }
 
+async function cardCompareFile(cards) {
+  const base = (process.env.FUTBOT_API_URL || '').replace(/\/+$/, '');
+  const key = process.env.FUTBOT_API_KEY || '';
+  if (!base || !key || cards.length !== 2) return null;
+  const ids = cards.map(card => card.card_id).join(',');
+  const response = await fetch(base + '/api/v1/cards/compare-image?ids=' + encodeURIComponent(ids), {
+    headers: { 'X-API-Key': key }
+  });
+  if (!response.ok) return null;
+  return { attachment: Buffer.from(await response.arrayBuffer()), name: 'futbot-card-comparison.png' };
+}
+
+function cardStatsSummary(card) {
+  return [
+    '**ATK** ' + (card.attack ?? '—'),
+    '**DEF** ' + (card.defense ?? '—'),
+    '**SPD** ' + (card.speed ?? '—'),
+    '**Position** ' + (card.position || '—'),
+    '**Club** ' + (card.club || '—'),
+  ].join('  •  ');
+}
+
 function cardEmbed(card, file) {
   const embed = new EmbedBuilder()
     .setTitle((card.name || 'Unknown player') + '  |  ' + (card.overall ?? '?') + ' OVR')
@@ -102,15 +124,26 @@ async function run(interaction, operation, label = 'FutBot') {
     const embed = new EmbedBuilder().setTitle(label).setColor(0x5865f2).setTimestamp();
     const files = [];
     const cardEmbeds = [];
-    for (const card of cards.slice(0, 9)) {
-      const file = await cardFile(card).catch(() => null);
-      if (file) files.push(file);
-      cardEmbeds.push(cardEmbed(card, file));
+    if (cards.length === 2) {
+      const comparison = await cardCompareFile(cards).catch(() => null);
+      if (comparison) {
+        files.push(comparison);
+        embed.setDescription('**' + cards[0].name + '  vs  ' + cards[1].name + '**')
+          .setImage('attachment://' + comparison.name)
+          .addFields(
+            { name: cards[0].name + ' · ' + cards[0].overall + ' OVR', value: cardStatsSummary(cards[0]), inline: true },
+            { name: cards[1].name + ' · ' + cards[1].overall + ' OVR', value: cardStatsSummary(cards[1]), inline: true },
+          );
+      }
     }
-    if (cards.length) {
-      const summary = cards.length > 9 ? 'Showing 9 of ' + cards.length + ' cards.' : 'Player cards';
-      embed.setDescription(summary);
-    } else {
+    if (!cardEmbeds.length && cards.length && !embed.data.image) {
+      for (const card of cards.slice(0, 9)) {
+        const file = await cardFile(card).catch(() => null);
+        if (file) files.push(file);
+        cardEmbeds.push(cardEmbed(card, file));
+      }
+      embed.setDescription(cards.length > 9 ? 'Showing 9 of ' + cards.length + ' player cards.' : 'Player cards');
+    } else if (!cards.length) {
       const fields = summarize(data);
       if (fields.length) embed.addFields(fields);
       else embed.setDescription('Completed successfully.');
@@ -130,7 +163,7 @@ async function runDailyClaim(interaction, operation) {
     const choices = data.choices || [];
     const main = new EmbedBuilder()
       .setTitle('Daily reward')
-      .setColor(0x2d9cdb)
+      .setColor(0x5865f2)
       .setDescription('Choose one of the two player cards below. Your choice expires in 2 minutes.')
       .addFields(
         { name: 'Streak', value: String(data.streak ?? '—'), inline: true },
@@ -138,11 +171,19 @@ async function runDailyClaim(interaction, operation) {
         { name: 'New balance', value: String(data.balance ?? '—'), inline: true },
       );
     const files = [];
-    const embeds = [main];
-    for (const card of choices.slice(0, 2)) {
-      const file = await cardFile(card).catch(() => null);
-      if (file) files.push(file);
-      embeds.push(cardEmbed(card, file));
+    const comparison = await cardCompareFile(choices.slice(0, 2)).catch(() => null);
+    if (comparison) {
+      files.push(comparison);
+      main.setImage('attachment://' + comparison.name);
+      for (const card of choices.slice(0, 2)) {
+        main.addFields({ name: card.name + ' · ' + card.overall + ' OVR', value: cardStatsSummary(card), inline: true });
+      }
+    } else {
+      for (const card of choices.slice(0, 2)) {
+        const file = await cardFile(card).catch(() => null);
+        if (file) files.push(file);
+        main.addFields({ name: card.name + ' · ' + card.overall + ' OVR', value: cardStatsSummary(card), inline: false });
+      }
     }
     const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
     const row = new ActionRowBuilder().addComponents(
@@ -151,7 +192,7 @@ async function runDailyClaim(interaction, operation) {
         .setLabel('Choose ' + String(card.name).slice(0, 55))
         .setStyle(ButtonStyle.Primary))
     );
-    return interaction.editReply({ content: '', embeds, files, components: choices.length ? [row] : [] });
+    return interaction.editReply({ content: '', embeds: [main], files, components: choices.length ? [row] : [] });
   } catch (error) {
     console.error('[Daily reward]', error);
     return interaction.editReply({ content: '**Daily reward error**\n' + String(error.message || 'Unknown API error').slice(0, 1800), embeds: [], components: [] });
