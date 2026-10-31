@@ -25,6 +25,46 @@ module.exports = {
       return;
     }
 
+    // FutBot player buy and sell buttons
+    if (interaction.isButton() && interaction.customId.startsWith('futbot_buy:')) {
+      const { handlePlayerBuy } = require('../utils/futbotDiscord');
+      try {
+        await handlePlayerBuy(interaction);
+      } catch (error) {
+        console.error('Error buying FutBot player:', error);
+        const reply = { content: 'Could not buy that player.', ephemeral: true };
+        if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
+        else await interaction.reply(reply).catch(() => {});
+      }
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith('futbot_sell:')) {
+      const { handlePlayerSell } = require('../utils/futbotDiscord');
+      try {
+        await handlePlayerSell(interaction);
+      } catch (error) {
+        console.error('Error selling FutBot player:', error);
+        const reply = { content: 'Could not sell that player.', ephemeral: true };
+        if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
+        else await interaction.reply(reply).catch(() => {});
+      }
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith('futbot_sell_cancel:')) {
+      const { handlePlayerSellCancel } = require('../utils/futbotDiscord');
+      try {
+        await handlePlayerSellCancel(interaction);
+      } catch (error) {
+        console.error('Error cancelling FutBot sale:', error);
+        const reply = { content: 'Could not cancel that sale.', ephemeral: true };
+        if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
+        else await interaction.reply(reply).catch(() => {});
+      }
+      return;
+    }
+
     // FutBot daily reward card selection
     if (interaction.isButton() && interaction.customId.startsWith('futbot_daily_collect:')) {
       const { handleDailyCollect } = require('../utils/futbotDiscord');
@@ -47,7 +87,7 @@ module.exports = {
 
       try {
         const futbotCommands = new Set([
-          '8', 'players', 'daily', 'claim', 'futbot', 'futbotbattle', 'futbotdrop',
+          '8', 'players', 'daily', 'claim', 'buy', 'sell', 'futbot', 'futbotbattle', 'futbotdrop',
           'futbotexchange', 'futbotimage', 'futbotinfo', 'futbotmarket',
           'futbotstatus', 'futbotsuggest', 'futbottrade', 'futbotadmin',
         ]);
