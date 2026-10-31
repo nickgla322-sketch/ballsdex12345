@@ -102,7 +102,7 @@ async function run(interaction, operation, label = 'FutBot') {
     const embed = new EmbedBuilder().setTitle(label).setColor(0x2d9cdb).setTimestamp();
     const files = [];
     const cardEmbeds = [];
-    for (const card of cards.slice(0, 10)) {
+    for (const card of cards.slice(0, 9)) {
       const file = await cardFile(card).catch(() => null);
       if (file) files.push(file);
       cardEmbeds.push(cardEmbed(card, file));
