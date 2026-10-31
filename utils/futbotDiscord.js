@@ -111,7 +111,7 @@ function cardEmbed(card, file) {
       { name: 'Nation', value: String(card.nation || '—'), inline: true },
       { name: 'Card ID', value: String(card.card_id), inline: true },
     );
-  if (file) embed.setThumbnail('attachment://' + file.name);
+  if (file) embed.setImage('attachment://' + file.name);
   return embed;
 }
 
