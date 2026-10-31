@@ -21,11 +21,6 @@ module.exports = {
       .addSubcommand(s => s.setName('detail').setDescription('View a card').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)))
       .addSubcommand(s => s.setName('weight').setDescription('Check pack weight').addStringOption(o => o.setName('query').setDescription('Player name or card ID').setRequired(true)))
       .addSubcommand(s => s.setName('copies').setDescription('View your editions of a card').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)).addUserOption(o => o.setName('user').setDescription('Player'))))
-    .addSubcommandGroup(g => g.setName('packs').setDescription('Pack catalog and openings')
-      .addSubcommand(s => s.setName('catalog').setDescription('View available packs'))
-      .addSubcommand(s => s.setName('owned').setDescription('View your unopened packs'))
-      .addSubcommand(s => s.setName('buy').setDescription('Buy a pack').addIntegerOption(o => o.setName('pack-id').setDescription('Pack ID').setRequired(true).setMinValue(1).setMaxValue(4)))
-      .addSubcommand(s => s.setName('open').setDescription('Open a pack').addIntegerOption(o => o.setName('pack-id').setDescription('Pack ID').setRequired(true).setMinValue(1).setMaxValue(4))))
     .addSubcommandGroup(g => g.setName('social').setDescription('Friends and requests')
       .addSubcommand(s => s.setName('friends').setDescription('View your friends'))
       .addSubcommand(s => s.setName('requests').setDescription('View incoming friend requests'))
@@ -62,12 +57,6 @@ module.exports = {
       if (sub === 'detail') return run(interaction, () => futbotApi.request('/api/v1/cards/' + cardId), 'Card detail');
       if (sub === 'weight') return run(interaction, () => futbotApi.request('/api/v1/cards/weight' + queryString({search:interaction.options.getString('query')})), 'Card weight');
       if (sub === 'copies') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/cards/' + cardId + '/copies'), 'Card editions');
-    }
-    if (group === 'packs') {
-      if (sub === 'catalog') return run(interaction, () => futbotApi.request('/api/v1/packs/catalog'), 'Pack catalog');
-      if (sub === 'owned') return run(interaction, () => futbotApi.request(base + '/packs'), 'Your packs');
-      if (sub === 'buy') return run(interaction, () => post('/api/v1/packs/buy', {user_id:uid,pack_id:interaction.options.getInteger('pack-id')}), 'Buy pack');
-      if (sub === 'open') return run(interaction, () => post('/api/v1/packs/open', {user_id:uid,pack_id:interaction.options.getInteger('pack-id')}), 'Open pack');
     }
     if (group === 'social') {
       if (sub === 'friends') return run(interaction, () => futbotApi.request(base + '/friends'), 'Friends');
