@@ -5,7 +5,8 @@ module.exports = {
   async execute(interaction, client) {
     if (
       !interaction.isChatInputCommand() &&
-      !interaction.isStringSelectMenu()
+      !interaction.isStringSelectMenu() &&
+      !interaction.isButton()
     ) {
       return;
     }
