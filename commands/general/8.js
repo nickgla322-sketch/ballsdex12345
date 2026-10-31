@@ -187,11 +187,8 @@ module.exports = {
       const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
       const imageName = 'futbot-lineup-' + interaction.user.id + '.png';
       const embed = new EmbedBuilder()
-        .setTitle('Your FutBot Lineup')
         .setColor(0x5865f2)
-        .setDescription('Formation: **' + (lineup.formation || '2-2-3') + '**  ·  **' + (lineup.filled ?? slots.filter(s => s.card).length) + '/8** players\\nRed badges show the overall penalty for playing out of position.')
-        .setImage('attachment://' + imageName)
-        .setTimestamp();
+        .setImage('attachment://' + imageName);
 
       return interaction.editReply({
         content: '',
