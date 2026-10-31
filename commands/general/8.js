@@ -23,8 +23,8 @@ module.exports = {
       const basePath = '/api/v1/players/' + interaction.user.id + '/lineup';
       if (subcommand === 'formation') {
         const formations = {
-          2: ['2-2-3', '2-3-2', '2-4-1', '2-1-4'],
-          3: ['3-2-2', '3-3-1', '3-1-3'],
+          2: ['2-2-3', '2-3-2', '2-4-1'],
+          3: ['3-2-2', '3-3-1'],
           4: ['4-2-1', '4-1-2'],
         };
         const makeDefenderButtons = () => new ActionRowBuilder().addComponents(
@@ -47,7 +47,7 @@ module.exports = {
           .setTitle('Choose Your Defensive Setup')
           .setColor(0x5865f2)
           .setDescription(
-            'Choose how many defenders you want in your formation. Every option has exactly **8 players**: 1 goalkeeper, the selected number of defenders, at least 1 CM, and at least 1 attacker.'
+            'Choose how many defenders you want in your formation. Every option has exactly **8 players**: 1 goalkeeper, the selected number of defenders, and enough midfielders to have at least half as many midfielders as attackers.'
           );
         const message = await interaction.editReply({
           content: '',
@@ -68,7 +68,7 @@ module.exports = {
               .setColor(0x5865f2)
               .setDescription(
                 'Choose a formation below. Each setup has 1 GK, ' + count +
-                ' defenders, at least 1 CM, and at least 1 attacker.'
+                ' defenders, with at least half as many midfielders as attackers.'
               );
             return interaction.editReply({
               embeds: [choiceEmbed],
