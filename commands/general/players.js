@@ -9,13 +9,17 @@ const { futbotApi } = require('../../utils/futbotDiscord');
 
 const PAGE_SIZE = 10;
 
-function buildPage(cards, page, totalPages) {
+function buildPage(cards, startingEightIds, page, totalPages) {
   const visible = cards.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const description = visible.map((card, index) => {
     const number = page * PAGE_SIZE + index + 1;
+    const inStartingEight = startingEightIds.has(String(card.card_id));
+    const status = inStartingEight ? '🟢 **Starting 8**' : '⚪ Not in Starting 8';
+
     return '**' + number + '. ' + (card.name || 'Unknown Player') + '**' +
       '\nPosition: ' + (card.position || '—') +
-      ' | Overall: ' + (card.overall ?? '—');
+      ' | Overall: ' + (card.overall ?? '—') +
+      ' | ' + status;
   }).join('\n\n');
 
   return new EmbedBuilder()
@@ -50,18 +54,33 @@ module.exports = {
     .addSubcommand(subcommand =>
       subcommand
         .setName('show')
-        .setDescription('Show player names, positions, and overalls')
+        .setDescription('Show player names, positions, overalls, and lineup status')
     ),
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     try {
-      const response = await futbotApi.request(
-        '/api/v1/players/' + interaction.user.id + '/inventory',
-        { method: 'GET' }
+      const userId = interaction.user.id;
+      const [inventoryResponse, lineupResponse] = await Promise.all([
+        futbotApi.request(
+          '/api/v1/players/' + userId + '/inventory',
+          { method: 'GET' }
+        ),
+        futbotApi.request(
+          '/api/v1/players/' + userId + '/lineup',
+          { method: 'GET' }
+        ).catch(() => null),
+      ]);
+
+      const inventoryData = inventoryResponse?.data ?? inventoryResponse;
+      const inventory = Array.isArray(inventoryData?.cards) ? inventoryData.cards : [];
+
+      const lineupData = lineupResponse?.data ?? lineupResponse;
+      const startingEightIds = new Set(
+        (Array.isArray(lineupData?.slots) ? lineupData.slots : [])
+          .filter(slot => slot?.card?.card_id !== undefined && slot?.card?.card_id !== null)
+          .map(slot => String(slot.card.card_id))
       );
-      const data = response?.data ?? response;
-      const inventory = Array.isArray(data?.cards) ? data.cards : [];
 
       // Combine multiple editions of the same card into one player entry.
       const byCard = new Map();
@@ -71,13 +90,14 @@ module.exports = {
         byCard.get(id).copies += 1;
       }
       const cards = [...byCard.values()].sort((a, b) =>
+        (Number(b.overall) || 0) - (Number(a.overall) || 0) ||
         String(a.name || '').localeCompare(String(b.name || ''))
       );
 
       const totalPages = Math.max(1, Math.ceil(cards.length / PAGE_SIZE));
       let page = 0;
       const message = await interaction.editReply({
-        embeds: [buildPage(cards, page, totalPages)],
+        embeds: [buildPage(cards, startingEightIds, page, totalPages)],
         components: buildButtons(page, totalPages),
       });
 
@@ -85,14 +105,14 @@ module.exports = {
 
       const collector = message.createMessageComponentCollector({
         time: 120000,
-        filter: buttonInteraction => buttonInteraction.user.id === interaction.user.id,
+        filter: buttonInteraction => buttonInteraction.user.id === userId,
       });
 
       collector.on('collect', async buttonInteraction => {
         if (buttonInteraction.customId === 'players_show_prev') page = Math.max(0, page - 1);
         if (buttonInteraction.customId === 'players_show_next') page = Math.min(totalPages - 1, page + 1);
         await buttonInteraction.update({
-          embeds: [buildPage(cards, page, totalPages)],
+          embeds: [buildPage(cards, startingEightIds, page, totalPages)],
           components: buildButtons(page, totalPages),
         });
       });
