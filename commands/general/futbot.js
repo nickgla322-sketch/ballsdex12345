@@ -29,7 +29,6 @@ module.exports = {
       .addSubcommand(s => s.setName('decline').setDescription('Decline a friend request').addIntegerOption(o => o.setName('request-id').setDescription('Request ID').setRequired(true)))
       .addSubcommand(s => s.setName('remove').setDescription('Remove a friend').addUserOption(o => o.setName('user').setDescription('Friend').setRequired(true))))
     .addSubcommandGroup(g => g.setName('economy').setDescription('Selling cards and rankings')
-      .addSubcommand(s => s.setName('sell').setDescription('Sell cards from your inventory').addStringOption(o => o.setName('card-ids').setDescription('Card IDs, comma-separated').setRequired(true)))
       .addSubcommand(s => s.setName('leaderboard').setDescription('View a leaderboard').addStringOption(o => o.setName('stat').setDescription('Statistic').setRequired(true).addChoices(...stats.map(v => ({name:v.replace(/_/g,' '),value:v})))).addIntegerOption(o => o.setName('limit').setDescription('Entries (1-25)').setMinValue(1).setMaxValue(25))))
     .addSubcommandGroup(g => g.setName('tradeup').setDescription('Exchange five cards for a higher rarity card')
       .addSubcommand(s => s.setName('eligible').setDescription('View eligible cards').addStringOption(o => o.setName('tier').setDescription('Tier').setRequired(true).addChoices(...tierChoices)))
@@ -66,7 +65,6 @@ module.exports = {
       if (sub === 'remove') return run(interaction, () => post('/api/v1/friends/remove', {user_id:uid,friend_id:user.id}), 'Remove friend');
     }
     if (group === 'economy') {
-      if (sub === 'sell') return run(interaction, () => post('/api/v1/inventory/sell', {user_id:uid,card_ids:parseIdList(interaction.options.getString('card-ids'),'Card IDs')}), 'Sell cards');
       if (sub === 'leaderboard') return run(interaction, () => futbotApi.request('/api/v1/leaderboards/' + interaction.options.getString('stat') + queryString({limit:interaction.options.getInteger('limit') || 10})), 'Leaderboard');
     }
     if (group === 'tradeup') {
