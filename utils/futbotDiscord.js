@@ -215,6 +215,7 @@ async function handleQuickSell(interaction) {
     return interaction.reply({ content: 'This quicksell button belongs to another player.', ephemeral: true });
   }
 
+  const originalValue = interaction.message.embeds?.[0]?.fields?.find(field => field.name === 'Player value')?.value || 'Unknown';
   await interaction.deferUpdate();
   try {
     const response = await post('/api/v1/players/' + ownerId + '/cards/quicksell', {
@@ -232,7 +233,7 @@ async function handleQuickSell(interaction) {
       }))
     );
     return interaction.editReply({
-      content: 'QuickSold **' + Number(data.coins_earned ?? 0).toLocaleString() + ' coins**. New balance: **' + Number(data.balance ?? 0).toLocaleString() + '**.',
+      content: 'QuickSold **' + Number(data.coins_earned ?? 0).toLocaleString() + ' coins**. Original player value: **' + originalValue + '**. New balance: **' + Number(data.balance ?? 0).toLocaleString() + '**.',
       components,
     });
   } catch (error) {
@@ -280,7 +281,10 @@ async function runPlayerSell(interaction, playerName) {
       .setTitle('Confirm QuickSell')
       .setDescription('Are you sure you want to quicksell **' + card.name + '** for **' +
         Number(card.quicksell_value ?? 0).toLocaleString() + ' coins**?')
-      .addFields({ name: 'You will receive', value: Number(card.quicksell_value ?? 0).toLocaleString() + ' coins', inline: true });
+      .addFields(
+        { name: 'Original player value', value: Number(card.value ?? 0).toLocaleString() + ' coins', inline: true },
+        { name: 'You will receive', value: Number(card.quicksell_value ?? 0).toLocaleString() + ' coins', inline: true },
+      );
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('futbot_sell:' + card.card_id + ':' + interaction.user.id)
@@ -331,6 +335,7 @@ async function handlePlayerSell(interaction) {
   if (interaction.user.id !== ownerId) {
     return interaction.reply({ content: 'This sell button belongs to another player.', ephemeral: true });
   }
+  const originalValue = interaction.message.embeds?.[0]?.fields?.find(field => field.name === 'Original player value')?.value || 'Unknown';
   await interaction.deferUpdate();
   try {
     const response = await post('/api/v1/players/' + ownerId + '/cards/quicksell', { card_id: Number(rawCardId) });
@@ -347,7 +352,7 @@ async function handlePlayerSell(interaction) {
     );
     return interaction.editReply({
       content: 'QuickSold **' + Number(data.coins_earned ?? 0).toLocaleString() +
-        ' coins**. New balance: **' + Number(data.balance ?? 0).toLocaleString() + ' coins**.',
+        ' coins**. Original player value: **' + originalValue + '**. New balance: **' + Number(data.balance ?? 0).toLocaleString() + ' coins**.',
       components,
     });
   } catch (error) {
