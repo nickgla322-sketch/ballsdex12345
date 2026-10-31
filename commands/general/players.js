@@ -7,18 +7,16 @@ const {
 } = require('discord.js');
 const { futbotApi } = require('../../utils/futbotDiscord');
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 function buildPage(cards, page, totalPages) {
   const visible = cards.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const description = visible.map((card, index) => {
     const number = page * PAGE_SIZE + index + 1;
     return '**' + number + '. ' + (card.name || 'Unknown Player') + '**' +
-      '\\nPosition: ' + (card.position || '—') +
-      ' | ATK: ' + (card.attack ?? '—') +
-      ' | DEF: ' + (card.defense ?? '—') +
-      ' | SPD: ' + (card.speed ?? '—');
-  }).join('\\n\\n');
+      '\nPosition: ' + (card.position || '—') +
+      ' | Overall: ' + (card.overall ?? '—');
+  }).join('\n\n');
 
   return new EmbedBuilder()
     .setTitle('Your Players')
@@ -52,7 +50,7 @@ module.exports = {
     .addSubcommand(subcommand =>
       subcommand
         .setName('show')
-        .setDescription('Show player names, positions, and stats')
+        .setDescription('Show player names, positions, and overalls')
     ),
 
   async execute(interaction) {
