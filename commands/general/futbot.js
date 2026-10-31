@@ -23,9 +23,7 @@ module.exports = {
       .addSubcommand(s => s.setName('search').setDescription('Search the card catalog').addStringOption(o => o.setName('query').setDescription('Player name or card ID')).addIntegerOption(o => o.setName('limit').setDescription('Results (1-25)').setMinValue(1).setMaxValue(25)))
       .addSubcommand(s => s.setName('detail').setDescription('View a card').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)))
       .addSubcommand(s => s.setName('weight').setDescription('Check pack weight').addStringOption(o => o.setName('query').setDescription('Player name or card ID').setRequired(true)))
-      .addSubcommand(s => s.setName('copies').setDescription('View your editions of a card').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)).addUserOption(o => o.setName('user').setDescription('Player')))
-      .addSubcommand(s => s.setName('wishlist').setDescription('Toggle a card on your wishlist').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)))
-      .addSubcommand(s => s.setName('wishlist-view').setDescription('View a player wishlist').addUserOption(o => o.setName('user').setDescription('Player'))))
+      .addSubcommand(s => s.setName('copies').setDescription('View your editions of a card').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)).addUserOption(o => o.setName('user').setDescription('Player'))))
     .addSubcommandGroup(g => g.setName('packs').setDescription('Pack catalog and openings')
       .addSubcommand(s => s.setName('catalog').setDescription('View available packs'))
       .addSubcommand(s => s.setName('owned').setDescription('View your unopened packs'))
@@ -70,8 +68,6 @@ module.exports = {
       if (sub === 'detail') return run(interaction, () => futbotApi.request('/api/v1/cards/' + cardId), 'Card detail');
       if (sub === 'weight') return run(interaction, () => futbotApi.request('/api/v1/cards/weight' + queryString({search:interaction.options.getString('query')})), 'Card weight');
       if (sub === 'copies') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/cards/' + cardId + '/copies'), 'Card editions');
-      if (sub === 'wishlist') return run(interaction, () => post(base + '/wishlist/' + cardId, {}), 'Wishlist');
-      if (sub === 'wishlist-view') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/wishlist'), 'Wishlist');
     }
     if (group === 'packs') {
       if (sub === 'catalog') return run(interaction, () => futbotApi.request('/api/v1/packs/catalog'), 'Pack catalog');
