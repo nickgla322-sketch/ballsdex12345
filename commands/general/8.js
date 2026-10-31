@@ -186,13 +186,9 @@ module.exports = {
       }
       const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
       const imageName = 'futbot-lineup-' + interaction.user.id + '.png';
-      const embed = new EmbedBuilder()
-        .setColor(0x5865f2)
-        .setImage('attachment://' + imageName);
-
       return interaction.editReply({
         content: '',
-        embeds: [embed],
+        embeds: [],
         files: [{ attachment: imageBuffer, name: imageName }],
       });
     } catch (error) {
