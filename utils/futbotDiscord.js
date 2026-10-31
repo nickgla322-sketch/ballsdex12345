@@ -89,13 +89,15 @@ async function cardCompareFile(cards) {
 }
 
 function cardStatsSummary(card) {
-  return [
-    '**ATK** ' + (card.attack ?? '—'),
-    '**DEF** ' + (card.defense ?? '—'),
-    '**SPD** ' + (card.speed ?? '—'),
-    '**Position** ' + (card.position || '—'),
-    '**Club** ' + (card.club || '—'),
-  ].join('  •  ');
+  const stats = String(card.position || '').toUpperCase() === 'GK'
+    ? ['**GK** ' + (card.goalkeeping ?? '—')]
+    : [
+        '**SHO** ' + (card.shooting ?? '—'),
+        '**PAS** ' + (card.passing ?? '—'),
+        '**DRI** ' + (card.dribbling ?? '—'),
+        '**DEF** ' + (card.defense ?? '—'),
+      ];
+  return [...stats, '**Position** ' + (card.position || '—'), '**Club** ' + (card.club || '—')].join('  •  ');
 }
 
 function cardEmbed(card, file) {
@@ -104,9 +106,14 @@ function cardEmbed(card, file) {
     .setColor(0x5865f2)
     .setDescription([card.club, card.position, card.card_rarity].filter(Boolean).join('  •  ') || 'Player card')
     .addFields(
-      { name: '⚔️ Attack', value: String(card.attack ?? '—'), inline: true },
-      { name: '🛡️ Defense', value: String(card.defense ?? '—'), inline: true },
-      { name: '⚡ Speed', value: String(card.speed ?? '—'), inline: true },
+      ...(String(card.position || '').toUpperCase() === 'GK'
+        ? [{ name: 'GK', value: String(card.goalkeeping ?? '—'), inline: true }]
+        : [
+            { name: 'SHO', value: String(card.shooting ?? '—'), inline: true },
+            { name: 'PAS', value: String(card.passing ?? '—'), inline: true },
+            { name: 'DRI', value: String(card.dribbling ?? '—'), inline: true },
+            { name: 'DEF', value: String(card.defense ?? '—'), inline: true },
+          ]),
       { name: 'League', value: String(card.league || '—'), inline: true },
       { name: 'Nation', value: String(card.nation || '—'), inline: true },
       { name: 'Card ID', value: String(card.card_id), inline: true },
