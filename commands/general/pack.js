@@ -13,9 +13,9 @@ const futbotApi = require('../../utils/futbotApi');
 const { cardFile, cardEmbed } = require('../../utils/futbotDiscord');
 
 const PACKS = {
-  bronze: { name: 'Bronze Player Packs', range: '45–64 OVR', prices: { 2: 2250, 5: 5063, 10: 9000 } },
-  silver: { name: 'Silver Player Packs', range: '65–74 OVR', prices: { 2: 5750, 5: 12938, 10: 23000 } },
-  gold: { name: 'Gold Player Packs', range: '75–99 OVR', prices: { 2: 18000, 5: 40500, 10: 72000 } },
+  bronze: { name: 'Bronze Player Packs', range: '45-64 OVR', prices: { 2: 2250, 5: 5063, 10: 9000 } },
+  silver: { name: 'Silver Player Packs', range: '65-74 OVR', prices: { 2: 5750, 5: 12938, 10: 23000 } },
+  gold: { name: 'Gold Player Packs', range: '75-99 OVR', prices: { 2: 18000, 5: 40500, 10: 72000 } },
 };
 
 function formatCoins(value) {
@@ -27,9 +27,9 @@ function packMenu(ownerId) {
     .setCustomId('futbot_pack_tier:' + ownerId)
     .setPlaceholder('Choose a player pack...')
     .addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('Bronze Player Packs').setValue('bronze').setDescription('45–64 OVR players'),
-      new StringSelectMenuOptionBuilder().setLabel('Silver Player Packs').setValue('silver').setDescription('65–74 OVR players'),
-      new StringSelectMenuOptionBuilder().setLabel('Gold Player Packs').setValue('gold').setDescription('75–99 OVR players'),
+      new StringSelectMenuOptionBuilder().setLabel('Bronze Player Packs').setValue('bronze').setDescription('45-64 OVR players'),
+      new StringSelectMenuOptionBuilder().setLabel('Silver Player Packs').setValue('silver').setDescription('65-74 OVR players'),
+      new StringSelectMenuOptionBuilder().setLabel('Gold Player Packs').setValue('gold').setDescription('75-99 OVR players'),
       new StringSelectMenuOptionBuilder().setLabel('Special Player Packs').setValue('special').setDescription('Coming soon - no Special cards yet'),
     );
   return new ActionRowBuilder().addComponents(menu);
@@ -59,7 +59,7 @@ module.exports = {
       .setColor(0x5865f2)
       .setDescription(
         'Choose a pack category below. Each pack contains random players from its overall range.\n\n' +
-        '**Bronze:** 45–64 OVR\n**Silver:** 65–74 OVR\n**Gold:** 75–99 OVR\n**Special:** Coming soon'
+        '**Bronze:** 45-64 OVR\n**Silver:** 65-74 OVR\n**Gold:** 75-99 OVR\n**Special:** Coming soon'
       );
     return interaction.reply({
       embeds: [embed],
