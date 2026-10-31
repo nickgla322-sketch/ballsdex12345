@@ -23,8 +23,8 @@ module.exports = {
       const basePath = '/api/v1/players/' + interaction.user.id + '/lineup';
       if (subcommand === 'formation') {
         const formations = {
-          2: ['2-2-3', '2-3-2', '2-4-1'],
-          3: ['3-2-2', '3-3-1'],
+          2: ['2-2-3', '2-3-2 (CDM)', '2-3-2 (CAM)', '2-3-2 (3 CM)', '2-4-1'],
+          3: ['3-2-2', '3-3-1 (CDM)', '3-3-1 (CAM)', '3-3-1 (3 CM)'],
           4: ['4-2-1', '4-1-2'],
         };
         const makeDefenderButtons = () => new ActionRowBuilder().addComponents(
