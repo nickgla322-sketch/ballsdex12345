@@ -197,18 +197,8 @@ module.exports = {
 
       collector.on('end', async () => {
         try {
-          const current = await buildPage(state);
           await interaction.editReply({
-            embeds: current.embeds,
-            components: buildComponents(state, Math.max(1, Math.ceil(
-              Number((await futbotApi.request('/api/v1/cards' + queryString({
-                tier: state.category,
-                position: state.position,
-                limit: 1,
-                offset: 0,
-              }))?.data?.total ?? 0) / PAGE_SIZE
-            )), true),
-            files: current.files,
+            components: buildComponents(state, 1, true),
           });
         } catch {
           // The original message may have expired or been deleted.
