@@ -153,4 +153,5 @@ module.exports = {
   },
 };
 
-// Deployment check: harmless comment to trigger the Discord bot redeploy.
+// Pack price display is kept in sync with the API's PLAYER_PACKS costs.
+// Redeploy marker: refresh the live /pack menu price labels.
