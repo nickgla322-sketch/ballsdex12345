@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { futbotApi, userIdOption, parseIdList, queryString, run, post, del } = require('../../utils/futbotDiscord');
+const { futbotApi, userIdOption, parseIdList, queryString, run, runDailyClaim, post, del } = require('../../utils/futbotDiscord');
 
 const stats = ['battles_won','battles_played','battles_lost','battles_drawn','rounds_won','rounds_played','rounds_lost','rounds_drawn','coins','cards_dropped','cards_sold'];
 const secrets = ['itscominghome','jogabonito','pineappleonpizza','fubball','theflyingdutchmen','mayonnaise'];
@@ -63,7 +63,7 @@ module.exports = {
       if (sub === 'stats') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/stats'), 'Stats');
       if (sub === 'inventory') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/inventory'), 'Inventory');
       if (sub === 'starter') return run(interaction, () => post(base + '/starter-pack', {}), 'Starter pack');
-      if (sub === 'daily') return run(interaction, () => post(base + '/daily/claim', {}), 'Daily reward');
+      if (sub === 'daily') return runDailyClaim(interaction, () => post(base + '/daily/claim', {}));
       if (sub === 'daily-collect') return run(interaction, () => post(base + '/daily/collect', {card_id:cardId}), 'Daily card');
       if (sub === 'achievements') return run(interaction, () => futbotApi.request(base + '/achievements'), 'Achievements');
       if (sub === 'equip-title') return run(interaction, () => post(base + '/title', {achievement_id:interaction.options.getInteger('achievement-id')}), 'Equip title');
