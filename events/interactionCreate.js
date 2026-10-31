@@ -33,7 +33,7 @@ module.exports = {
 
       try {
         const futbotCommands = new Set([
-          '8', 'players', 'futbot', 'futbotbattle', 'futbotdrop',
+          '8', 'players', 'daily', 'claim', 'futbot', 'futbotbattle', 'futbotdrop',
           'futbotexchange', 'futbotimage', 'futbotinfo', 'futbotmarket',
           'futbotstatus', 'futbotsuggest', 'futbottrade', 'futbotadmin',
         ]);
