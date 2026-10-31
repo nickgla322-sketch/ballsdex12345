@@ -39,7 +39,7 @@ module.exports = {
           .setTitle('Formation Updated')
           .setColor(0x57f287)
           .setDescription('Your lineup formation is now **' + (lineup.formation || formation) + '**.')
-          .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '—') + '/8** players assigned. Your players remain in their numbered slots; their position penalties are recalculated for the new formation.' });
+          .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '-') + '/8** players assigned. Your players remain in their numbered slots; their position penalties are recalculated for the new formation.' });
         return interaction.editReply({ embeds: [embed], content: '' });
       }
       if (subcommand === 'remove') {
@@ -53,7 +53,7 @@ module.exports = {
           .setTitle('Player Removed from Lineup')
           .setColor(0xed4245)
           .setDescription('The player in slot **' + slot + '** was removed.')
-          .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '—') + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
+          .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '-') + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
         return interaction.editReply({ embeds: [embed], content: '' });
       }
       if (subcommand === 'swap') {
@@ -68,7 +68,7 @@ module.exports = {
           .setTitle('Lineup Players Swapped')
           .setColor(0x57f287)
           .setDescription('Updated slots **' + slot1 + '** and **' + slot2 + '**. Players are moved into empty slots or swapped when both slots are occupied. Position penalties have been recalculated.')
-          .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '—') + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
+          .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '-') + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
         return interaction.editReply({ embeds: [embed], content: '' });
       }
       if (subcommand === 'add') {
@@ -87,7 +87,7 @@ module.exports = {
           .setTitle('Player Added to Lineup')
           .setColor(0x57f287)
           .setDescription('**' + (card?.name || player) + '** was added to slot **' + slot + '** (' + (assigned?.position || 'position unavailable') + ').')
-          .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '—') + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
+          .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '-') + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
         if (card) embed.addFields({ name: 'Rating', value: card.overall + ' OVR' + (penalty ? ' · 🔴 -' + penalty + ' → ' + effective + ' effective OVR' : ''), inline: true });
         return interaction.editReply({ embeds: [embed], content: '' });
       }
