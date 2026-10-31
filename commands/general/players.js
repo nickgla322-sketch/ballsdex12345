@@ -17,8 +17,8 @@ function buildPage(cards, startingEightIds, page, totalPages) {
     const status = inStartingEight ? '🟢 **Starting 8**' : '⚪ Not in Starting 8';
 
     return '**' + number + '. ' + (card.name || 'Unknown Player') + '**' +
-      '\nPosition: ' + (card.position || '—') +
-      ' | Overall: ' + (card.overall ?? '—') +
+      '\nPosition: ' + (card.position || '-') +
+      ' | Overall: ' + (card.overall ?? '-') +
       ' | ' + status;
   }).join('\n\n');
 
