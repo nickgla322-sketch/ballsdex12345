@@ -263,7 +263,7 @@ async function runPlayerBuy(interaction, playerName) {
     );
     return interaction.editReply({ embeds: [embed], files: file ? [file] : [], components: [row] });
   } catch (error) {
-    return interaction.editReply({ content: '**Buy error**\\n' + String(error.message || 'Player not found.').slice(0, 1600), embeds: [], components: [] });
+    return interaction.editReply({ content: '**Buy error**\n' + String(error.message || 'Player not found.').slice(0, 1600), embeds: [], components: [] });
   }
 }
 
@@ -293,7 +293,7 @@ async function runPlayerSell(interaction, playerName) {
     );
     return interaction.editReply({ embeds: [embed], files: file ? [file] : [], components: [row] });
   } catch (error) {
-    return interaction.editReply({ content: '**Sell error**\\n' + String(error.message || 'Player not found.').slice(0, 1600), embeds: [], components: [] });
+    return interaction.editReply({ content: '**Sell error**\n' + String(error.message || 'Player not found.').slice(0, 1600), embeds: [], components: [] });
   }
 }
 
@@ -322,7 +322,7 @@ async function handlePlayerBuy(interaction) {
       components,
     });
   } catch (error) {
-    return interaction.followUp({ content: '**Buy error**\\n' + String(error.message || 'Could not buy this player.').slice(0, 1500), ephemeral: true });
+    return interaction.followUp({ content: '**Buy error**\n' + String(error.message || 'Could not buy this player.').slice(0, 1500), ephemeral: true });
   }
 }
 
@@ -351,7 +351,7 @@ async function handlePlayerSell(interaction) {
       components,
     });
   } catch (error) {
-    return interaction.followUp({ content: '**Sell error**\\n' + String(error.message || 'Could not sell this player.').slice(0, 1500), ephemeral: true });
+    return interaction.followUp({ content: '**Sell error**\n' + String(error.message || 'Could not sell this player.').slice(0, 1500), ephemeral: true });
   }
 }
 
