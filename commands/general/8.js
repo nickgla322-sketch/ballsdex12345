@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const crypto = require('crypto');
 const { futbotApi } = require('../../utils/futbotDiscord');
 
 module.exports = {
@@ -177,21 +178,18 @@ module.exports = {
       const baseUrl = (process.env.FUTBOT_API_URL || '').replace(/\/+$/, '');
       const apiKey = process.env.FUTBOT_API_KEY || '';
       if (!baseUrl || !apiKey) throw new Error('FUTBOT_API_URL or FUTBOT_API_KEY is not configured.');
-      const imageResponse = await fetch(baseUrl + basePath + '/image', {
-        headers: { 'X-API-Key': apiKey },
-      });
-      if (!imageResponse.ok) {
-        const message = await imageResponse.text();
-        throw new Error(message || 'Could not generate the lineup image.');
-      }
-      const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-      const imageName = 'futbot-lineup-' + interaction.user.id + '.png';
-      const imageEmbed = new EmbedBuilder()
-        .setImage('attachment://' + imageName);
+      const expires = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60);
+      const signature = crypto
+        .createHmac('sha256', apiKey)
+        .update(interaction.user.id + ':' + expires)
+        .digest('hex');
+      const imageUrl = baseUrl + '/public/lineups/' + interaction.user.id +
+        '/image?expires=' + expires + '&sig=' + signature;
+      const imageEmbed = new EmbedBuilder().setImage(imageUrl);
       return interaction.editReply({
         content: '',
         embeds: [imageEmbed],
-        files: [{ attachment: imageBuffer, name: imageName }],
+        files: [],
       });
     } catch (error) {
       console.error('[8 show]', error);
