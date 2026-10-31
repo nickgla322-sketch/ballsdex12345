@@ -188,12 +188,11 @@ module.exports = {
 
       const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
       const imageName = 'futbot-lineup-' + interaction.user.id + '.png';
-      const imageEmbed = new EmbedBuilder()
-        .setImage('attachment://' + imageName);
 
+      // Send the PNG as the message itself: no embed and no text.
       return interaction.editReply({
         content: '',
-        embeds: [imageEmbed],
+        embeds: [],
         files: [{ attachment: imageBuffer, name: imageName }],
       });
     } catch (error) {
