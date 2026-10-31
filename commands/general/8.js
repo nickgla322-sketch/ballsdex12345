@@ -192,7 +192,7 @@ module.exports = {
       const helpRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('lineup-penalty-help-' + interaction.user.id)
-          .setLabel('Why the -?')
+          .setLabel('Why the Minus Sign (-)?')
           .setStyle(ButtonStyle.Secondary)
       );
       const message = await interaction.editReply({
@@ -207,7 +207,7 @@ module.exports = {
       collector.on('collect', async component => {
         if (component.customId !== 'lineup-penalty-help-' + interaction.user.id) return;
         await component.reply({
-          content: 'The **-** means this player is out of position, so their overall rating is reduced.',
+          content: 'The minus sign (**-)** means this player is out of position, so their overall rating is reduced.',
           ephemeral: true,
         });
       });
