@@ -78,18 +78,18 @@ async function cardFile(card) {
 
 function cardEmbed(card, file) {
   const embed = new EmbedBuilder()
-    .setTitle((card.name || 'Unknown player') + ' · ' + (card.overall ?? '?') + ' OVR')
+    .setTitle((card.name || 'Unknown player') + '  |  ' + (card.overall ?? '?') + ' OVR')
     .setColor(0x5865f2)
+    .setDescription([card.club, card.position, card.card_rarity].filter(Boolean).join('  •  ') || 'Player card')
     .addFields(
-      { name: 'Attack', value: String(card.attack ?? '—'), inline: true },
-      { name: 'Defense', value: String(card.defense ?? '—'), inline: true },
-      { name: 'Speed', value: String(card.speed ?? '—'), inline: true },
-      { name: 'Position', value: String(card.position || '—'), inline: true },
-      { name: 'Club', value: String(card.club || '—'), inline: true },
-      { name: 'Rarity', value: String(card.card_rarity || '—'), inline: true },
+      { name: '⚔️ Attack', value: String(card.attack ?? '—'), inline: true },
+      { name: '🛡️ Defense', value: String(card.defense ?? '—'), inline: true },
+      { name: '⚡ Speed', value: String(card.speed ?? '—'), inline: true },
+      { name: 'League', value: String(card.league || '—'), inline: true },
+      { name: 'Nation', value: String(card.nation || '—'), inline: true },
+      { name: 'Card ID', value: String(card.card_id), inline: true },
     );
   if (file) embed.setThumbnail('attachment://' + file.name);
-  else embed.setFooter({ text: 'Card #' + card.card_id });
   return embed;
 }
 
