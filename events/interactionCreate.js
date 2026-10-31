@@ -11,6 +11,20 @@ module.exports = {
       return;
     }
 
+    // FutBot reward-card quicksell buttons
+    if (interaction.isButton() && interaction.customId.startsWith('futbot_quicksell:')) {
+      const { handleQuickSell } = require('../utils/futbotDiscord');
+      try {
+        await handleQuickSell(interaction);
+      } catch (error) {
+        console.error('Error quickselling FutBot card:', error);
+        const reply = { content: 'Could not quicksell that player card.', ephemeral: true };
+        if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
+        else await interaction.reply(reply).catch(() => {});
+      }
+      return;
+    }
+
     // FutBot daily reward card selection
     if (interaction.isButton() && interaction.customId.startsWith('futbot_daily_collect:')) {
       const { handleDailyCollect } = require('../utils/futbotDiscord');
