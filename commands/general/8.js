@@ -33,16 +33,20 @@ module.exports = {
             .setLabel(count + ' Defenders')
             .setStyle(ButtonStyle.Primary))
         );
-        const makeFormationButtons = count => new ActionRowBuilder().addComponents(
-          ...formations[count].map(name => new ButtonBuilder()
-            .setCustomId('lineup-formation-' + name)
-            .setLabel(name)
-            .setStyle(ButtonStyle.Success))
-            .concat(new ButtonBuilder()
+        const makeFormationButtons = count => [
+          new ActionRowBuilder().addComponents(
+            ...formations[count].map(name => new ButtonBuilder()
+              .setCustomId('lineup-formation-' + name)
+              .setLabel(name)
+              .setStyle(ButtonStyle.Success))
+          ),
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
               .setCustomId('lineup-formation-back')
               .setLabel('Back')
-              .setStyle(ButtonStyle.Secondary))
-        );
+              .setStyle(ButtonStyle.Secondary)
+          ),
+        ];
         const menuEmbed = new EmbedBuilder()
           .setTitle('Choose Your Defensive Setup')
           .setColor(0x5865f2)
@@ -72,7 +76,7 @@ module.exports = {
               );
             return interaction.editReply({
               embeds: [choiceEmbed],
-              components: [makeFormationButtons(count)],
+              components: makeFormationButtons(count),
             });
           }
           if (id === 'lineup-formation-back') {
