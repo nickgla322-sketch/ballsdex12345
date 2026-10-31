@@ -13,9 +13,9 @@ const futbotApi = require('../../utils/futbotApi');
 const { cardFile, cardEmbed } = require('../../utils/futbotDiscord');
 
 const PACKS = {
-  bronze: { name: 'Bronze Player Packs', range: '45–64 OVR', prices: { 2: 1000, 5: 2250, 10: 4500 } },
-  silver: { name: 'Silver Player Packs', range: '65–74 OVR', prices: { 2: 4000, 5: 9000, 10: 18000 } },
-  gold: { name: 'Gold Player Packs', range: '75–99 OVR', prices: { 2: 20000, 5: 45000, 10: 90000 } },
+  bronze: { name: 'Bronze Player Packs', range: '45–64 OVR', prices: { 2: 800, 5: 1800, 10: 3200 } },
+  silver: { name: 'Silver Player Packs', range: '65–74 OVR', prices: { 2: 3200, 5: 7200, 10: 12800 } },
+  gold: { name: 'Gold Player Packs', range: '75–99 OVR', prices: { 2: 16000, 5: 36000, 10: 64000 } },
 };
 
 function formatCoins(value) {
@@ -90,7 +90,7 @@ module.exports = {
         '**Small:** 2 players — ' + formatCoins(pack.prices[2]) + '\n' +
         '**Medium:** 5 players — ' + formatCoins(pack.prices[5]) + '\n' +
         '**Jumbo:** 10 players — ' + formatCoins(pack.prices[10]) + '\n\n' +
-        'Jumbo gives you 10 players for the price of 9.'
+        'Jumbo gives you 10 players for the price of 8.'
       );
     return interaction.update({ embeds: [embed], components: packSizeRows(tier, ownerId) });
   },
