@@ -75,7 +75,7 @@ module.exports = {
     .addSubcommand(subcommand =>
       subcommand
         .setName('show')
-        .setDescription('Show your players, stats, and overall ratings')
+        .setDescription('Show your players, images, positions, and copies')
     ),
 
   async execute(interaction) {
@@ -96,7 +96,6 @@ module.exports = {
         byCard.get(id).copies += 1;
       }
       const cards = [...byCard.values()].sort((a, b) =>
-        Number(b.overall || 0) - Number(a.overall || 0) ||
         String(a.name || '').localeCompare(String(b.name || ''))
       );
 
