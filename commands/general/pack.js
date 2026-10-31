@@ -13,9 +13,9 @@ const futbotApi = require('../../utils/futbotApi');
 const { cardFile, cardEmbed } = require('../../utils/futbotDiscord');
 
 const PACKS = {
-  bronze: { name: 'Bronze Player Packs', range: '45–64 OVR', prices: { 2: 2250, 5: 16800, 10: 29400 } },
-  silver: { name: 'Silver Player Packs', range: '65–74 OVR', prices: { 2: 5750, 5: 40000, 10: 70000 } },
-  gold: { name: 'Gold Player Packs', range: '75–99 OVR', prices: { 2: 18000, 5: 52800, 10: 92400 } },
+  bronze: { name: 'Bronze Player Packs', range: '45–64 OVR', prices: { 2: 2250, 5: 5063, 10: 9000 } },
+  silver: { name: 'Silver Player Packs', range: '65–74 OVR', prices: { 2: 5750, 5: 12938, 10: 23000 } },
+  gold: { name: 'Gold Player Packs', range: '75–99 OVR', prices: { 2: 18000, 5: 40500, 10: 72000 } },
 };
 
 function formatCoins(value) {
