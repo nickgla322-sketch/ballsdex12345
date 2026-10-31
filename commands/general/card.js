@@ -90,7 +90,7 @@ async function buildPage(state) {
       .setDescription(
         '**' + (card.overall ?? '-') + ' OVR**' +
         '  •  ' + (card.position || 'Unknown position') +
-        (card.club ? '\\n' + card.club : '')
+        (card.club ? '\n' + card.club : '')
       )
       .addFields(
         { name: 'Player value', value: Number(card.value ?? 0).toLocaleString() + ' coins', inline: true },
@@ -207,7 +207,7 @@ module.exports = {
     } catch (error) {
       console.error('[Card search]', error);
       return interaction.editReply({
-        content: '**Card search error**\\n' + String(error.message || 'Unknown API error').slice(0, 1800),
+        content: '**Card search error**\n' + String(error.message || 'Unknown API error').slice(0, 1800),
         embeds: [],
         components: [],
       });
