@@ -67,7 +67,7 @@ module.exports = {
         const embed = new EmbedBuilder()
           .setTitle('Lineup Players Swapped')
           .setColor(0x57f287)
-          .setDescription('Swapped the players in slots **' + slot1 + '** and **' + slot2 + '**. Their positions and position penalties have been recalculated.')
+          .setDescription('Updated slots **' + slot1 + '** and **' + slot2 + '**. Players are moved into empty slots or swapped when both slots are occupied. Position penalties have been recalculated.')
           .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '—') + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
         return interaction.editReply({ embeds: [embed], content: '' });
       }
