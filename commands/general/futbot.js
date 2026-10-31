@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { futbotApi, userIdOption, parseIdList, queryString, run, runDailyClaim, post, del } = require('../../utils/futbotDiscord');
+const { futbotApi, userIdOption, parseIdList, queryString, run, runDailyClaim, post } = require('../../utils/futbotDiscord');
 
 const stats = ['battles_won','battles_played','battles_lost','battles_drawn','rounds_won','rounds_played','rounds_lost','rounds_drawn','coins','cards_dropped','cards_sold'];
 const secrets = ['itscominghome','jogabonito','pineappleonpizza','fubball','theflyingdutchmen','mayonnaise'];
@@ -31,10 +31,6 @@ module.exports = {
       .addSubcommand(s => s.setName('owned').setDescription('View your unopened packs'))
       .addSubcommand(s => s.setName('buy').setDescription('Buy a pack').addIntegerOption(o => o.setName('pack-id').setDescription('Pack ID').setRequired(true).setMinValue(1).setMaxValue(4)))
       .addSubcommand(s => s.setName('open').setDescription('Open a pack').addIntegerOption(o => o.setName('pack-id').setDescription('Pack ID').setRequired(true).setMinValue(1).setMaxValue(4))))
-    .addSubcommandGroup(g => g.setName('decks').setDescription('Manage five-card battle decks')
-      .addSubcommand(s => s.setName('list').setDescription('List your decks'))
-      .addSubcommand(s => s.setName('save').setDescription('Save a five-card deck').addStringOption(o => o.setName('name').setDescription('Deck name').setRequired(true)).addStringOption(o => o.setName('card-ids').setDescription('Five card IDs, comma-separated').setRequired(true)))
-      .addSubcommand(s => s.setName('delete').setDescription('Delete a deck').addStringOption(o => o.setName('name').setDescription('Deck name').setRequired(true))))
     .addSubcommandGroup(g => g.setName('social').setDescription('Friends and requests')
       .addSubcommand(s => s.setName('friends').setDescription('View your friends'))
       .addSubcommand(s => s.setName('requests').setDescription('View incoming friend requests'))
@@ -82,11 +78,6 @@ module.exports = {
       if (sub === 'owned') return run(interaction, () => futbotApi.request(base + '/packs'), 'Your packs');
       if (sub === 'buy') return run(interaction, () => post('/api/v1/packs/buy', {user_id:uid,pack_id:interaction.options.getInteger('pack-id')}), 'Buy pack');
       if (sub === 'open') return run(interaction, () => post('/api/v1/packs/open', {user_id:uid,pack_id:interaction.options.getInteger('pack-id')}), 'Open pack');
-    }
-    if (group === 'decks') {
-      if (sub === 'list') return run(interaction, () => futbotApi.request(base + '/decks'), 'Decks');
-      if (sub === 'save') return run(interaction, () => post(base + '/decks', {name:interaction.options.getString('name'),card_ids:parseIdList(interaction.options.getString('card-ids'),'Card IDs')}), 'Save deck');
-      if (sub === 'delete') return run(interaction, () => del(base + '/decks', {name:interaction.options.getString('name')}), 'Delete deck');
     }
     if (group === 'social') {
       if (sub === 'friends') return run(interaction, () => futbotApi.request(base + '/friends'), 'Friends');
