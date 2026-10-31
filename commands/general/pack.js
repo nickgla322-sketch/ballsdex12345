@@ -30,7 +30,7 @@ function packMenu(ownerId) {
       new StringSelectMenuOptionBuilder().setLabel('Bronze Player Packs').setValue('bronze').setDescription('45–64 OVR players'),
       new StringSelectMenuOptionBuilder().setLabel('Silver Player Packs').setValue('silver').setDescription('65–74 OVR players'),
       new StringSelectMenuOptionBuilder().setLabel('Gold Player Packs').setValue('gold').setDescription('75–99 OVR players'),
-      new StringSelectMenuOptionBuilder().setLabel('Special Player Packs').setValue('special').setDescription('Coming soon — no Special cards yet'),
+      new StringSelectMenuOptionBuilder().setLabel('Special Player Packs').setValue('special').setDescription('Coming soon - no Special cards yet'),
     );
   return new ActionRowBuilder().addComponents(menu);
 }
@@ -87,9 +87,9 @@ module.exports = {
       .setColor(0x5865f2)
       .setDescription(
         '**Eligible players:** ' + pack.range + '\n\n' +
-        '**Small:** 2 players — ' + formatCoins(pack.prices[2]) + '\n' +
-        '**Medium:** 5 players — ' + formatCoins(pack.prices[5]) + '\n' +
-        '**Jumbo:** 10 players — ' + formatCoins(pack.prices[10]) + '\n\n' +
+        '**Small:** 2 players - ' + formatCoins(pack.prices[2]) + '\n' +
+        '**Medium:** 5 players - ' + formatCoins(pack.prices[5]) + '\n' +
+        '**Jumbo:** 10 players - ' + formatCoins(pack.prices[10]) + '\n\n' +
         'Jumbo gives you 10 players for the price of 8.'
       );
     return interaction.update({ embeds: [embed], components: packSizeRows(tier, ownerId) });
