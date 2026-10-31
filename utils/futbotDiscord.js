@@ -79,7 +79,7 @@ async function cardFile(card) {
 function cardEmbed(card, file) {
   const embed = new EmbedBuilder()
     .setTitle((card.name || 'Unknown player') + ' · ' + (card.overall ?? '?') + ' OVR')
-    .setColor(0x2d9cdb)
+    .setColor(0x5865f2)
     .addFields(
       { name: 'Attack', value: String(card.attack ?? '—'), inline: true },
       { name: 'Defense', value: String(card.defense ?? '—'), inline: true },
@@ -99,7 +99,7 @@ async function run(interaction, operation, label = 'FutBot') {
     const response = await operation();
     const data = response?.data ?? response;
     const cards = collectCards(data);
-    const embed = new EmbedBuilder().setTitle(label).setColor(0x2d9cdb).setTimestamp();
+    const embed = new EmbedBuilder().setTitle(label).setColor(0x5865f2).setTimestamp();
     const files = [];
     const cardEmbeds = [];
     for (const card of cards.slice(0, 9)) {
@@ -108,7 +108,7 @@ async function run(interaction, operation, label = 'FutBot') {
       cardEmbeds.push(cardEmbed(card, file));
     }
     if (cards.length) {
-      const summary = cards.length > 10 ? 'Showing 10 of ' + cards.length + ' cards.' : 'Player cards';
+      const summary = cards.length > 9 ? 'Showing 9 of ' + cards.length + ' cards.' : 'Player cards';
       embed.setDescription(summary);
     } else {
       const fields = summarize(data);
