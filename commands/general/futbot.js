@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { futbotApi, userIdOption, parseIdList, queryString, run, runDailyClaim, post } = require('../../utils/futbotDiscord');
+const { futbotApi, userIdOption, parseIdList, queryString, run, post } = require('../../utils/futbotDiscord');
 
 const stats = ['battles_won','battles_played','battles_lost','battles_drawn','rounds_won','rounds_played','rounds_lost','rounds_drawn','coins','cards_dropped','cards_sold'];
 const secrets = ['itscominghome','jogabonito','pineappleonpizza','fubball','theflyingdutchmen','mayonnaise'];
@@ -13,8 +13,6 @@ module.exports = {
       .addSubcommand(s => s.setName('stats').setDescription('View player statistics').addUserOption(o => o.setName('user').setDescription('Player')))
       .addSubcommand(s => s.setName('inventory').setDescription('View a player inventory').addUserOption(o => o.setName('user').setDescription('Player')))
       .addSubcommand(s => s.setName('starter').setDescription('Claim your one-time starter pack'))
-      .addSubcommand(s => s.setName('daily').setDescription('Claim daily coins and card choices'))
-      .addSubcommand(s => s.setName('daily-collect').setDescription('Collect a daily card choice').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)))
       .addSubcommand(s => s.setName('achievements').setDescription('View your achievements'))
       .addSubcommand(s => s.setName('equip-title').setDescription('Equip an unlocked title').addIntegerOption(o => o.setName('achievement-id').setDescription('Achievement ID').setRequired(true)))
       .addSubcommand(s => s.setName('secret').setDescription('Claim a secret card reward').addStringOption(o => o.setName('code').setDescription('Secret code').setRequired(true).addChoices(...secrets.map(v => ({name:v,value:v}))))))
@@ -55,8 +53,6 @@ module.exports = {
       if (sub === 'stats') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/stats'), 'Stats');
       if (sub === 'inventory') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/inventory'), 'Inventory');
       if (sub === 'starter') return run(interaction, () => post(base + '/starter-pack', {}), 'Starter pack');
-      if (sub === 'daily') return runDailyClaim(interaction, () => post(base + '/daily/claim', {}));
-      if (sub === 'daily-collect') return run(interaction, () => post(base + '/daily/collect', {card_id:cardId}), 'Daily card');
       if (sub === 'achievements') return run(interaction, () => futbotApi.request(base + '/achievements'), 'Achievements');
       if (sub === 'equip-title') return run(interaction, () => post(base + '/title', {achievement_id:interaction.options.getInteger('achievement-id')}), 'Equip title');
       if (sub === 'secret') return run(interaction, () => post(base + '/secrets/' + interaction.options.getString('code'), {}), 'Secret reward');
