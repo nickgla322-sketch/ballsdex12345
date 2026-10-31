@@ -62,7 +62,7 @@ function collectCards(value, found = [], seen = new Set()) {
 }
 
 async function cardFile(card) {
-  const base = (process.env.FUTBOT_API_URL || '').replace(/\\/+$/, '');
+  const base = (process.env.FUTBOT_API_URL || '').replace(/\/+$/, '');
   const key = process.env.FUTBOT_API_KEY || '';
   if (!base || !key) return null;
   const response = await fetch(base + '/api/v1/cards/' + encodeURIComponent(card.card_id) + '/image', {
