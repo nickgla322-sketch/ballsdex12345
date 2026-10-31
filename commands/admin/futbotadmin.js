@@ -82,7 +82,7 @@ module.exports = {
       .addIntegerOption(o => o.setName('card-id').setDescription('Catalog card ID').setRequired(true).setMinValue(1)))
     .addSubcommand(s => s.setName('import-json').setDescription('Import 1-50 cards from a JSON file')
       .addAttachmentOption(o => o.setName('file').setDescription('JSON file with card data and image_base64 values').setRequired(true)))
-    .addSubcommand(s => s.setName('expire-market').setDescription('Expire overdue marketplace listings')),
+    .addSubcommand(s => s.setName('expire-market').setDescription('Expire overdue marketplace listings'))
     .addSubcommand(s => s.setName('wipe-players').setDescription('Delete all player profiles and test data; keeps the card catalog')
       .addStringOption(o => o.setName('confirmation').setDescription('Type WIPE ALL PLAYERS exactly').setRequired(true).setMaxLength(30)))
   async execute(interaction) {
