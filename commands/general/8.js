@@ -1,3 +1,4 @@
+// Small note: keep lineup commands easy to maintain.
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { futbotApi } = require('../../utils/futbotDiscord');
 
