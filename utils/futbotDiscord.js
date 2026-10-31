@@ -229,17 +229,15 @@ async function handleQuickSell(interaction) {
     });
     const data = response?.data ?? response;
     const { ActionRowBuilder, ButtonBuilder } = require('discord.js');
-    const components = interaction.message.components.map(row => {
-      const rebuilt = ActionRowBuilder.from(row);
-      rebuilt.components = row.components.map(component => {
+    const components = interaction.message.components.map(row =>
+      new ActionRowBuilder().addComponents(...row.components.map(component => {
         const button = ButtonBuilder.from(component);
         if (component.customId === interaction.customId) {
           button.setDisabled(true).setLabel('Sold · +' + Number(data.coins_earned ?? 0).toLocaleString());
         }
         return button;
-      });
-      return rebuilt;
-    });
+      }))
+    );
     return interaction.editReply({
       content: 'QuickSold **' + Number(data.coins_earned ?? 0).toLocaleString() + ' coins**. New balance: **' + Number(data.balance ?? 0).toLocaleString() + '**.',
       components,
