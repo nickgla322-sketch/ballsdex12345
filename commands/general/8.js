@@ -28,13 +28,13 @@ module.exports = {
           4: ['4-2-1', '4-1-2'],
         };
         const makeDefenderButtons = () => new ActionRowBuilder().addComponents(
-          [2, 3, 4].map(count => new ButtonBuilder()
+          ...[2, 3, 4].map(count => new ButtonBuilder()
             .setCustomId('lineup-defenders-' + count)
             .setLabel(count + ' Defenders')
             .setStyle(ButtonStyle.Primary))
         );
         const makeFormationButtons = count => new ActionRowBuilder().addComponents(
-          formations[count].map(name => new ButtonBuilder()
+          ...formations[count].map(name => new ButtonBuilder()
             .setCustomId('lineup-formation-' + name)
             .setLabel(name)
             .setStyle(ButtonStyle.Success))
@@ -63,7 +63,6 @@ module.exports = {
           const id = component.customId;
           if (id.startsWith('lineup-defenders-')) {
             const count = Number(id.split('-').pop());
-            const choices = formations[count];
             const choiceEmbed = new EmbedBuilder()
               .setTitle(count + ' Defender Formations')
               .setColor(0x5865f2)
