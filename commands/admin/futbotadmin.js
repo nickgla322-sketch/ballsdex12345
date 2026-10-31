@@ -84,7 +84,7 @@ module.exports = {
       .addAttachmentOption(o => o.setName('file').setDescription('JSON file with card data and image_base64 values').setRequired(true)))
     .addSubcommand(s => s.setName('expire-market').setDescription('Expire overdue marketplace listings'))
     .addSubcommand(s => s.setName('wipe-players').setDescription('Delete all player profiles and test data; keeps the card catalog')
-      .addStringOption(o => o.setName('confirmation').setDescription('Type WIPE ALL PLAYERS exactly').setRequired(true).setMaxLength(30)))
+      .addStringOption(o => o.setName('confirmation').setDescription('Type WIPE ALL PLAYERS exactly').setRequired(true).setMaxLength(30))),
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
     const admin_id = userIdOption(interaction);
