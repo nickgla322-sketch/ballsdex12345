@@ -83,8 +83,8 @@ module.exports = {
     .addSubcommand(s => s.setName('import-json').setDescription('Import 1-50 cards from a JSON file')
       .addAttachmentOption(o => o.setName('file').setDescription('JSON file with card data and image_base64 values').setRequired(true)))
     .addSubcommand(s => s.setName('expire-market').setDescription('Expire overdue marketplace listings'))
-    .addSubcommand(s => s.setName('wipe-players').setDescription('Delete all player profiles and test data; keeps the card catalog')
-      .addStringOption(o => o.setName('confirmation').setDescription('Type WIPE ALL PLAYERS exactly').setRequired(true).setMaxLength(30))),
+    .addSubcommand(s => s.setName('wipe-cards').setDescription('Permanently delete every player card from the catalog')
+      .addStringOption(o => o.setName('confirmation').setDescription('Type WIPE ALL CARDS exactly').setRequired(true).setMaxLength(30))),
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
     const admin_id = userIdOption(interaction);
@@ -137,15 +137,15 @@ module.exports = {
         return post('/api/v1/admin/cards/import', { admin_id, cards: entries });
       }, 'Import card catalog');
     }
-    if (sub === 'wipe-players') {
+    if (sub === 'wipe-cards') {
       const confirmation = interaction.options.getString('confirmation');
-      if (confirmation !== 'WIPE ALL PLAYERS') {
-        return interaction.editReply({ content: 'Nothing was deleted. Type exactly: `WIPE ALL PLAYERS`.' });
+      if (confirmation !== 'WIPE ALL CARDS') {
+        return interaction.editReply({ content: 'Nothing was deleted. Type exactly: `WIPE ALL CARDS`.' });
       }
-      return run(interaction, () => post('/api/v1/admin/players/wipe', {
+      return run(interaction, () => post('/api/v1/admin/cards/wipe', {
         admin_id,
         confirmation,
-      }), 'Wipe player test data');
+      }), 'Wipe player card catalog');
     }
     if (sub === 'expire-market') return run(interaction, () => post('/api/v1/market/expire', {}), 'Expire marketplace listings');
   },
