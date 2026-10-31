@@ -25,7 +25,7 @@ function queryString(values) {
 function summarize(data) {
   const value = data && typeof data === 'object' && !Array.isArray(data) ? data : { result: data };
   const fields = [];
-  const humanize = key => String(key).replace(/_/g, ' ').replace(/\\b\\w/g, c => c.toUpperCase());
+  const humanize = key => String(key).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const display = item => {
     if (item === null || item === undefined || item === '') return '—';
     if (typeof item === 'boolean') return item ? 'Yes' : 'No';
@@ -34,9 +34,9 @@ function summarize(data) {
       return item.slice(0, 12).map(entry => {
         if (entry && typeof entry === 'object') return (entry.name || entry.display_name || entry.card_id || entry.id || 'Item') + (entry.overall !== undefined ? ' · OVR ' + entry.overall : '');
         return String(entry);
-      }).join('\\n') + (item.length > 12 ? '\\n…and ' + (item.length - 12) + ' more' : '');
+      }).join('\n') + (item.length > 12 ? '\n…and ' + (item.length - 12) + ' more' : '');
     }
-    if (typeof item === 'object') return Object.entries(item).slice(0, 12).map(([k, v]) => humanize(k) + ': ' + (v === null ? '—' : String(v))).join('\\n') || 'No details';
+    if (typeof item === 'object') return Object.entries(item).slice(0, 12).map(([k, v]) => humanize(k) + ': ' + (v === null ? '—' : String(v))).join('\n') || 'No details';
     return String(item);
   };
   for (const [key, item] of Object.entries(value)) {
@@ -118,7 +118,7 @@ async function run(interaction, operation, label = 'FutBot') {
     return interaction.editReply({ content: '', embeds: [embed, ...cardEmbeds], files, components: [] });
   } catch (error) {
     console.error('[' + label + ']', error);
-    return interaction.editReply({ content: '**' + label + ' error**\\n' + String(error.message || 'Unknown API error').slice(0, 1800), embeds: [], components: [] });
+    return interaction.editReply({ content: '**' + label + ' error**\n' + String(error.message || 'Unknown API error').slice(0, 1800), embeds: [], components: [] });
   }
 }
 
@@ -154,7 +154,7 @@ async function runDailyClaim(interaction, operation) {
     return interaction.editReply({ content: '', embeds, files, components: choices.length ? [row] : [] });
   } catch (error) {
     console.error('[Daily reward]', error);
-    return interaction.editReply({ content: '**Daily reward error**\\n' + String(error.message || 'Unknown API error').slice(0, 1800), embeds: [], components: [] });
+    return interaction.editReply({ content: '**Daily reward error**\n' + String(error.message || 'Unknown API error').slice(0, 1800), embeds: [], components: [] });
   }
 }
 
@@ -171,7 +171,7 @@ async function handleDailyCollect(interaction) {
     const embed = cardEmbed(card, file).setTitle('Daily card collected!');
     return interaction.editReply({ content: 'You selected **' + card.name + '**!', embeds: [embed], files: file ? [file] : [], components: [] });
   } catch (error) {
-    return interaction.editReply({ content: '**Daily selection error**\\n' + String(error.message || 'Unknown API error').slice(0, 1800), embeds: [], components: [] });
+    return interaction.editReply({ content: '**Daily selection error**\n' + String(error.message || 'Unknown API error').slice(0, 1800), embeds: [], components: [] });
   }
 }
 
