@@ -178,34 +178,27 @@ async function runRewardClaim(interaction, operation, label = 'Player reward') {
         { name: 'Coins earned', value: Number(data.coins_earned ?? 0).toLocaleString(), inline: true },
         { name: 'Coin balance', value: Number(data.balance ?? 0).toLocaleString(), inline: true },
       );
-    const files = [];
-    const embeds = [summary];
-    const buttons = [];
+
+    await interaction.editReply({ content: '', embeds: [summary], files: [], components: [] });
 
     for (const card of cards.slice(0, 9)) {
       const file = await cardFile(card).catch(() => null);
-      if (file) files.push(file);
-      embeds.push(cardEmbed(card, file).addFields({
-        name: 'QuickSell value',
-        value: Number(card.quicksell_value ?? 0).toLocaleString() + ' coins',
-        inline: true,
-      }));
-      buttons.push(new ButtonBuilder()
+      const embed = cardEmbed(card, file).addFields(
+        { name: 'Player value', value: Number(card.value ?? 0).toLocaleString() + ' coins', inline: true },
+        { name: 'QuickSell value', value: Number(card.quicksell_value ?? 0).toLocaleString() + ' coins', inline: true },
+      );
+      const button = new ButtonBuilder()
         .setCustomId('futbot_quicksell:' + card.card_id + ':' + interaction.user.id)
         .setLabel('QuickSell ' + Number(card.quicksell_value ?? 0).toLocaleString() + ' coins')
-        .setStyle(ButtonStyle.Danger));
+        .setStyle(ButtonStyle.Danger);
+      const row = new ActionRowBuilder().addComponents(button);
+      await interaction.followUp({
+        embeds: [embed],
+        files: file ? [file] : [],
+        components: [row],
+        ephemeral: true,
+      });
     }
-
-    const rows = [];
-    for (let i = 0; i < buttons.length; i += 5) {
-      rows.push(new ActionRowBuilder().addComponents(...buttons.slice(i, i + 5)));
-    }
-    return interaction.editReply({
-      content: '',
-      embeds,
-      files,
-      components: rows,
-    });
   } catch (error) {
     console.error('[' + label + ']', error);
     return interaction.editReply({
