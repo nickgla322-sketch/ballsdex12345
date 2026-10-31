@@ -9,7 +9,7 @@ keepAlive();
 
 (async () => {
   console.log("⏳ Connecting to MongoDB...");
-  await connectMongo(); // ⭐ CONNECT FIRST — BEFORE ANY MODELS LOAD
+  await connectMongo(); // ⭐ CONNECT FIRST - BEFORE ANY MODELS LOAD
   console.log("✅ MongoDB Connected");
 
   // ⭐ CLIENT SETUP
