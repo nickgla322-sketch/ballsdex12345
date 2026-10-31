@@ -7,36 +7,24 @@ const {
 } = require('discord.js');
 const { futbotApi } = require('../../utils/futbotDiscord');
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 20;
 
 function buildPage(cards, page, totalPages) {
   const visible = cards.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const embeds = visible.map(card =>
-    new EmbedBuilder()
-      .setTitle(card.name || 'Unknown Player')
-      .setColor(0x5865f2)
-      .addFields(
-        { name: 'Position', value: String(card.position || '—'), inline: true },
-        {
-          name: 'Stats',
-          value: 'ATK: ' + (card.attack ?? '—') +
-            ' • DEF: ' + (card.defense ?? '—') +
-            ' • SPD: ' + (card.speed ?? '—'),
-          inline: false,
-        },
-      )
-  );
+  const description = visible.map((card, index) => {
+    const number = page * PAGE_SIZE + index + 1;
+    return '**' + number + '. ' + (card.name || 'Unknown Player') + '**' +
+      '\\nPosition: ' + (card.position || '—') +
+      ' | ATK: ' + (card.attack ?? '—') +
+      ' | DEF: ' + (card.defense ?? '—') +
+      ' | SPD: ' + (card.speed ?? '—');
+  }).join('\\n\\n');
 
-  if (embeds.length === 0) {
-    embeds.push(
-      new EmbedBuilder()
-        .setTitle('Players')
-        .setColor(0x5865f2)
-        .setDescription('You do not own any players yet.')
-    );
-  }
-
-  return embeds;
+  return new EmbedBuilder()
+    .setTitle('Your Players')
+    .setColor(0x5865f2)
+    .setDescription(description || 'You do not own any players yet.')
+    .setFooter({ text: 'Page ' + (page + 1) + ' of ' + totalPages + ' • ' + cards.length + ' players' });
 }
 
 function buildButtons(page, totalPages, disabled = false) {
@@ -45,15 +33,13 @@ function buildButtons(page, totalPages, disabled = false) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('players_show_prev')
-        .setLabel('Previous')
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji('◀️')
+        .setEmoji('⬅️')
         .setDisabled(disabled || page === 0),
       new ButtonBuilder()
         .setCustomId('players_show_next')
-        .setLabel('Next')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('▶️')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('➡️')
         .setDisabled(disabled || page >= totalPages - 1),
     ),
   ];
@@ -93,7 +79,7 @@ module.exports = {
       const totalPages = Math.max(1, Math.ceil(cards.length / PAGE_SIZE));
       let page = 0;
       const message = await interaction.editReply({
-        embeds: buildPage(cards, page, totalPages),
+        embeds: [buildPage(cards, page, totalPages)],
         components: buildButtons(page, totalPages),
       });
 
@@ -108,7 +94,7 @@ module.exports = {
         if (buttonInteraction.customId === 'players_show_prev') page = Math.max(0, page - 1);
         if (buttonInteraction.customId === 'players_show_next') page = Math.min(totalPages - 1, page + 1);
         await buttonInteraction.update({
-          embeds: buildPage(cards, page, totalPages),
+          embeds: [buildPage(cards, page, totalPages)],
           components: buildButtons(page, totalPages),
         });
       });
