@@ -243,6 +243,133 @@ async function handleQuickSell(interaction) {
   }
 }
 
+
+async function runPlayerBuy(interaction, playerName) {
+  await interaction.deferReply({ ephemeral: true });
+  try {
+    const response = await futbotApi.request('/api/v1/cards/lookup' + queryString({ name: playerName }));
+    const card = response?.data ?? response;
+    const file = await cardFile(card).catch(() => null);
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    const embed = cardEmbed(card, file).addFields(
+      { name: 'Player value', value: Number(card.value ?? 0).toLocaleString() + ' coins', inline: true },
+      { name: 'QuickSell value', value: Number(card.quicksell_value ?? 0).toLocaleString() + ' coins', inline: true },
+    );
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('futbot_buy:' + card.card_id + ':' + interaction.user.id)
+        .setLabel('Buy for ' + Number(card.value ?? 0).toLocaleString() + ' coins')
+        .setStyle(ButtonStyle.Success)
+    );
+    return interaction.editReply({ embeds: [embed], files: file ? [file] : [], components: [row] });
+  } catch (error) {
+    return interaction.editReply({ content: '**Buy error**\\n' + String(error.message || 'Player not found.').slice(0, 1600), embeds: [], components: [] });
+  }
+}
+
+async function runPlayerSell(interaction, playerName) {
+  await interaction.deferReply({ ephemeral: true });
+  try {
+    const response = await futbotApi.request(
+      '/api/v1/players/' + interaction.user.id + '/cards/lookup' + queryString({ name: playerName })
+    );
+    const card = response?.data ?? response;
+    const file = await cardFile(card).catch(() => null);
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    const embed = cardEmbed(card, file)
+      .setTitle('Confirm QuickSell')
+      .setDescription('Are you sure you want to quicksell **' + card.name + '** for **' +
+        Number(card.quicksell_value ?? 0).toLocaleString() + ' coins**?')
+      .addFields({ name: 'You will receive', value: Number(card.quicksell_value ?? 0).toLocaleString() + ' coins', inline: true });
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('futbot_sell:' + card.card_id + ':' + interaction.user.id)
+        .setLabel('Confirm QuickSell')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('futbot_sell_cancel:' + interaction.user.id)
+        .setLabel('Cancel')
+        .setStyle(ButtonStyle.Secondary)
+    );
+    return interaction.editReply({ embeds: [embed], files: file ? [file] : [], components: [row] });
+  } catch (error) {
+    return interaction.editReply({ content: '**Sell error**\\n' + String(error.message || 'Player not found.').slice(0, 1600), embeds: [], components: [] });
+  }
+}
+
+async function handlePlayerBuy(interaction) {
+  const [, rawCardId, ownerId] = interaction.customId.split(':');
+  if (interaction.user.id !== ownerId) {
+    return interaction.reply({ content: 'This buy button belongs to another player.', ephemeral: true });
+  }
+  await interaction.deferUpdate();
+  try {
+    const response = await post('/api/v1/players/' + ownerId + '/cards/buy', { card_id: Number(rawCardId) });
+    const data = response?.data ?? response;
+    const { ActionRowBuilder, ButtonBuilder } = require('discord.js');
+    const components = interaction.message.components.map(row =>
+      new ActionRowBuilder().addComponents(...row.components.map(component => {
+        const button = ButtonBuilder.from(component);
+        if (component.customId === interaction.customId) {
+          button.setDisabled(true).setLabel('Purchased');
+        }
+        return button;
+      }))
+    );
+    return interaction.editReply({
+      content: 'You bought **' + data.name + '** for **' + Number(data.coins_spent ?? 0).toLocaleString() +
+        ' coins**. New balance: **' + Number(data.balance ?? 0).toLocaleString() + ' coins**.',
+      components,
+    });
+  } catch (error) {
+    return interaction.followUp({ content: '**Buy error**\\n' + String(error.message || 'Could not buy this player.').slice(0, 1500), ephemeral: true });
+  }
+}
+
+async function handlePlayerSell(interaction) {
+  const [, rawCardId, ownerId] = interaction.customId.split(':');
+  if (interaction.user.id !== ownerId) {
+    return interaction.reply({ content: 'This sell button belongs to another player.', ephemeral: true });
+  }
+  await interaction.deferUpdate();
+  try {
+    const response = await post('/api/v1/players/' + ownerId + '/cards/quicksell', { card_id: Number(rawCardId) });
+    const data = response?.data ?? response;
+    const { ActionRowBuilder, ButtonBuilder } = require('discord.js');
+    const components = interaction.message.components.map(row =>
+      new ActionRowBuilder().addComponents(...row.components.map(component => {
+        const button = ButtonBuilder.from(component);
+        button.setDisabled(true);
+        if (component.customId === interaction.customId) button.setLabel('Sold');
+        if (component.customId.startsWith('futbot_sell_cancel:')) button.setLabel('Cancelled');
+        return button;
+      }))
+    );
+    return interaction.editReply({
+      content: 'QuickSold **' + Number(data.coins_earned ?? 0).toLocaleString() +
+        ' coins**. New balance: **' + Number(data.balance ?? 0).toLocaleString() + ' coins**.',
+      components,
+    });
+  } catch (error) {
+    return interaction.followUp({ content: '**Sell error**\\n' + String(error.message || 'Could not sell this player.').slice(0, 1500), ephemeral: true });
+  }
+}
+
+async function handlePlayerSellCancel(interaction) {
+  const [, ownerId] = interaction.customId.split(':');
+  if (interaction.user.id !== ownerId) {
+    return interaction.reply({ content: 'This sell confirmation belongs to another player.', ephemeral: true });
+  }
+  await interaction.deferUpdate();
+  const { ActionRowBuilder, ButtonBuilder } = require('discord.js');
+  const components = interaction.message.components.map(row =>
+    new ActionRowBuilder().addComponents(...row.components.map(component =>
+      ButtonBuilder.from(component).setDisabled(true)
+    ))
+  );
+  return interaction.editReply({ content: 'QuickSell cancelled. Your player was not sold.', components });
+}
+
 async function runDailyClaim(interaction, operation) {
   if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ ephemeral: true });
   try {
@@ -308,4 +435,4 @@ function post(path, body) { return futbotApi.request(path, { method: 'POST', bod
 function put(path, body) { return futbotApi.request(path, { method: 'PUT', body: JSON.stringify(body) }); }
 function del(path, body) { return futbotApi.request(path, { method: 'DELETE', body: JSON.stringify(body) }); }
 
-module.exports = { futbotApi, userIdOption, parseIdList, queryString, run, runRewardClaim, handleQuickSell, runDailyClaim, handleDailyCollect, post, put, del };
+module.exports = { futbotApi, userIdOption, parseIdList, queryString, run, runRewardClaim, handleQuickSell, runPlayerBuy, runPlayerSell, handlePlayerBuy, handlePlayerSell, handlePlayerSellCancel, runDailyClaim, handleDailyCollect, post, put, del };
