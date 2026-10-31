@@ -11,6 +11,20 @@ module.exports = {
       return;
     }
 
+    if (interaction.isButton() && interaction.customId.startsWith('futbot_pack_buy:')) {
+      const command = client.commands.get('pack');
+      if (!command?.handleButton) return;
+      try {
+        await command.handleButton(interaction);
+      } catch (error) {
+        console.error('Error opening FutBot player pack:', error);
+        const reply = { content: 'Could not open that player pack.', ephemeral: true };
+        if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
+        else await interaction.reply(reply).catch(() => {});
+      }
+      return;
+    }
+
     // FutBot reward-card quicksell buttons
     if (interaction.isButton() && interaction.customId.startsWith('futbot_quicksell:')) {
       const { handleQuickSell } = require('../utils/futbotDiscord');
@@ -87,7 +101,7 @@ module.exports = {
 
       try {
         const futbotCommands = new Set([
-          '8', 'players', 'daily', 'claim', 'buy', 'sell', 'futbot', 'futbotbattle', 'futbotdrop',
+          '8', 'players', 'daily', 'claim', 'buy', 'sell', 'pack', 'futbot', 'futbotbattle', 'futbotdrop',
           'futbotexchange', 'futbotimage', 'futbotinfo', 'futbotmarket',
           'futbotstatus', 'futbotsuggest', 'futbottrade', 'futbotadmin',
         ]);
@@ -125,6 +139,20 @@ module.exports = {
     // Select menu handler
     if (interaction.isStringSelectMenu()) {
       const customId = interaction.customId;
+
+      if (customId.startsWith('futbot_pack_tier:')) {
+        const command = client.commands.get('pack');
+        if (!command?.handleSelect) return;
+        try {
+          await command.handleSelect(interaction);
+        } catch (error) {
+          console.error('Error handling FutBot pack menu:', error);
+          const reply = { content: 'Could not load that pack.', ephemeral: true };
+          if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
+          else await interaction.reply(reply).catch(() => {});
+        }
+        return;
+      }
 
       // Division command menu
       if (customId === 'select_division') {
