@@ -78,36 +78,30 @@ module.exports = {
       const response = await futbotApi.request(basePath);
       const lineup = response?.data ?? response;
       const slots = Array.isArray(lineup.slots) ? lineup.slots : [];
+      const baseUrl = (process.env.FUTBOT_API_URL || '').replace(/\\/+$/, '');
+      const apiKey = process.env.FUTBOT_API_KEY || '';
+      if (!baseUrl || !apiKey) throw new Error('FUTBOT_API_URL or FUTBOT_API_KEY is not configured.');
+      const imageResponse = await fetch(baseUrl + basePath + '/image', {
+        headers: { 'X-API-Key': apiKey },
+      });
+      if (!imageResponse.ok) {
+        const message = await imageResponse.text();
+        throw new Error(message || 'Could not generate the lineup image.');
+      }
+      const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+      const imageName = 'futbot-lineup-' + interaction.user.id + '.png';
       const embed = new EmbedBuilder()
         .setTitle('Your FutBot Lineup')
         .setColor(0x5865f2)
-        .setDescription('Formation: **' + (lineup.formation || '2-2-3') + '**  ·  **' + (lineup.filled ?? slots.filter(s => s.card).length) + '/8** players')
+        .setDescription('Formation: **' + (lineup.formation || '2-2-3') + '**  ·  **' + (lineup.filled ?? slots.filter(s => s.card).length) + '/8** players\\nRed badges show the overall penalty for playing out of position.')
+        .setImage('attachment://' + imageName)
         .setTimestamp();
 
-      for (const slot of slots) {
-        const card = slot.card;
-        if (!card) {
-          embed.addFields({
-            name: 'Slot ' + slot.slot + ' · ' + slot.position,
-            value: '*Empty*',
-            inline: true,
-          });
-          continue;
-        }
-        const penalty = Number(card.position_penalty || 0);
-        const effective = Number(card.effective_overall ?? card.overall ?? 0);
-        const penaltyText = penalty > 0 ? ' 🔴 **-' + penalty + '**' : '';
-        embed.addFields({
-          name: 'Slot ' + slot.slot + ' · ' + slot.position + penaltyText,
-          value: '**' + card.name + '**\n' +
-            (card.position || 'Position unknown') + ' · ' + card.overall + ' OVR' +
-            (penalty > 0 ? ' → **' + effective + ' effective OVR**' : ''),
-          inline: true,
-        });
-      }
-
-      if (!slots.length) embed.setDescription('No lineup slots were returned. Try again in a moment.');
-      return interaction.editReply({ embeds: [embed], content: '' });
+      return interaction.editReply({
+        content: '',
+        embeds: [embed],
+        files: [{ attachment: imageBuffer, name: imageName }],
+      });
     } catch (error) {
       console.error('[8 show]', error);
       return interaction.editReply({
