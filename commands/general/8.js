@@ -7,11 +7,13 @@ module.exports = {
     .setDescription('View and manage your eight-player lineup')
     .addSubcommand(s => s.setName('show').setDescription('Show your eight-player lineup'))
     .addSubcommand(s => s.setName('add').setDescription('Add an owned player to a lineup slot')
-      .addStringOption(o => o.setName('player').setDescription('Exact player name').setRequired(true))
+      .addStringOption(o => o.setName('player').setDescription('Player name or part of their name').setRequired(true))
       .addIntegerOption(o => o.setName('slot').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
     .addSubcommand(s => s.setName('remove').setDescription('Remove a player from a lineup slot')
-      .addStringOption(o => o.setName('player').setDescription('Exact player name in that slot').setRequired(true))
       .addIntegerOption(o => o.setName('slot').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
+    .addSubcommand(s => s.setName('swap').setDescription('Swap two players between lineup slots')
+      .addIntegerOption(o => o.setName('slot1').setDescription('First slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8))
+      .addIntegerOption(o => o.setName('slot2').setDescription('Second slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
     .addSubcommand(s => s.setName('formation').setDescription('Change your lineup formation')
       .addStringOption(o => o.setName('name').setDescription('Choose a formation').setRequired(true).addChoices(
         { name: '2-2-3', value: '2-2-3' },
@@ -41,17 +43,31 @@ module.exports = {
         return interaction.editReply({ embeds: [embed], content: '' });
       }
       if (subcommand === 'remove') {
-        const player = interaction.options.getString('player', true).trim();
         const slot = interaction.options.getInteger('slot', true);
         const removed = await futbotApi.request(basePath + '/remove', {
           method: 'POST',
-          body: JSON.stringify({ player, slot }),
+          body: JSON.stringify({ slot }),
         });
         const lineup = removed?.data ?? removed;
         const embed = new EmbedBuilder()
           .setTitle('Player Removed from Lineup')
           .setColor(0xed4245)
-          .setDescription('**' + player + '** was removed from slot **' + slot + '**.')
+          .setDescription('The player in slot **' + slot + '** was removed.')
+          .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '—') + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
+        return interaction.editReply({ embeds: [embed], content: '' });
+      }
+      if (subcommand === 'swap') {
+        const slot1 = interaction.options.getInteger('slot1', true);
+        const slot2 = interaction.options.getInteger('slot2', true);
+        const swapped = await futbotApi.request(basePath + '/swap', {
+          method: 'POST',
+          body: JSON.stringify({ slot1, slot2 }),
+        });
+        const lineup = swapped?.data ?? swapped;
+        const embed = new EmbedBuilder()
+          .setTitle('Lineup Players Swapped')
+          .setColor(0x57f287)
+          .setDescription('Swapped the players in slots **' + slot1 + '** and **' + slot2 + '**. Their positions and position penalties have been recalculated.')
           .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '—') + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
         return interaction.editReply({ embeds: [embed], content: '' });
       }
