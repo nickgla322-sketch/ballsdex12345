@@ -124,6 +124,13 @@ async function run(interaction, operation, label = 'FutBot') {
     const embed = new EmbedBuilder().setTitle(label).setColor(0x5865f2).setTimestamp();
     const files = [];
     const cardEmbeds = [];
+    if (data && typeof data === 'object' && (data.coins_earned !== undefined || data.balance !== undefined)) {
+      const rewardFields = [];
+      if (data.coins_earned !== undefined) rewardFields.push({ name: 'Coins earned', value: Number(data.coins_earned).toLocaleString(), inline: true });
+      if (data.balance !== undefined) rewardFields.push({ name: 'Coin balance', value: Number(data.balance).toLocaleString(), inline: true });
+      if (data.cards_received !== undefined) rewardFields.push({ name: 'Players received', value: String(data.cards_received), inline: true });
+      if (rewardFields.length) embed.addFields(rewardFields);
+    }
     if (cards.length === 2) {
       const comparison = await cardCompareFile(cards).catch(() => null);
       if (comparison) {
