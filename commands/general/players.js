@@ -5,47 +5,38 @@ const {
   ButtonBuilder,
   ButtonStyle,
 } = require('discord.js');
-const { futbotApi, cardFile } = require('../../utils/futbotDiscord');
+const { futbotApi } = require('../../utils/futbotDiscord');
 
 const PAGE_SIZE = 5;
 
-async function buildPage(cards, page, totalPages, username) {
-  const start = page * PAGE_SIZE;
-  const visible = cards.slice(start, start + PAGE_SIZE);
-  const embeds = [];
-  const files = [];
-
-  for (const card of visible) {
-    const embed = new EmbedBuilder()
+function buildPage(cards, page, totalPages) {
+  const visible = cards.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const embeds = visible.map(card =>
+    new EmbedBuilder()
       .setTitle(card.name || 'Unknown Player')
       .setColor(0x5865f2)
       .addFields(
         { name: 'Position', value: String(card.position || '—'), inline: true },
-        { name: 'Copies', value: String(card.copies || 1), inline: true },
-      );
-
-    const file = await cardFile(card).catch(() => null);
-    if (file) {
-      embed.setImage('attachment://' + file.name);
-      files.push(file);
-    }
-    embeds.push(embed);
-  }
+        {
+          name: 'Stats',
+          value: 'ATK: ' + (card.attack ?? '—') +
+            ' • DEF: ' + (card.defense ?? '—') +
+            ' • SPD: ' + (card.speed ?? '—'),
+          inline: false,
+        },
+      )
+  );
 
   if (embeds.length === 0) {
     embeds.push(
       new EmbedBuilder()
-        .setTitle(username + "'s Players")
+        .setTitle('Players')
         .setColor(0x5865f2)
         .setDescription('You do not own any players yet.')
     );
   }
 
-  embeds[0]
-    .setAuthor({ name: username + "'s Players" })
-    .setFooter({ text: 'Page ' + (page + 1) + ' of ' + totalPages + ' • ' + cards.length + ' different players' });
-
-  return { embeds, files };
+  return embeds;
 }
 
 function buildButtons(page, totalPages, disabled = false) {
@@ -75,7 +66,7 @@ module.exports = {
     .addSubcommand(subcommand =>
       subcommand
         .setName('show')
-        .setDescription('Show your players, images, positions, and copies')
+        .setDescription('Show player names, positions, and stats')
     ),
 
   async execute(interaction) {
@@ -101,10 +92,8 @@ module.exports = {
 
       const totalPages = Math.max(1, Math.ceil(cards.length / PAGE_SIZE));
       let page = 0;
-      const initialPage = await buildPage(cards, page, totalPages, interaction.user.username);
       const message = await interaction.editReply({
-        embeds: initialPage.embeds,
-        files: initialPage.files,
+        embeds: buildPage(cards, page, totalPages),
         components: buildButtons(page, totalPages),
       });
 
@@ -118,11 +107,8 @@ module.exports = {
       collector.on('collect', async buttonInteraction => {
         if (buttonInteraction.customId === 'players_show_prev') page = Math.max(0, page - 1);
         if (buttonInteraction.customId === 'players_show_next') page = Math.min(totalPages - 1, page + 1);
-        const nextPage = await buildPage(cards, page, totalPages, interaction.user.username);
         await buttonInteraction.update({
-          embeds: nextPage.embeds,
-          files: nextPage.files,
-          attachments: [],
+          embeds: buildPage(cards, page, totalPages),
           components: buildButtons(page, totalPages),
         });
       });
