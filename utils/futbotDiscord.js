@@ -27,7 +27,7 @@ function summarize(data) {
   const fields = [];
   const humanize = key => String(key).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const display = item => {
-    if (item === null || item === undefined || item === '') return '—';
+    if (item === null || item === undefined || item === '') return '-';
     if (typeof item === 'boolean') return item ? 'Yes' : 'No';
     if (Array.isArray(item)) {
       if (!item.length) return 'None';
@@ -36,12 +36,12 @@ function summarize(data) {
         return String(entry);
       }).join('\n') + (item.length > 12 ? '\n…and ' + (item.length - 12) + ' more' : '');
     }
-    if (typeof item === 'object') return Object.entries(item).slice(0, 12).map(([k, v]) => humanize(k) + ': ' + (v === null ? '—' : String(v))).join('\n') || 'No details';
+    if (typeof item === 'object') return Object.entries(item).slice(0, 12).map(([k, v]) => humanize(k) + ': ' + (v === null ? '-' : String(v))).join('\n') || 'No details';
     return String(item);
   };
   for (const [key, item] of Object.entries(value)) {
     if (key === 'ok') continue;
-    fields.push({ name: humanize(key).slice(0, 256), value: display(item).slice(0, 1024) || '—', inline: !Array.isArray(item) && (typeof item !== 'object' || item === null) });
+    fields.push({ name: humanize(key).slice(0, 256), value: display(item).slice(0, 1024) || '-', inline: !Array.isArray(item) && (typeof item !== 'object' || item === null) });
     if (fields.length >= 25) break;
   }
   return fields;
@@ -90,14 +90,14 @@ async function cardCompareFile(cards) {
 
 function cardStatsSummary(card) {
   const stats = String(card.position || '').toUpperCase() === 'GK'
-    ? ['**GK** ' + (card.goalkeeping ?? '—')]
+    ? ['**GK** ' + (card.goalkeeping ?? '-')]
     : [
-        '**SHO** ' + (card.shooting ?? '—'),
-        '**PAS** ' + (card.passing ?? '—'),
-        '**DRI** ' + (card.dribbling ?? '—'),
-        '**DEF** ' + (card.defense ?? '—'),
+        '**SHO** ' + (card.shooting ?? '-'),
+        '**PAS** ' + (card.passing ?? '-'),
+        '**DRI** ' + (card.dribbling ?? '-'),
+        '**DEF** ' + (card.defense ?? '-'),
       ];
-  return [...stats, '**Position** ' + (card.position || '—'), '**Club** ' + (card.club || '—')].join('  •  ');
+  return [...stats, '**Position** ' + (card.position || '-'), '**Club** ' + (card.club || '-')].join('  •  ');
 }
 
 function cardEmbed(card, file) {
@@ -107,15 +107,15 @@ function cardEmbed(card, file) {
     .setDescription([card.club, card.position, card.card_rarity].filter(Boolean).join('  •  ') || 'Player card')
     .addFields(
       ...(String(card.position || '').toUpperCase() === 'GK'
-        ? [{ name: 'GK', value: String(card.goalkeeping ?? '—'), inline: true }]
+        ? [{ name: 'GK', value: String(card.goalkeeping ?? '-'), inline: true }]
         : [
-            { name: 'SHO', value: String(card.shooting ?? '—'), inline: true },
-            { name: 'PAS', value: String(card.passing ?? '—'), inline: true },
-            { name: 'DRI', value: String(card.dribbling ?? '—'), inline: true },
-            { name: 'DEF', value: String(card.defense ?? '—'), inline: true },
+            { name: 'SHO', value: String(card.shooting ?? '-'), inline: true },
+            { name: 'PAS', value: String(card.passing ?? '-'), inline: true },
+            { name: 'DRI', value: String(card.dribbling ?? '-'), inline: true },
+            { name: 'DEF', value: String(card.defense ?? '-'), inline: true },
           ]),
-      { name: 'League', value: String(card.league || '—'), inline: true },
-      { name: 'Nation', value: String(card.nation || '—'), inline: true },
+      { name: 'League', value: String(card.league || '-'), inline: true },
+      { name: 'Nation', value: String(card.nation || '-'), inline: true },
       { name: 'Card ID', value: String(card.card_id), inline: true },
     );
   if (file) embed.setImage('attachment://' + file.name);
@@ -393,9 +393,9 @@ async function runDailyClaim(interaction, operation) {
       .setColor(0x5865f2)
       .setDescription('Choose one of the two player cards below. Your choice expires in 2 minutes.')
       .addFields(
-        { name: 'Streak', value: String(data.streak ?? '—'), inline: true },
-        { name: 'Coins earned', value: String(data.coins_earned ?? '—'), inline: true },
-        { name: 'New balance', value: String(data.balance ?? '—'), inline: true },
+        { name: 'Streak', value: String(data.streak ?? '-'), inline: true },
+        { name: 'Coins earned', value: String(data.coins_earned ?? '-'), inline: true },
+        { name: 'New balance', value: String(data.balance ?? '-'), inline: true },
       );
     const files = [];
     const comparison = await cardCompareFile(choices.slice(0, 2)).catch(() => null);
