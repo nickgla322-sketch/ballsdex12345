@@ -162,6 +162,96 @@ async function run(interaction, operation, label = 'FutBot') {
   }
 }
 
+async function runRewardClaim(interaction, operation, label = 'Player reward') {
+  if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ ephemeral: true });
+  try {
+    const response = await operation();
+    const data = response?.data ?? response;
+    const cards = Array.isArray(data.cards) ? data.cards : [];
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    const summary = new EmbedBuilder()
+      .setTitle(label)
+      .setColor(0x5865f2)
+      .setTimestamp()
+      .addFields(
+        { name: 'Players received', value: String(data.cards_received ?? cards.length), inline: true },
+        { name: 'Coins earned', value: Number(data.coins_earned ?? 0).toLocaleString(), inline: true },
+        { name: 'Coin balance', value: Number(data.balance ?? 0).toLocaleString(), inline: true },
+      );
+    const files = [];
+    const embeds = [summary];
+    const buttons = [];
+
+    for (const card of cards.slice(0, 9)) {
+      const file = await cardFile(card).catch(() => null);
+      if (file) files.push(file);
+      embeds.push(cardEmbed(card, file).addFields({
+        name: 'QuickSell value',
+        value: Number(card.quicksell_value ?? 0).toLocaleString() + ' coins',
+        inline: true,
+      }));
+      buttons.push(new ButtonBuilder()
+        .setCustomId('futbot_quicksell:' + card.card_id + ':' + interaction.user.id)
+        .setLabel('QuickSell ' + Number(card.quicksell_value ?? 0).toLocaleString() + ' coins')
+        .setStyle(ButtonStyle.Danger));
+    }
+
+    const rows = [];
+    for (let i = 0; i < buttons.length; i += 5) {
+      rows.push(new ActionRowBuilder().addComponents(...buttons.slice(i, i + 5)));
+    }
+    return interaction.editReply({
+      content: '',
+      embeds,
+      files,
+      components: rows,
+    });
+  } catch (error) {
+    console.error('[' + label + ']', error);
+    return interaction.editReply({
+      content: '**' + label + ' error**\\n' + String(error.message || 'Unknown API error').slice(0, 1800),
+      embeds: [],
+      components: [],
+    });
+  }
+}
+
+async function handleQuickSell(interaction) {
+  const [, rawCardId, ownerId] = interaction.customId.split(':');
+  if (interaction.user.id !== ownerId) {
+    return interaction.reply({ content: 'This quicksell button belongs to another player.', ephemeral: true });
+  }
+
+  await interaction.deferUpdate();
+  try {
+    const response = await post('/api/v1/players/' + ownerId + '/cards/quicksell', {
+      card_id: Number(rawCardId),
+    });
+    const data = response?.data ?? response;
+    const { ActionRowBuilder, ButtonBuilder } = require('discord.js');
+    const components = interaction.message.components.map(row => {
+      const rebuilt = ActionRowBuilder.from(row);
+      rebuilt.components = row.components.map(component => {
+        const button = ButtonBuilder.from(component);
+        if (component.customId === interaction.customId) {
+          button.setDisabled(true).setLabel('Sold · +' + Number(data.coins_earned ?? 0).toLocaleString());
+        }
+        return button;
+      });
+      return rebuilt;
+    });
+    return interaction.editReply({
+      content: 'QuickSold **' + Number(data.coins_earned ?? 0).toLocaleString() + ' coins**. New balance: **' + Number(data.balance ?? 0).toLocaleString() + '**.',
+      components,
+    });
+  } catch (error) {
+    return interaction.followUp({
+      content: '**QuickSell error**\\n' + String(error.message || 'Unknown API error').slice(0, 1500),
+      ephemeral: true,
+    });
+  }
+}
+
 async function runDailyClaim(interaction, operation) {
   if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ ephemeral: true });
   try {
@@ -227,4 +317,4 @@ function post(path, body) { return futbotApi.request(path, { method: 'POST', bod
 function put(path, body) { return futbotApi.request(path, { method: 'PUT', body: JSON.stringify(body) }); }
 function del(path, body) { return futbotApi.request(path, { method: 'DELETE', body: JSON.stringify(body) }); }
 
-module.exports = { futbotApi, userIdOption, parseIdList, queryString, run, runDailyClaim, handleDailyCollect, post, put, del };
+module.exports = { futbotApi, userIdOption, parseIdList, queryString, run, runRewardClaim, handleQuickSell, runDailyClaim, handleDailyCollect, post, put, del };
