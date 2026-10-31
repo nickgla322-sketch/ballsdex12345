@@ -10,6 +10,20 @@ module.exports = {
       return;
     }
 
+    // FutBot daily reward card selection
+    if (interaction.isButton() && interaction.customId.startsWith('futbot_daily_collect:')) {
+      const { handleDailyCollect } = require('../utils/futbotDiscord');
+      try {
+        await handleDailyCollect(interaction);
+      } catch (error) {
+        console.error('Error collecting daily FutBot card:', error);
+        const reply = { content: 'Could not collect that daily card.', ephemeral: true };
+        if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
+        else await interaction.reply(reply).catch(() => {});
+      }
+      return;
+    }
+
     // Slash command handler
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
