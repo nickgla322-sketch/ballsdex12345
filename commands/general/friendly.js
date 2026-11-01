@@ -28,8 +28,8 @@ module.exports = {
       const result = await runLiveMatch(interaction, home, away);
       const winner = result.winner === null ? 'The friendly ends in a draw.' : '🏆 **' + (result.winner === 0 ? home.name : away.name) + '** win the friendly!';
       const summary = new EmbedBuilder().setColor(result.winner === null ? 0x95a5a6 : 0xf1c40f).setTitle('🏁 FINAL RESULT').setDescription('**' + home.name + ' ' + result.score[0] + '–' + result.score[1] + ' ' + away.name + '**' + (result.pens ? '\nPenalty shootout: **' + result.pens[0] + '–' + result.pens[1] + '**' : '') + '\n\n' + winner).addFields(
-        { name: home.name + ' · Statistics', value: '**Goals:** ' + result.stats[0].goals + '\n**Shots:** ' + result.stats[0].shots + '\n**Shots on target:** ' + result.stats[0].sot + '\n**Possession:** ' + result.stats[0].possession + '%\n**Saves:** ' + result.stats[0].saves + '\n**Corners:** ' + result.stats[0].corners + '\n**Fouls:** ' + result.stats[0].fouls, inline: true },
-        { name: away.name + ' · Statistics', value: '**Goals:** ' + result.stats[1].goals + '\n**Shots:** ' + result.stats[1].shots + '\n**Shots on target:** ' + result.stats[1].sot + '\n**Possession:** ' + result.stats[1].possession + '%\n**Saves:** ' + result.stats[1].saves + '\n**Corners:** ' + result.stats[1].corners + '\n**Fouls:** ' + result.stats[1].fouls, inline: true }
+        { name: home.name + ' · Statistics', value: '**Goals:** ' + result.stats[0].goals + '\n**Shots:** ' + result.stats[0].shots + '\n**Shots on target:** ' + result.stats[0].sot + '\n**Possession:** ' + result.stats[0].possession + '%', inline: true },
+        { name: away.name + ' · Statistics', value: '**Goals:** ' + result.stats[1].goals + '\n**Shots:** ' + result.stats[1].shots + '\n**Shots on target:** ' + result.stats[1].sot + '\n**Possession:** ' + result.stats[1].possession + '%', inline: true }
       ).addFields(
         { name: home.name, value: home.overall + ' OVR · ' + active(home).length + '/8 players remaining', inline: true },
         { name: away.name, value: away.overall + ' OVR · ' + active(away).length + '/8 players remaining', inline: true }
@@ -71,9 +71,18 @@ async function runLiveMatch(interaction, home, away) {
   const teamHistory = [[], []];
   let systemHistory = [];
   let minuteEventsLog = [];
+  const formatMinute = m => m > 90 && m <= 99 ? '90+' + (m - 90) : String(m);
   const log = (i, player, emoji, m = minute, extra = '') => {
     const name = player ? player.name : teams[i].name;
-    minuteEventsLog.push({ team: i, text: name + ' ' + emoji + (extra ? ' ' + extra : '') + ' ' + m + "'" });
+    minuteEventsLog.push({ team: i, text: name + ' ' + emoji + (extra ? ' ' + extra : '') + ' ' + formatMinute(m) + "'" });
+  };
+  const giveYellow = (teamIndex, player) => {
+    player.yellow++;
+    log(teamIndex, player, EMOJI.yellow);
+    if (player.yellow >= 2) {
+      player.sentOff = true;
+      log(teamIndex, player, EMOJI.red);
+    }
   };
   const activePlayers = t => t.players.filter(p => !p.sentOff);
   const field = t => activePlayers(t).filter(p => p.position !== 'GK');
@@ -104,8 +113,8 @@ async function runLiveMatch(interaction, home, away) {
     }
   };
   const makeEmbed = () => new EmbedBuilder().setColor(0x3498db)
-    .setTitle('⚽ FRIENDLY MATCH · ' + minute + "'")
-    .setDescription('**⏱️ ' + minute + "'**\n**" + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**' + (systemHistory.length ? '\n\n' + systemHistory.join('\n') : ''))
+    .setTitle('⚽ FRIENDLY MATCH · ' + formatMinute(minute) + "'")
+    .setDescription('**⏱️ ' + formatMinute(minute) + "'**\n**" + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**' + (systemHistory.length ? '\n\n' + systemHistory.join('\n') : ''))
     .addFields(
       { name: home.name, value: teamHistory[0].join('\n\n').slice(-1024) || 'No events yet.', inline: true },
       { name: away.name, value: teamHistory[1].join('\n\n').slice(-1024) || 'No events yet.', inline: true }
@@ -147,7 +156,7 @@ async function runLiveMatch(interaction, home, away) {
       if (defender) {
         stats[ai].sot++;
         score[ai]++;
-        minuteEventsLog.push({ team: 1 - ai, text: defender.name + ' ' + EMOJI.ownGoal + ' ' + minute + "'" });
+        minuteEventsLog.push({ team: 1 - ai, text: defender.name + ' ' + EMOJI.ownGoal + ' ' + formatMinute(minute) + "'" });
         return;
       }
     }
@@ -200,20 +209,12 @@ async function runLiveMatch(interaction, home, away) {
       offender.sentOff = true;
       log(oi, offender, EMOJI.red);
     } else if (Math.random() < .20) {
-      offender.yellow++;
-      if (offender.yellow >= 2) { offender.sentOff = true; log(oi, offender, EMOJI.red); }
-      else log(oi, offender, EMOJI.yellow);
+      giveYellow(oi, offender);
     }
     pending.push(() => {
       if (Math.random() < .045) {
         // A penalty is accompanied by a yellow card for the player who committed the foul.
-        offender.yellow++;
-        if (offender.yellow >= 2) {
-          offender.sentOff = true;
-          log(oi, offender, EMOJI.red);
-        } else {
-          log(oi, offender, EMOJI.yellow);
-        }
+        giveYellow(oi, offender);
         minuteEventsLog.push({ team: ai, text: '**⚠️ PENALTY TO ' + victim.name.toUpperCase() + '!**' });
         penalty(ai);
       } else {
@@ -240,7 +241,7 @@ async function runLiveMatch(interaction, home, away) {
   minuteEventsLog = [{ team: null, text: '**KICK-OFF**' }];
   await publish();
   await playPeriod(45);
-  minuteEventsLog = [{ team: null, text: '**HALF-TIME**' }];
+  minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**HALF-TIME**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
   await publish();
   await playPeriod(90);
   const stoppage = 2 + Math.floor(Math.random() * 3);
