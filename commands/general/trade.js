@@ -47,7 +47,7 @@ module.exports = {
           new ButtonBuilder().setCustomId('tr_add').setLabel('Add Player').setStyle(ButtonStyle.Primary).setDisabled((state[side + '_cards'] || []).length >= MAX),
           new ButtonBuilder().setCustomId('tr_remove').setLabel('Remove Player').setStyle(ButtonStyle.Secondary).setDisabled(!(state[side + '_cards'] || []).length),
           new ButtonBuilder().setCustomId('tr_coins').setLabel('Set Coins').setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder().setCustomId('tr_accept').setLabel(state[side + '_confirmed'] ? 'Accepted' : 'Accept Trade').setStyle(ButtonStyle.Success).setDisabled(!!state[side + '_confirmed']),
+          new ButtonBuilder().setCustomId('tr_accept').setLabel(state[side + '_confirmed'] ? 'Accepted' : 'Accept Trade').setStyle(ButtonStyle.Success).setDisabled(false),
           new ButtonBuilder().setCustomId('tr_end').setLabel('End Trade').setStyle(ButtonStyle.Danger)
         )] : [];
         await interaction.editReply({ content: state.status === 'completed' ? 'Trade completed! Cards and coins have been transferred.' : state.status === 'cancelled' ? 'Trade ended. Nothing was transferred.' : '', embeds: [embed], components: rows });
