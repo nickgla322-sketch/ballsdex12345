@@ -96,8 +96,12 @@ async function runLiveMatch(interaction, home, away) {
     return list[list.length - 1];
   };
   const getKeeper = t => t.players.find(p => p.position === 'GK' && !p.sentOff) || { name: 'Emergency GK', goalkeeping: 18 };
-  // Better teams win more attacking phases, while weaker teams still get opportunities.
-  const pickAttack = () => Math.random() < Math.max(.32, Math.min(.68, .5 + (home.overall - away.overall) * .012)) ? 0 : 1;
+  // Each team gets a different form level for this match, creating variety between rematches.
+  // Form affects attacking flow and shot quality, but does not replace player/team ratings.
+  const matchForm = teams.map(() => Math.random() * .36 - .18);
+  const formDifference = () => matchForm[0] - matchForm[1];
+  // Better teams still get more attacking phases, but match form can narrow or widen the gap.
+  const pickAttack = () => Math.random() < Math.max(.30, Math.min(.70, .5 + (home.overall - away.overall) * .009 + formDifference() * .25)) ? 0 : 1;
   const addPossession = i => { stats[i].possession++; };
   const scoreGoal = (i, scorer, kind = 'normal') => {
     score[i]++;
@@ -177,7 +181,8 @@ async function runLiveMatch(interaction, home, away) {
       }
     }
     // Give stronger teams a clear edge while keeping upsets possible.
-    const chance = Math.max(.14, Math.min(.43, .23 + edge * .004 + (p.shooting - g.goalkeeping) * .002));
+    const formBoost = (matchForm[ai] - matchForm[1 - ai]) * .25;
+    const chance = Math.max(.08, Math.min(.48, .23 + edge * .003 + (p.shooting - g.goalkeeping) * .0015 + formBoost));
     if (Math.random() < chance) {
       stats[ai].sot++;
       scoreGoal(ai, p);
@@ -253,7 +258,7 @@ async function runLiveMatch(interaction, home, away) {
     else {
       // More attacks lead to attempts, with a noticeable boost for the stronger side.
       const overallGap = teams[possessionTeam].overall - teams[1 - possessionTeam].overall;
-      const shotChance = Math.max(.34, Math.min(.60, .48 + overallGap * .006));
+      const shotChance = Math.max(.32, Math.min(.62, .46 + overallGap * .003 + (matchForm[possessionTeam] - matchForm[1 - possessionTeam]) * .22));
       if (r < .16 + shotChance) shot(possessionTeam);
     }
   }
