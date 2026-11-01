@@ -49,9 +49,7 @@ function packSizeRows(tier, ownerId) {
 }
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('pack')
-    .setDescription('Browse and buy player packs'),
+  data: null,
 
   async execute(interaction) {
     const embed = new EmbedBuilder()
