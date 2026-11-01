@@ -27,7 +27,10 @@ module.exports = {
       await sleep(7000);
       const result = await runLiveMatch(interaction, home, away);
       const winner = result.winner === null ? 'The friendly ends in a draw.' : '🏆 **' + (result.winner === 0 ? home.name : away.name) + '** win the friendly!';
-      const summary = new EmbedBuilder().setColor(result.winner === null ? 0x95a5a6 : 0xf1c40f).setTitle('🏁 FINAL RESULT').setDescription('**' + home.name + ' ' + result.score[0] + '–' + result.score[1] + ' ' + away.name + '**' + (result.pens ? '\nPenalty shootout: **' + result.pens[0] + '–' + result.pens[1] + '**' : '') + '\n\n' + winner).addFields({ name: home.name, value: home.overall + ' OVR · ' + active(home).length + '/8 players remaining', inline: true }, { name: away.name, value: away.overall + ' OVR · ' + active(away).length + '/8 players remaining', inline: true });
+      const summary = new EmbedBuilder().setColor(result.winner === null ? 0x95a5a6 : 0xf1c40f).setTitle('🏁 FINAL RESULT').setDescription('**' + home.name + ' ' + result.score[0] + '–' + result.score[1] + ' ' + away.name + '**' + (result.pens ? '\nPenalty shootout: **' + result.pens[0] + '–' + result.pens[1] + '**' : '') + '\n\n' + winner).addFields(
+        { name: home.name + ' · Statistics', value: '**Goals:** ' + result.stats[0].goals + '\n**Shots:** ' + result.stats[0].shots + '\n**Shots on target:** ' + result.stats[0].sot + '\n**Possession:** ' + result.stats[0].possession + '%\n**Saves:** ' + result.stats[0].saves + '\n**Corners:** ' + result.stats[0].corners + '\n**Fouls:** ' + result.stats[0].fouls, inline: true },
+        { name: away.name + ' · Statistics', value: '**Goals:** ' + result.stats[1].goals + '\n**Shots:** ' + result.stats[1].shots + '\n**Shots on target:** ' + result.stats[1].sot + '\n**Possession:** ' + result.stats[1].possession + '%\n**Saves:** ' + result.stats[1].saves + '\n**Corners:** ' + result.stats[1].corners + '\n**Fouls:** ' + result.stats[1].fouls, inline: true }
+      ).addFields({ name: home.name, value: home.overall + ' OVR · ' + active(home).length + '/8 players remaining', inline: true }, { name: away.name, value: away.overall + ' OVR · ' + active(away).length + '/8 players remaining', inline: true });
       await interaction.followUp({ embeds: [summary] });
     } catch (error) { console.error('[friendly]', error); await interaction.followUp({ content: '**Friendly error:** ' + String(error.message || 'Could not start the match.').slice(0, 1500), ephemeral: true }); }
   },
@@ -49,113 +52,204 @@ function keeper(t) { return t.players.find(p=>p.position==='GK'&&!p.sentOff) || 
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 function playerLabel(player, team) { return '**' + player.name + '** (<@' + team.id + '>)'; }
 async function runLiveMatch(interaction, home, away) {
-  const teams=[home,away], score=[0,0], pending=[];
-  let pens=null, minute=0, minuteEventsLog=[], historyText='', currentMessage=null;
-  const log=s=>minuteEventsLog.push(s);
-  const label=(i,p)=>playerLabel(p,teams[i]);
-  const active=t=>t.players.filter(p=>!p.sentOff);
-  const field=t=>active(t).filter(p=>p.position!=='GK');
-  const choose=(list,fn)=>{if(!list.length)return null;const w=list.map(p=>Math.max(1,fn(p)));let n=Math.random()*w.reduce((a,b)=>a+b,0);for(let i=0;i<list.length;i++){n-=w[i];if(n<=0)return list[i];}return list[list.length-1];};
-  const keeper=t=>t.players.find(p=>p.position==='GK'&&!p.sentOff)||{name:'Emergency goalkeeper',goalkeeping:18};
-  const attackers=t=>active(t).filter(p=>['ST','CF','LW','RW','CAM'].includes(p.position));
-  const makeEmbed=body=>new EmbedBuilder().setColor(0x3498db).setTitle('⏱️ LIVE FRIENDLY MATCH')
-    .setDescription('**'+home.name+'** '+score[0]+'–'+score[1]+' **'+away.name+'**\n\n🕒 **'+(minute>90?'90+'+(minute-90):String(minute).padStart(2,'0'))+':00**\n\n'+body)
-    .addFields({name:home.name,value:home.overall+' OVR',inline:true},{name:away.name,value:away.overall+' OVR',inline:true})
-    .setFooter({text:'Match history • Event-paced clock'});
-  const appendHistory=async(m,items)=>{
-    const stamp=m>90?'90+'+(m-90):String(m);
-    const section='**'+(m===0?'KICK-OFF':('Minute '+stamp+' · '+home.name+' '+score[0]+'–'+score[1]+' '+away.name))+'**\n'+(items.length?items.join('\n'):'No major event this minute.');
-    const next=historyText?historyText+'\n\n'+section:section;
-    if(!currentMessage||next.length>3300){historyText=section;currentMessage=await interaction.followUp({embeds:[makeEmbed(historyText)],fetchReply:true});}
-    else{historyText=next;await currentMessage.edit({embeds:[makeEmbed(historyText)]});}
+  const teams = [home, away], score = [0, 0], pending = [];
+  const stats = teams.map(() => ({ shots: 0, sot: 0, saves: 0, corners: 0, fouls: 0, possession: 0 }));
+  const EMOJI = {
+    red: '<:redcard:1361074355538497556>',
+    yellow: '<:yellowcard:1361074497007915018>',
+    goal: '<:goal:1362833393183756388>',
+    assist: '<:assist:1362834880291016775>',
+    save: '<:save:1455318354926633125>',
+    penaltyGoal: '<:penaltygoal:1362833489824714833>',
+    missedPenalty: '<:missedpenalty:1362833748126728402>',
+    ownGoal: '<:owngoal:1362833434082283811>',
   };
-  const publish=async m=>{await appendHistory(m,minuteEventsLog);await sleep(minuteEventsLog.length?4000:2000);};
-  const pickAttack=()=>Math.random()<Math.max(.25,Math.min(.75,.5+(home.overall-away.overall)*.012))?0:1;
+  let pens = null, minute = 0, currentMessage = null, historyText = '';
+  let minuteEventsLog = [];
+  const log = (i, player, emoji, m = minute, extra = '') => {
+    const name = player ? player.name : teams[i].name;
+    minuteEventsLog.push(name + ' ' + emoji + (extra ? ' ' + extra : '') + ' ' + m + "'");
+  };
+  const activePlayers = t => t.players.filter(p => !p.sentOff);
+  const field = t => activePlayers(t).filter(p => p.position !== 'GK');
+  const attackers = t => activePlayers(t).filter(p => ['ST', 'CF', 'LW', 'RW', 'CAM'].includes(p.position));
+  const choosePlayer = (list, fn) => {
+    if (!list.length) return null;
+    const weights = list.map(p => Math.max(1, fn(p)));
+    let n = Math.random() * weights.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < list.length; i++) { n -= weights[i]; if (n <= 0) return list[i]; }
+    return list[list.length - 1];
+  };
+  const getKeeper = t => t.players.find(p => p.position === 'GK' && !p.sentOff) || { name: 'Emergency GK', goalkeeping: 18 };
+  const pickAttack = () => Math.random() < Math.max(.25, Math.min(.75, .5 + (home.overall - away.overall) * .012)) ? 0 : 1;
+  const addPossession = i => { stats[i].possession++; };
+  const scoreGoal = (i, scorer, kind = 'normal') => {
+    score[i]++;
+    if (kind === 'penalty') {
+      log(i, scorer, EMOJI.penaltyGoal);
+      return;
+    }
+    log(i, scorer, EMOJI.goal);
+    const teammates = field(teams[i]).filter(p => p.id !== scorer.id);
+    if (teammates.length && Math.random() < .70) {
+      const assister = choosePlayer(teammates, p => p.dribbling + p.effective * .25);
+      if (assister) log(i, assister, EMOJI.assist);
+    }
+  };
+  const makeEmbed = body => new EmbedBuilder().setColor(0x3498db)
+    .setTitle('⚽ FRIENDLY MATCH')
+    .setDescription('**' + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**\n\n' + body)
+    .setFooter({ text: 'Match events' });
+  const publish = async () => {
+    if (!minuteEventsLog.length) return;
+    const section = minuteEventsLog.join('\n');
+    const next = historyText ? historyText + '\n' + section : section;
+    if (!currentMessage || next.length > 3500) {
+      historyText = section;
+      currentMessage = await interaction.followUp({ embeds: [makeEmbed(historyText)], fetchReply: true });
+    } else {
+      historyText = next;
+      await currentMessage.edit({ embeds: [makeEmbed(historyText)] });
+    }
+    await sleep(2500);
+  };
 
   function shot(ai) {
-    const at=teams[ai],dt=teams[1-ai],pool=attackers(at),p=choose(pool.length?pool:field(at),x=>x.shooting+x.dribbling*.3+x.effective*.2);
-    if(!p)return;
-    const g=keeper(dt),edge=at.overall-dt.overall;
-    const chance=Math.max(.10,Math.min(.68,.23+edge*.012+(p.shooting-g.goalkeeping)*.002));
-    if(Math.random()<chance){score[ai]++;log('⚽ **GOAL!** '+label(ai,p)+' finishes past '+label(1-ai,g)+' to score for **'+at.name+'**!');}
-    else {
-      const lines=[label(ai,p)+' shoots, but '+label(1-ai,g)+' gets down quickly and makes the save!',label(ai,p)+' fires towards goal — '+label(1-ai,g)+' pushes it away!',label(ai,p)+' gets a shot away, but '+label(1-ai,g)+' stands tall and keeps it out!',label(ai,p)+' strikes it cleanly, but '+label(1-ai,g)+' palms it wide!'];
-      log('🧤 '+lines[Math.floor(Math.random()*lines.length)]);
-      if(Math.random()<.20)pending.push(()=>corner(ai,'The saved shot goes behind for a corner.'));
+    const at = teams[ai], defending = teams[1 - ai];
+    const p = choosePlayer(attackers(at).length ? attackers(at) : field(at), x => x.shooting + x.dribbling * .3 + x.effective * .2);
+    if (!p) return;
+    stats[ai].shots++;
+    const g = getKeeper(defending);
+    const edge = at.overall - defending.overall;
+    // Rare own goals can happen when a defender gets involved in a dangerous attack.
+    if (Math.random() < .006) {
+      const defender = choosePlayer(field(defending), x => x.defense + x.effective * .2);
+      if (defender) {
+        stats[ai].sot++;
+        scoreGoal(ai, defender, 'own');
+        minuteEventsLog.pop();
+        minuteEventsLog.push(defender.name + ' ' + EMOJI.ownGoal + ' ' + minute + "'");
+        return;
+      }
+    }
+    const chance = Math.max(.10, Math.min(.68, .23 + edge * .012 + (p.shooting - g.goalkeeping) * .002));
+    if (Math.random() < chance) {
+      stats[ai].sot++;
+      scoreGoal(ai, p);
+    } else if (Math.random() < .72) {
+      stats[ai].sot++;
+      stats[1 - ai].saves++;
+      log(1 - ai, g, EMOJI.save, minute, '(Shot by ' + p.name + ')');
+      if (Math.random() < .16) pending.push(() => corner(ai));
     }
   }
-  function corner(ai,reason) {
-    const t=teams[ai],taker=choose(field(t),p=>p.effective+p.overall*.1);
-    if(!taker)return;
-    log('🚩 **CORNER TO '+t.name+'!** '+label(ai,taker)+' places the ball in the corner. '+reason);
-    const target=choose(attackers(t).filter(p=>p.id!==taker.id),p=>p.effective+p.shooting*.3);
-    if(target)pending.push(()=>{
-      if(Math.random()<.17){score[ai]++;log('⚽ '+label(ai,taker)+' swings it in and '+label(ai,target)+' heads home! **GOAL for '+t.name+'!**');}
-      else if(Math.random()<.48)log(label(ai,target)+' gets on the end of '+label(ai,taker)+'’s delivery, but heads just wide.');
-      else{const d=choose(field(teams[1-ai]),p=>p.defense+p.effective*.2);log((d?label(1-ai,d):teams[1-ai].name)+' gets up and clears '+label(ai,taker)+'’s corner.');}
+  function corner(ai) {
+    const t = teams[ai], taker = choosePlayer(field(t), p => p.effective + p.overall * .1);
+    if (!taker) return;
+    stats[ai].corners++;
+    const target = choosePlayer(attackers(t).filter(p => p.id !== taker.id), p => p.effective + p.shooting * .3);
+    if (target) pending.push(() => {
+      if (Math.random() < .16) { stats[ai].shots++; stats[ai].sot++; scoreGoal(ai, target); }
+      else if (Math.random() < .35) { stats[ai].shots++; }
     });
   }
-  function freeKick(ai,victim) {
-    const t=teams[ai],taker=choose(field(t),p=>p.shooting*.6+p.effective*.4);
-    if(!taker)return;
-    log('🎯 **FREE KICK — '+t.name+'** '+label(ai,taker)+' steps up after the foul on '+label(ai,victim)+'.');
-    pending.push(()=>{
-      if(Math.random()<.30)shot(ai);
-      else{const d=choose(field(teams[1-ai]),p=>p.defense+p.effective*.2);log(label(ai,taker)+' sends it into the area, but '+(d?label(1-ai,d):teams[1-ai].name)+' heads it clear.');}
-    });
+  function freeKick(ai, victim) {
+    const t = teams[ai], taker = choosePlayer(field(t), p => p.shooting * .6 + p.effective * .4);
+    if (!taker) return;
+    pending.push(() => { if (Math.random() < .30) shot(ai); });
   }
   function penalty(ai) {
-    const t=teams[ai],g=keeper(teams[1-ai]),k=choose(field(t),p=>p.shooting+p.effective*.2);
-    if(!k)return;
-    log('🚨 **PENALTY TO '+t.name+'!** '+label(ai,k)+' places the ball on the spot. '+label(1-ai,g)+' gets ready...');
-    pending.push(()=>{if(Math.random()<Math.max(.66,Math.min(.88,.77+(k.shooting-g.goalkeeping)/500))){score[ai]++;log('⚽ **GOAL!** '+label(ai,k)+' sends the penalty past '+label(1-ai,g)+'!');}else log('🧤 '+label(1-ai,g)+' guesses correctly and saves '+label(ai,k)+'’s penalty!');});
+    const t = teams[ai], g = getKeeper(teams[1 - ai]);
+    const kicker = choosePlayer(field(t), p => p.shooting + p.effective * .2);
+    if (!kicker) return;
+    pending.push(() => {
+      if (Math.random() < Math.max(.66, Math.min(.88, .77 + (kicker.shooting - g.goalkeeping) / 500))) {
+        stats[ai].shots++; stats[ai].sot++; scoreGoal(ai, kicker, 'penalty');
+      } else {
+        stats[ai].shots++; stats[1 - ai].saves++;
+        log(ai, kicker, EMOJI.missedPenalty);
+      }
+    });
   }
   function foul() {
-    const oi=Math.random()<.5?0:1,ai=1-oi,off=choose(field(teams[oi]),p=>p.defense+p.effective*.2),victim=choose(field(teams[ai]),p=>p.effective);
-    if(!off||!victim)return;
-    log('⚠️ '+label(oi,off)+' brings down '+label(ai,victim)+'. The referee stops play.');
-    if(Math.random()<.025){off.sentOff=true;log('🟥 **STRAIGHT RED!** '+label(oi,off)+' is sent off.');}
-    else if(Math.random()<.20){off.yellow++;if(off.yellow>=2){off.sentOff=true;log('🟨🟥 **SECOND YELLOW!** '+label(oi,off)+' is sent off.');}else log('🟨 **YELLOW CARD!** '+label(oi,off)+' is booked.');}
-    pending.push(()=>{if(Math.random()<.045)penalty(ai);else freeKick(ai,victim);});
+    const oi = Math.random() < .5 ? 0 : 1, ai = 1 - oi;
+    const offender = choosePlayer(field(teams[oi]), p => p.defense + p.effective * .2);
+    const victim = choosePlayer(field(teams[ai]), p => p.effective);
+    if (!offender || !victim) return;
+    stats[oi].fouls++;
+    if (Math.random() < .025) {
+      offender.sentOff = true;
+      log(oi, offender, EMOJI.red);
+    } else if (Math.random() < .20) {
+      offender.yellow++;
+      if (offender.yellow >= 2) { offender.sentOff = true; log(oi, offender, EMOJI.red); }
+      else log(oi, offender, EMOJI.yellow);
+    }
+    pending.push(() => { if (Math.random() < .045) penalty(ai); else freeKick(ai, victim); });
   }
   function playMinute() {
-    if(pending.length){pending.shift()();return;}
-    const r=Math.random();
-    if(r<.10)foul();
-    else if(r<.17)corner(pickAttack(),'Attacking pressure forces the ball behind.');
-    else if(r<.45)shot(pickAttack());
-    else if(r<.53){const i=pickAttack(),p=choose(field(teams[i]),x=>x.effective+x.dribbling*.2),q=p&&choose(field(teams[i]).filter(x=>x.id!==p.id),x=>x.effective+x.passing*.2);if(p&&q)log('🔄 '+label(i,p)+' finds '+label(i,q)+' with a neat pass as **'+teams[i].name+'** build an attack.');}
+    const possessionTeam = pickAttack();
+    addPossession(possessionTeam);
+    if (pending.length) { pending.shift()(); return; }
+    const r = Math.random();
+    if (r < .10) foul();
+    else if (r < .17) corner(possessionTeam);
+    else if (r < .45) shot(possessionTeam);
   }
-  const playPeriod=async(end)=>{for(let m=minute+1;m<=end;m++){minute=m;minuteEventsLog=[];playMinute();await publish(m);}};
-  log('🔔 **KICK-OFF!** '+home.name+' get the match underway against '+away.name+'.');
-  await appendHistory(0,minuteEventsLog);
+  const playPeriod = async end => {
+    for (let m = minute + 1; m <= end; m++) {
+      minute = m; minuteEventsLog = []; playMinute(); await publish();
+    }
+  };
+
+  minute = 0;
+  minuteEventsLog = ['**KICK-OFF**'];
+  await publish();
   await playPeriod(45);
-  minuteEventsLog=[];log('⏸️ **HALF-TIME!** '+home.name+' '+score[0]+'–'+score[1]+' '+away.name+'.');await publish(45);
+  minuteEventsLog = ['**HALF-TIME**'];
+  await publish();
   await playPeriod(90);
-  const stoppage=2+Math.floor(Math.random()*3);
-  for(let extra=1;extra<=stoppage||pending.length;extra++){
-    if(extra>8)break;
-    minute=90+extra;minuteEventsLog=[];
-    if(extra===1)log('⏱️ The referee adds '+stoppage+' minutes of stoppage time.');
-    else playMinute();
-    await publish(minute);
+  const stoppage = 2 + Math.floor(Math.random() * 3);
+  for (let extra = 1; extra <= stoppage || pending.length; extra++) {
+    if (extra > 8) break;
+    minute = 90 + extra; minuteEventsLog = [];
+    if (extra > 1 || pending.length) playMinute();
+    await publish();
   }
-  minuteEventsLog=[];log('⏱️ **FULL-TIME!** '+home.name+' '+score[0]+'–'+score[1]+' '+away.name+'.');await appendHistory(minute,minuteEventsLog);
-  if(score[0]===score[1]){
-    minuteEventsLog=[];log('⏳ The match is level. Two 15-minute periods of extra time!');await publish(minute);
-    await playPeriod(minute+15);
-    minuteEventsLog=[];log('⏸️ **EXTRA-TIME BREAK.**');await publish(minute);
-    await playPeriod(minute+15);
-    minuteEventsLog=[];log('⏱️ **END OF EXTRA TIME!**');await appendHistory(minute,minuteEventsLog);
+  minuteEventsLog = ['**FULL-TIME**'];
+  await publish();
+
+  if (score[0] === score[1]) {
+    await interaction.followUp({ content: '**Extra time**' });
+    await playPeriod(minute + 15);
+    await playPeriod(minute + 15);
   }
-  if(score[0]===score[1]){
-    pens=[0,0];minuteEventsLog=[];log('🎯 Still level! It is time for a penalty shootout.');await publish(minute);
-    const kick=async i=>{const t=teams[i],g=keeper(teams[1-i]),p=choose(field(t),x=>x.shooting+x.effective*.2);if(!p)return;minuteEventsLog=[];log('🎯 **PENALTY SHOOTOUT — '+t.name+'** '+label(i,p)+' steps up.');await publish(minute);minuteEventsLog=[];const goal=Math.random()<Math.max(.66,Math.min(.86,.76+(p.shooting-g.goalkeeping)/500));if(goal)pens[i]++;log((goal?'⚽ **SCORES!** ':'🧤 **SAVED!** ')+label(i,p)+(goal?' finds the net past '+label(1-i,g)+'.':' is denied by '+label(1-i,g)+'.')+' Shootout: **'+pens[0]+'–'+pens[1]+'**.');await publish(minute);};
-    for(let r=0;r<5;r++){for(let i=0;i<2;i++)await kick(i);const left=4-r;if(pens[0]>pens[1]+left||pens[1]>pens[0]+left)break;}
-    while(pens[0]===pens[1]){await kick(0);await kick(1);}
+  if (score[0] === score[1]) {
+    pens = [0, 0];
+    const kick = async i => {
+      const t = teams[i], g = getKeeper(teams[1 - i]);
+      const p = choosePlayer(field(t), x => x.shooting + x.effective * .2);
+      if (!p) return;
+      const goal = Math.random() < Math.max(.66, Math.min(.86, .76 + (p.shooting - g.goalkeeping) / 500));
+      if (goal) pens[i]++;
+      minuteEventsLog = [];
+      log(i, p, goal ? EMOJI.penaltyGoal : EMOJI.missedPenalty, minute, '(Shootout)');
+      await publish();
+    };
+    for (let r = 0; r < 5; r++) {
+      for (let i = 0; i < 2; i++) await kick(i);
+      const left = 4 - r;
+      if (pens[0] > pens[1] + left || pens[1] > pens[0] + left) break;
+    }
+    while (pens[0] === pens[1]) { await kick(0); await kick(1); }
   }
-  const winner=pens?(pens[0]>pens[1]?0:1):(score[0]===score[1]?null:(score[0]>score[1]?0:1));
-  const finishText=winner===null?'🤝 **The friendly ends in a draw!**':'🏆 **'+teams[winner].name+' win the friendly!**';
-  await interaction.followUp({embeds:[makeEmbed(finishText).setTitle('🏁 MATCH FINISHED')]});
-  return {score,pens,winner};
+  const winner = pens ? (pens[0] > pens[1] ? 0 : 1) : (score[0] === score[1] ? null : (score[0] > score[1] ? 0 : 1));
+  const totalPossession = stats[0].possession + stats[1].possession;
+  const percentages = stats.map(s => totalPossession ? Math.round(s.possession / totalPossession * 100) : 50);
+  const resultStats = stats.map((s, i) => ({
+    ...s,
+    goals: score[i],
+    possession: percentages[i],
+  }));
+  return { score, pens, winner, stats: resultStats };
 }
