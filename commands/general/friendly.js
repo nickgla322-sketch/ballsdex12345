@@ -64,11 +64,13 @@ async function runLiveMatch(interaction, home, away) {
     missedPenalty: '<:missedpenalty:1362833748126728402>',
     ownGoal: '<:owngoal:1362833434082283811>',
   };
-  let pens = null, minute = 0, currentMessage = null, historyText = '';
+  let pens = null, minute = 0, currentMessage = null;
+  const teamHistory = [[], []];
+  let systemHistory = [];
   let minuteEventsLog = [];
   const log = (i, player, emoji, m = minute, extra = '') => {
     const name = player ? player.name : teams[i].name;
-    minuteEventsLog.push(name + ' ' + emoji + (extra ? ' ' + extra : '') + ' ' + m + "'");
+    minuteEventsLog.push({ team: i, text: name + ' ' + emoji + (extra ? ' ' + extra : '') + ' ' + m + "'" });
   };
   const activePlayers = t => t.players.filter(p => !p.sentOff);
   const field = t => activePlayers(t).filter(p => p.position !== 'GK');
@@ -96,20 +98,28 @@ async function runLiveMatch(interaction, home, away) {
       if (assister) log(i, assister, EMOJI.assist);
     }
   };
-  const makeEmbed = body => new EmbedBuilder().setColor(0x3498db)
+  const makeEmbed = () => new EmbedBuilder().setColor(0x3498db)
     .setTitle('⚽ FRIENDLY MATCH')
-    .setDescription('**' + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**\n\n' + body)
+    .setDescription('**' + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**' + (systemHistory.length ? '\n\n' + systemHistory.join('\n') : ''))
+    .addFields(
+      { name: '<@' + home.id + '>', value: teamHistory[0].join('\n').slice(-1024) || 'No events yet.', inline: true },
+      { name: '<@' + away.id + '>', value: teamHistory[1].join('\n').slice(-1024) || 'No events yet.', inline: true }
+    )
     .setFooter({ text: 'Match events' });
   const publish = async () => {
     if (!minuteEventsLog.length) return;
-    const section = minuteEventsLog.join('\n');
-    const next = historyText ? historyText + '\n' + section : section;
-    if (!currentMessage || next.length > 3500) {
-      historyText = section;
-      currentMessage = await interaction.followUp({ embeds: [makeEmbed(historyText)], fetchReply: true });
+    for (const event of minuteEventsLog) {
+      if (event.team === null) systemHistory.push(event.text);
+      else teamHistory[event.team].push(event.text);
+    }
+    const totalLength = teamHistory[0].join('\n').length + teamHistory[1].join('\n').length + systemHistory.join('\n').length;
+    if (!currentMessage || totalLength > 6500) {
+      teamHistory[0] = teamHistory[0].slice(-18);
+      teamHistory[1] = teamHistory[1].slice(-18);
+      systemHistory = systemHistory.slice(-4);
+      currentMessage = await interaction.followUp({ embeds: [makeEmbed()], fetchReply: true });
     } else {
-      historyText = next;
-      await currentMessage.edit({ embeds: [makeEmbed(historyText)] });
+      await currentMessage.edit({ embeds: [makeEmbed()] });
     }
     await sleep(2500);
   };
@@ -127,7 +137,7 @@ async function runLiveMatch(interaction, home, away) {
       if (defender) {
         stats[ai].sot++;
         score[ai]++;
-        minuteEventsLog.push(defender.name + ' ' + EMOJI.ownGoal + ' ' + minute + "'");
+        minuteEventsLog.push({ team: 1 - ai, text: defender.name + ' ' + EMOJI.ownGoal + ' ' + minute + "'" });
         return;
       }
     }
@@ -202,10 +212,10 @@ async function runLiveMatch(interaction, home, away) {
   };
 
   minute = 0;
-  minuteEventsLog = ['**KICK-OFF**'];
+  minuteEventsLog = [{ team: null, text: '**KICK-OFF**' }];
   await publish();
   await playPeriod(45);
-  minuteEventsLog = ['**HALF-TIME**'];
+  minuteEventsLog = [{ team: null, text: '**HALF-TIME**' }];
   await publish();
   await playPeriod(90);
   const stoppage = 2 + Math.floor(Math.random() * 3);
@@ -215,7 +225,7 @@ async function runLiveMatch(interaction, home, away) {
     if (extra > 1 || pending.length) playMinute();
     await publish();
   }
-  minuteEventsLog = ['**FULL-TIME**'];
+  minuteEventsLog = [{ team: null, text: '**FULL-TIME**' }];
   await publish();
 
   if (score[0] === score[1]) {
