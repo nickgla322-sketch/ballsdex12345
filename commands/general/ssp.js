@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const lineup = require('./8');
 const packs = require('./pack');
 const futbot = require('./futbot');
@@ -11,6 +11,7 @@ const buy = require('./buy');
 const sell = require('./sell');
 const trade = require('./trade');
 const info = require('./futbotinfo');
+const admin = require('../admin/futbotadmin');
 
 const secrets = ['itscominghome','jogabonito','pineappleonpizza','fubball','theflyingdutchmen','mayonnaise'];
 const stats = ['battles_won','battles_played','battles_lost','battles_drawn','rounds_won','rounds_played','rounds_lost','rounds_drawn','coins','cards_dropped','cards_sold'];
@@ -43,6 +44,45 @@ module.exports = {
   .addSubcommandGroup(g=>g.setName('club').setDescription('Your player collection').addSubcommand(s=>s.setName('search').setDescription('View players you own')))
   .addSubcommandGroup(g=>g.setName('pack').setDescription('Player pack odds').addSubcommand(s=>s.setName('weight').setDescription('View pack odds')))
   .addSubcommandGroup(g=>g.setName('economy').setDescription('Player economy').addSubcommand(s=>s.setName('leaderboard').setDescription('View a leaderboard').addStringOption(o=>o.setName('stat').setDescription('Statistic').setRequired(true).addChoices(...stats.map(x=>({name:x.replace(/_/g,' '),value:x})))).addIntegerOption(o=>o.setName('limit').setDescription('Entries 1-25').setMinValue(1).setMaxValue(25))))
+  .addSubcommandGroup(g=>g.setName('admin').setDescription('Administer the SSP player catalog')
+   .addSubcommand(s=>s.setName('give-coins').setDescription('Give coins to a player').addUserOption(o=>o.setName('user').setDescription('Player').setRequired(true)).addIntegerOption(o=>o.setName('amount').setDescription('Coins to give').setRequired(true).setMinValue(1)))
+   .addSubcommand(s=>s.setName('give-card').setDescription('Give a catalog card to a player').addUserOption(o=>o.setName('user').setDescription('Player').setRequired(true)).addIntegerOption(o=>o.setName('card-id').setDescription('Card ID').setRequired(true).setMinValue(1)))
+   .addSubcommand(s=>s.setName('remove-player-card').setDescription('Remove a card from a player inventory').addUserOption(o=>o.setName('user').setDescription('Player').setRequired(true)).addIntegerOption(o=>o.setName('card-id').setDescription('Card ID').setRequired(true).setMinValue(1)))
+   .addSubcommand(s=>s.setName('create-card').setDescription('Create a catalog card')
+    .addIntegerOption(o=>o.setName('card-id').setDescription('Unique card ID').setRequired(true).setMinValue(1))
+    .addStringOption(o=>o.setName('name').setDescription('Player/card name').setRequired(true).setMaxLength(100))
+    .addIntegerOption(o=>o.setName('attack').setDescription('Attack stat').setRequired(true).setMinValue(0).setMaxValue(99))
+    .addIntegerOption(o=>o.setName('defense').setDescription('Defense stat').setRequired(true).setMinValue(0).setMaxValue(99))
+    .addIntegerOption(o=>o.setName('speed').setDescription('Speed stat').setRequired(true).setMinValue(0).setMaxValue(99))
+    .addIntegerOption(o=>o.setName('overall').setDescription('Overall rating').setRequired(true).setMinValue(0).setMaxValue(99))
+    .addStringOption(o=>o.setName('rarity').setDescription('Card rarity').setRequired(true).setMaxLength(40))
+    .addStringOption(o=>o.setName('type').setDescription('Card type').setRequired(true).setMaxLength(40))
+    .addAttachmentOption(o=>o.setName('image').setDescription('Card image').setRequired(true))
+    .addStringOption(o=>o.setName('player-id').setDescription('Player identifier').setMaxLength(100))
+    .addStringOption(o=>o.setName('height').setDescription('Player height').setMaxLength(30))
+    .addStringOption(o=>o.setName('club').setDescription('Club').setMaxLength(100))
+    .addStringOption(o=>o.setName('position').setDescription('Position').setMaxLength(40))
+    .addStringOption(o=>o.setName('league').setDescription('League').setMaxLength(100))
+    .addStringOption(o=>o.setName('nation').setDescription('Nation').setMaxLength(100)))
+   .addSubcommand(s=>s.setName('replace-card').setDescription('Replace catalog card details or image')
+    .addIntegerOption(o=>o.setName('card-id').setDescription('Unique card ID').setRequired(true).setMinValue(1))
+    .addStringOption(o=>o.setName('name').setDescription('Player/card name').setMaxLength(100))
+    .addIntegerOption(o=>o.setName('attack').setDescription('Attack stat').setMinValue(0).setMaxValue(99))
+    .addIntegerOption(o=>o.setName('defense').setDescription('Defense stat').setMinValue(0).setMaxValue(99))
+    .addIntegerOption(o=>o.setName('speed').setDescription('Speed stat').setMinValue(0).setMaxValue(99))
+    .addIntegerOption(o=>o.setName('overall').setDescription('Overall rating').setMinValue(0).setMaxValue(99))
+    .addStringOption(o=>o.setName('rarity').setDescription('Card rarity').setMaxLength(40))
+    .addStringOption(o=>o.setName('type').setDescription('Card type').setMaxLength(40))
+    .addStringOption(o=>o.setName('player-id').setDescription('Player identifier').setMaxLength(100))
+    .addStringOption(o=>o.setName('height').setDescription('Player height').setMaxLength(30))
+    .addStringOption(o=>o.setName('club').setDescription('Club').setMaxLength(100))
+    .addStringOption(o=>o.setName('position').setDescription('Position').setMaxLength(40))
+    .addStringOption(o=>o.setName('league').setDescription('League').setMaxLength(100))
+    .addStringOption(o=>o.setName('nation').setDescription('Nation').setMaxLength(100))
+    .addAttachmentOption(o=>o.setName('image').setDescription('Replacement image')))
+   .addSubcommand(s=>s.setName('remove-card').setDescription('Permanently remove a catalog card').addIntegerOption(o=>o.setName('card-id').setDescription('Catalog card ID').setRequired(true).setMinValue(1)))
+   .addSubcommand(s=>s.setName('import-json').setDescription('Import 1-50 cards from a JSON file').addAttachmentOption(o=>o.setName('file').setDescription('JSON card file').setRequired(true)))
+   .addSubcommand(s=>s.setName('wipe-cards').setDescription('Delete every player card from the catalog').addStringOption(o=>o.setName('confirmation').setDescription('Type WIPE ALL CARDS exactly').setRequired(true).setMaxLength(30))))
   .addSubcommandGroup(g=>g.setName('info').setDescription('SSP help').addSubcommand(s=>s.setName('help').setDescription('Show SSP commands')))
   .addSubcommand(s=>s.setName('packs').setDescription('Browse and buy player packs'))
   .addSubcommand(s=>s.setName('friendly').setDescription('Challenge someone').addUserOption(o=>o.setName('opponent').setDescription('Opponent').setRequired(true)))
@@ -57,6 +97,10 @@ module.exports = {
   if(g==='player') return s==='search'?cards.execute(i,client):futbot.execute(proxy(i,'player',s));
   if(g==='club') return club.execute(i,client);
   if(g==='pack'||g==='economy') return futbot.execute(proxy(i,g,s));
+  if(g==='admin') {
+   if(!i.memberPermissions?.has(PermissionFlagsBits.Administrator)) return i.reply({content:'You need Administrator permissions to use SSP admin commands.',ephemeral:true});
+   return admin.execute(proxy(i,null,s));
+  }
   if(g==='info') return info.execute(proxy(i,null,'help'));
   return ({packs:()=>packs.execute(i,client),friendly:()=>friendly.execute(i,client),claim:()=>claim.execute(i,client),daily:()=>daily.execute(i,client),buy:()=>buy.execute(i,client),sell:()=>sell.execute(i,client),trade:()=>trade.execute(i,client)})[s]?.();
  },
