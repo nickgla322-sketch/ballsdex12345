@@ -17,8 +17,9 @@ module.exports = {
       .addSubcommand(s => s.setName('equip-title').setDescription('Equip an unlocked title').addIntegerOption(o => o.setName('achievement-id').setDescription('Achievement ID').setRequired(true)))
       .addSubcommand(s => s.setName('secret').setDescription('Claim a secret card reward').addStringOption(o => o.setName('code').setDescription('Secret code').setRequired(true).addChoices(...secrets.map(v => ({name:v,value:v}))))))
     .addSubcommandGroup(g => g.setName('cards').setDescription('Search and inspect cards')
-      .addSubcommand(s => s.setName('pack').setDescription('View player pack odds').addSubcommand(pack => pack.setName('weight').setDescription('View overall odds for Bronze, Silver, or Gold packs')))
       .addSubcommand(s => s.setName('copies').setDescription('View your editions of a card').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)).addUserOption(o => o.setName('user').setDescription('Player'))))
+    .addSubcommandGroup(g => g.setName('pack').setDescription('Player packs and odds')
+      .addSubcommand(s => s.setName('weight').setDescription('View overall odds for Bronze, Silver, or Gold packs')))
     .addSubcommandGroup(g => g.setName('social').setDescription('Friends and requests')
       .addSubcommand(s => s.setName('friends').setDescription('View your friends'))
       .addSubcommand(s => s.setName('requests').setDescription('View incoming friend requests'))
@@ -47,7 +48,7 @@ module.exports = {
       if (sub === 'secret') return run(interaction, () => post(base + '/secrets/' + interaction.options.getString('code'), {}), 'Secret reward');
     }
     if (group === 'cards') {
-      if (sub === 'pack') {
+      if (group === 'pack' && sub === 'weight') {
         const menu = new StringSelectMenuBuilder()
           .setCustomId('futbot_pack_weight:' + interaction.user.id)
           .setPlaceholder('Choose a pack to view its odds')
