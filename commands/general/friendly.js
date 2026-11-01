@@ -304,8 +304,8 @@ async function runLiveMatch(interaction, home, away) {
   function playMinute() {
     const possessionTeam = pickAttack();
     addPossession(possessionTeam);
-    // TEMP TEST: guarantee one non-goalkeeper red card at minute 10 in every match.
-    if (FORCE_ONE_RED_CARD_FOR_TESTING && !forcedRedCardShown && minute >= 10) {
+    // TEMP TEST: guarantee one non-goalkeeper red card at minute 50 in every match.
+    if (FORCE_ONE_RED_CARD_FOR_TESTING && !forcedRedCardShown && minute >= 50) {
       const teamIndex = Math.random() < .5 ? 0 : 1;
       const player = choosePlayer(field(teams[teamIndex]), () => 1);
       if (player) {
