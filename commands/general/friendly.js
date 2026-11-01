@@ -50,8 +50,9 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 function playerLabel(player, team) { return '**' + player.name + '** (<@' + team.id + '>)'; }
 async function runLiveMatch(interaction, home, away) {
   const teams=[home,away], score=[0,0];
-  let pens=null, minute=0;
-  let minuteEventsLog=[];
+  let pens=null, minute=0, minuteEventsLog=[];
+  let historyText='';
+  let currentMessage=null;
   const log=(m,s)=>minuteEventsLog.push(s);
   const label=(i,p)=>playerLabel(p,teams[i]);
   const active=t=>t.players.filter(p=>!p.sentOff);
@@ -59,12 +60,30 @@ async function runLiveMatch(interaction, home, away) {
   const choose=(list,fn)=>{if(!list.length)return null;const w=list.map(p=>Math.max(1,fn(p)));let n=Math.random()*w.reduce((a,b)=>a+b,0);for(let i=0;i<list.length;i++){n-=w[i];if(n<=0)return list[i];}return list[list.length-1];};
   const keeper=t=>t.players.find(p=>p.position==='GK'&&!p.sentOff)||{name:'Emergency goalkeeper',goalkeeping:18};
   const attackPool=t=>active(t).filter(p=>['ST','CF','LW','RW','CAM'].includes(p.position));
-  const embed=()=>new EmbedBuilder().setColor(0x3498db).setTitle('⏱️ LIVE FRIENDLY MATCH')
-    .setDescription('**'+home.name+'** '+score[0]+'–'+score[1]+' **'+away.name+'**\n\n🕒 **'+String(minute).padStart(2,'0')+':00**\n\n'+(minuteEventsLog.join('\n\n')||'The teams are settling in...'))
+  const makeEmbed=(body)=>new EmbedBuilder().setColor(0x3498db).setTitle('⏱️ LIVE FRIENDLY MATCH')
+    .setDescription('**'+home.name+'** '+score[0]+'–'+score[1]+' **'+away.name+'**\n\n🕒 **'+String(minute).padStart(2,'0')+':00**\n\n'+body)
     .addFields({name:home.name,value:home.overall+' OVR',inline:true},{name:away.name,value:away.overall+' OVR',inline:true})
-    .setFooter({text:'Match history • 2 seconds per in-game minute'});
-  const postMinute=()=>interaction.followUp({embeds:[embed()]});
-  await postMinute();
+    .setFooter({text:'Match history • Event-paced clock'});
+  const appendHistory=async(m,items)=>{
+    const section='**'+(m===0?'KICK-OFF':('Minute '+m))+'**\n'+(items.length?items.join('\n'):'No major event this minute.');
+    const next=historyText?historyText+'\n\n'+section:section;
+    // Leave room for the score, clock and team fields under Discord's embed limits.
+    if(!currentMessage || next.length>3300){
+      historyText=section;
+      currentMessage=await interaction.followUp({embeds:[makeEmbed(historyText)],fetchReply:true});
+    } else {
+      historyText=next;
+      await currentMessage.edit({embeds:[makeEmbed(historyText)]});
+    }
+  };
+  const publishMinute=async(m)=>{
+    await appendHistory(m,minuteEventsLog);
+    // Give readers more time when a minute contains a chain of events.
+    const delay=minuteEventsLog.length===0?2000:(minuteEventsLog.length===1?4000:7000);
+    await sleep(delay);
+  };
+  log(0,'🔔 **KICK-OFF!** '+home.name+' get the match underway against '+away.name+'.');
+  await appendHistory(0,minuteEventsLog);
   function corner(ai,m,reason) {
     const t=teams[ai],taker=choose(field(t),p=>p.passing+p.effective*.2);
     if(!taker)return;
@@ -73,7 +92,7 @@ async function runLiveMatch(interaction, home, away) {
     if(!target)return;
     if(Math.random()<.2){score[ai]++;log(m,'⚽ '+label(ai,taker)+' delivers and '+label(ai,target)+' rises above the defence to head it in! **GOAL for '+t.name+'!**');}
     else if(Math.random()<.5)log(m,label(ai,taker)+' delivers and '+label(ai,target)+' gets a head to it, but sends it just wide.');
-    else { const defender=choose(field(teams[1-ai]),p=>p.defense+p.effective*.2); log(m,'The corner from '+label(ai,taker)+' is cleared by '+(defender?label(1-ai,defender):'**'+teams[1-ai].name+'**')+'.'); }
+    else {const defender=choose(field(teams[1-ai]),p=>p.defense+p.effective*.2);log(m,'The corner from '+label(ai,taker)+' is cleared by '+(defender?label(1-ai,defender):'**'+teams[1-ai].name+'**')+'.');}
   }
   function shoot(ai,m) {
     const at=teams[ai],dt=teams[1-ai],pool=attackPool(at),p=choose(pool.length?pool:field(at),x=>x.shooting+x.dribbling*.3+x.effective*.2);
@@ -81,13 +100,7 @@ async function runLiveMatch(interaction, home, away) {
     const g=keeper(dt),marker=choose(field(dt),x=>x.defense+x.effective*.2);
     const atk=p.shooting*.52+p.dribbling*.14+p.effective*.34,def=(marker?marker.defense*.5+marker.effective*.2:18)+g.goalkeeping*.3;
     if(Math.random()>Math.max(.10,Math.min(.72,.38+(atk-def)/260))) {
-      const lines=[
-        label(ai,p)+' shoots, but '+label(1-ai,g)+' gets down quickly and makes the save!',
-        label(ai,p)+' fires towards goal — '+label(1-ai,g)+' is there to catch it!',
-        label(ai,p)+' tries from the edge of the box, and '+label(1-ai,g)+' pushes it away!',
-        label(ai,p)+' gets a shot away. '+label(1-ai,g)+' reacts brilliantly to keep it out!',
-        label(ai,p)+' strikes it cleanly, but '+label(1-ai,g)+' palms the effort wide!'
-      ];
+      const lines=[label(ai,p)+' shoots, but '+label(1-ai,g)+' gets down quickly and makes the save!',label(ai,p)+' fires towards goal — '+label(1-ai,g)+' is there to catch it!',label(ai,p)+' tries from the edge of the box, and '+label(1-ai,g)+' pushes it away!',label(ai,p)+' gets a shot away. '+label(1-ai,g)+' reacts brilliantly to keep it out!',label(ai,p)+' strikes it cleanly, but '+label(1-ai,g)+' palms the effort wide!'];
       log(m,'🧤 '+lines[Math.floor(Math.random()*lines.length)]);
       if(Math.random()<.32)corner(ai,m,'goalkeeper save');
       return;
@@ -107,13 +120,13 @@ async function runLiveMatch(interaction, home, away) {
     if(!taker)return;
     log(m,'🎯 **FREE KICK — '+t.name+'**\n'+label(ai,taker)+' is taking it after the foul on '+label(ai,victim)+'.');
     if(Math.random()<.34)shoot(ai,m);
-    else { const defender=choose(field(teams[1-ai]),p=>p.defense+p.effective*.2); log(m,label(ai,taker)+' curls the free kick into the area, but '+(defender?label(1-ai,defender):'**'+teams[1-ai].name+'**')+' heads it clear.'); }
+    else {const defender=choose(field(teams[1-ai]),p=>p.defense+p.effective*.2);log(m,label(ai,taker)+' curls the free kick into the area, but '+(defender?label(1-ai,defender):'**'+teams[1-ai].name+'**')+' heads it clear.');}
   }
   function penalty(ai,m) {
     const t=teams[ai],g=keeper(teams[1-ai]),k=choose(field(t),p=>p.shooting+p.effective*.2);
     if(!k)return;
     log(m,'🚨 **PENALTY TO '+t.name+'!**\n'+label(ai,k)+' places the ball on the spot. '+label(1-ai,g)+' is ready in goal...');
-    if(Math.random()<Math.max(.56,Math.min(.88,.76+(k.shooting-g.goalkeeping)/500))){score[ai]++;log(m,'⚽ **GOAL!** '+label(ai,k)+' sends the penalty home!');}
+    if(Math.random()<Math.max(.56,Math.min(.88,.76+(k.shooting-g.goalkeeping)/500))){score[ai]++;log(m,'⚽ **GOAL!** '+label(ai,k)+' sends the penalty home past '+label(1-ai,g)+'!');}
     else log(m,'🧤 '+label(1-ai,g)+' guesses correctly and saves '+label(ai,k)+'’s penalty!');
   }
   function foul(m) {
@@ -132,41 +145,39 @@ async function runLiveMatch(interaction, home, away) {
     else if(r<.43)shoot(Math.random()<.5?0:1,m);
     else if(r<.49){const i=Math.random()<.5?0:1,p=choose(field(teams[i]),x=>x.passing+x.effective*.2);if(p){const teammate=choose(field(teams[i]).filter(x=>x.id!==p.id),x=>x.passing+x.effective*.2);if(teammate)log(m,'🔄 '+label(i,p)+' plays a pass to '+label(i,teammate)+' as **'+teams[i].name+'** build patiently.');}}
   }
-  log(0,'🔔 **KICK-OFF!** '+home.name+' get the match underway against '+away.name+'.');
   const playPeriod=async(start,end)=>{
     for(let m=start+1;m<=end;m++){
-      await sleep(2000);
       minute=m;minuteEventsLog=[];minuteEvents(m);
-      await postMinute();
+      await publishMinute(m);
     }
   };
   await playPeriod(0,45);
-  minute=45;minuteEventsLog=[];log(45,'⏸️ **HALF-TIME!** '+home.name+' '+score[0]+'–'+score[1]+' '+away.name+'.');await postMinute();await sleep(2000);
+  minute=45;minuteEventsLog=[];log(45,'⏸️ **HALF-TIME!** '+home.name+' '+score[0]+'–'+score[1]+' '+away.name+'.');await publishMinute(45);
   await playPeriod(45,90);
-  minute=90;minuteEventsLog=[];log(90,'⏱️ **FULL-TIME!** '+home.name+' '+score[0]+'–'+score[1]+' '+away.name+'.');await postMinute();
+  minute=90;minuteEventsLog=[];log(90,'⏱️ **FULL-TIME!** '+home.name+' '+score[0]+'–'+score[1]+' '+away.name+'.');await appendHistory(90,minuteEventsLog);
   if(score[0]===score[1]){
-    minute=90;minuteEventsLog=[];log(90,'⏳ The match is level. Two 15-minute periods of extra time!');await postMinute();
+    minuteEventsLog=[];log(90,'⏳ The match is level. Two 15-minute periods of extra time!');await publishMinute(90);
     await playPeriod(90,105);
-    minute=105;minuteEventsLog=[];log(105,'⏸️ **EXTRA-TIME BREAK.**');await postMinute();await sleep(2000);
-    await playPeriod(105,120);minute=120;minuteEventsLog=[];log(120,'⏱️ **END OF EXTRA TIME!**');await postMinute();
+    minute=105;minuteEventsLog=[];log(105,'⏸️ **EXTRA-TIME BREAK.**');await publishMinute(105);
+    await playPeriod(105,120);
+    minute=120;minuteEventsLog=[];log(120,'⏱️ **END OF EXTRA TIME!**');await appendHistory(120,minuteEventsLog);
   }
   if(score[0]===score[1]){
-    minute=120;minuteEventsLog=[];log(120,'🎯 Still level! It is time for a penalty shootout.');pens=[0,0];await postMinute();
+    minute=120;minuteEventsLog=[];log(120,'🎯 Still level! It is time for a penalty shootout.');pens=[0,0];await publishMinute(120);
     const kick=async i=>{
       const t=teams[i],g=keeper(teams[1-i]),p=choose(field(t),x=>x.shooting+x.effective*.2);
       if(!p)return;
-      minuteEventsLog=[];log(120,'🎯 **PENALTY SHOOTOUT — '+t.name+'**\n'+label(i,p)+' steps up...');
-      await postMinute();await sleep(2000);
-      const goal=Math.random()<Math.max(.56,Math.min(.86,.74+(p.shooting-g.goalkeeping)/500));
+      minuteEventsLog=[];log(120,'🎯 **PENALTY SHOOTOUT — '+t.name+'**\n'+label(i,p)+' steps up...');await publishMinute(120);
+      minuteEventsLog=[];const goal=Math.random()<Math.max(.56,Math.min(.86,.74+(p.shooting-g.goalkeeping)/500));
       if(goal)pens[i]++;
-      log(120,(goal?'⚽ **SCORES!** ':'🧤 **SAVED!** ')+label(i,p)+(goal?' finds the net.':' is denied by '+label(1-i,g)+'.')+' Shootout: **'+pens[0]+'–'+pens[1]+'**.');
-      await postMinute();await sleep(2000);
+      log(120,(goal?'⚽ **SCORES!** ':'🧤 **SAVED!** ')+label(i,p)+(goal?' finds the net past '+label(1-i,g)+'.':' is denied by '+label(1-i,g)+'.')+' Shootout: **'+pens[0]+'–'+pens[1]+'**.');
+      await publishMinute(120);
     };
     for(let r=0;r<5;r++){for(let i=0;i<2;i++)await kick(i);const left=4-r;if(pens[0]>pens[1]+left||pens[1]>pens[0]+left)break;}
     while(pens[0]===pens[1]){await kick(0);await kick(1);}
   }
   const winner=pens?(pens[0]>pens[1]?0:1):(score[0]===score[1]?null:(score[0]>score[1]?0:1));
-  minuteEventsLog=[];log(minute,winner===null?'🤝 **The friendly ends in a draw!**':'🏆 **'+teams[winner].name+' win the friendly!**');
-  await interaction.followUp({embeds:[embed().setTitle('🏁 MATCH FINISHED')]});
+  const finishText=winner===null?'🤝 **The friendly ends in a draw!**':'🏆 **'+teams[winner].name+' win the friendly!**';
+  await interaction.followUp({embeds:[makeEmbed(finishText).setTitle('🏁 MATCH FINISHED')]});
   return {score,pens,winner};
 }
