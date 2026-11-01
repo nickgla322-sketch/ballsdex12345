@@ -282,7 +282,7 @@ async function runLiveMatch(interaction, home, away) {
     const victim = choosePlayer(field(teams[ai]), p => p.effective);
     if (!offender || !victim) return;
     stats[oi].fouls++;
-    if (Math.random() < .025) {
+    if (offender.position !== 'GK' && Math.random() < .025) {
       offender.sentOff = true;
       log(oi, offender, EMOJI.red);
     } else if (Math.random() < .20) {
@@ -305,7 +305,7 @@ async function runLiveMatch(interaction, home, away) {
     // TEMP TEST: guarantee one non-goalkeeper red card at minute 50 in every match.
     if (FORCE_ONE_RED_CARD_FOR_TESTING && !forcedRedCardShown && minute >= 50) {
       const teamIndex = Math.random() < .5 ? 0 : 1;
-      const player = choosePlayer(field(teams[teamIndex]), () => 1);
+      const player = choosePlayer(field(teams[teamIndex]).filter(p => p.position !== 'GK'), () => 1);
       if (player) {
         player.sentOff = true;
         forcedRedCardShown = true;
