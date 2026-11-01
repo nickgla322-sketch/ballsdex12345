@@ -12,6 +12,7 @@ module.exports = {
       .addIntegerOption(o => o.setName('slot').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
     .addSubcommand(s => s.setName('remove').setDescription('Remove a player from a lineup slot')
       .addIntegerOption(o => o.setName('slot').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
+    .addSubcommand(s => s.setName('remove-all').setDescription('Remove every player from your lineup'))
     .addSubcommand(s => s.setName('swap').setDescription('Swap two players between lineup slots')
       .addIntegerOption(o => o.setName('slot1').setDescription('First slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8))
       .addIntegerOption(o => o.setName('slot2').setDescription('Second slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
@@ -135,6 +136,19 @@ module.exports = {
           .setColor(0xed4245)
           .setDescription('The player in slot **' + slot + '** was removed.')
           .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '-') + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
+        return interaction.editReply({ embeds: [embed], content: '' });
+      }
+      if (subcommand === 'remove-all') {
+        const cleared = await futbotApi.request(basePath + '/clear', {
+          method: 'POST',
+          body: JSON.stringify({}),
+        });
+        const lineup = cleared?.data ?? cleared;
+        const embed = new EmbedBuilder()
+          .setTitle('Lineup Cleared')
+          .setColor(0xed4245)
+          .setDescription('All players have been removed from your lineup. Your formation has been kept.')
+          .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? 0) + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
         return interaction.editReply({ embeds: [embed], content: '' });
       }
       if (subcommand === 'swap') {
