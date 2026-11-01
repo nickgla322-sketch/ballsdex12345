@@ -111,31 +111,32 @@ async function runLiveMatch(interaction, home, away) {
   // Form affects attacking flow and shot quality, but does not replace player/team ratings.
   const matchForm = teams.map(() => Math.random() * .36 - .18);
   const formDifference = () => matchForm[0] - matchForm[1];
-  // Red cards affect shot volume and defensive vulnerability separately.
-  // Midfielder impact is the exact midpoint between attacker and defender impact.
-  const redCardImpact = i => teams[i].players.reduce((impact, player) => {
-    if (!player.sentOff) return impact;
-    const position = String(player.position || '').toUpperCase();
-    impact.overall += 4;
-    if (['ST', 'CF', 'LW', 'RW'].includes(position)) {
-      // Losing a striker heavily reduces this team's attacking chances.
-      impact.ownShots += .40;
-      impact.opponentShots += .08;
-    } else if (['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(position)) {
-      // Losing a midfielder affects both teams' attacking chances.
-      impact.ownShots += .20;
-      impact.opponentShots += .20;
-    } else if (position === 'GK') {
-      // Goalkeepers are protected from red cards, but keep a safe fallback.
-      impact.ownShots += .08;
-      impact.opponentShots += .30;
-    } else {
-      // Losing a defender gives the opposing team many more attacking chances.
-      impact.ownShots += .08;
-      impact.opponentShots += .40;
-    }
-    return impact;
-  }, { ownShots: 0, opponentShots: 0, opponentScoring: 0, overall: 0 });
+  // Red cards sharply increase the opponent's shot volume.
+  // Each additional red card doubles the impact of the previous one.
+  const redCardImpact = i => {
+    let redCards = 0;
+    return teams[i].players.reduce((impact, player) => {
+      if (!player.sentOff) return impact;
+      const position = String(player.position || '').toUpperCase();
+      const multiplier = 2 ** redCards;
+      redCards++;
+      impact.overall += 4 * multiplier;
+      if (['ST', 'CF', 'LW', 'RW'].includes(position)) {
+        impact.ownShots += .40 * multiplier;
+        impact.opponentShots += .20 * multiplier;
+      } else if (['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(position)) {
+        impact.ownShots += .20 * multiplier;
+        impact.opponentShots += .45 * multiplier;
+      } else if (position === 'GK') {
+        impact.ownShots += .08 * multiplier;
+        impact.opponentShots += .60 * multiplier;
+      } else {
+        impact.ownShots += .08 * multiplier;
+        impact.opponentShots += .70 * multiplier;
+      }
+      return impact;
+    }, { ownShots: 0, opponentShots: 0, opponentScoring: 0, overall: 0 });
+  };
   const matchOverall = i => teams[i].overall - redCardImpact(i).overall;
   // Better teams still get more attacking phases, but match form can narrow or widen the gap.
   const pickAttack = () => Math.random() < Math.max(.28, Math.min(.72, .5 + (matchOverall(0) - matchOverall(1)) * .009 + formDifference() * .25)) ? 0 : 1;
@@ -319,7 +320,7 @@ async function runLiveMatch(interaction, home, away) {
       const overallGap = matchOverall(possessionTeam) - matchOverall(1 - possessionTeam);
       const attackingRedCardImpact = redCardImpact(possessionTeam);
       const defendingRedCardImpact = redCardImpact(1 - possessionTeam);
-      const shotChance = Math.max(.12, Math.min(.52, .32 + overallGap * .0015 + (matchForm[possessionTeam] - matchForm[1 - possessionTeam]) * .12 - attackingRedCardImpact.ownShots + defendingRedCardImpact.opponentShots));
+      const shotChance = Math.max(.12, Math.min(.70, .32 + overallGap * .0015 + (matchForm[possessionTeam] - matchForm[1 - possessionTeam]) * .12 - attackingRedCardImpact.ownShots + defendingRedCardImpact.opponentShots));
       if (r < .16 + shotChance) shot(possessionTeam);
     }
   }
