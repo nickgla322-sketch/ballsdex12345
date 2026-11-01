@@ -7,8 +7,8 @@ const inventory = async id => (await get('/api/v1/players/' + id + '/inventory')
 const MAX = 5;
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('trade').setDescription('Trade player cards and coins')
-    .addUserOption(o => o.setName('user').setDescription('Player to trade with').setRequired(true)),
+  data: null,
+
   async execute(interaction) {
     const target = interaction.options.getUser('user');
     if (target.bot || target.id === interaction.user.id) return interaction.reply({ content: 'Choose another player, not yourself or a bot.', ephemeral: true });
