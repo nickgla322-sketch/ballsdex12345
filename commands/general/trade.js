@@ -15,6 +15,15 @@ module.exports = {
     await interaction.deferReply();
     let session;
     try {
+      // Inventory rows and player accounts are separate records in the API.
+      // Register both Discord users before creating the exchange so players
+      // with existing cards are not rejected as missing player accounts.
+      await post('/api/v1/players/' + interaction.user.id, {
+        name: interaction.member?.displayName || interaction.user.username,
+      });
+      await post('/api/v1/players/' + target.id, {
+        name: target.globalName || target.username,
+      });
       await inventory(interaction.user.id);
       await inventory(target.id);
       session = data(await post('/api/v1/exchanges', { player1_id: Number(interaction.user.id), player2_id: Number(target.id) }));
