@@ -109,30 +109,35 @@ async function runLiveMatch(interaction, home, away) {
   // Form affects attacking flow and shot quality, but does not replace player/team ratings.
   const matchForm = teams.map(() => Math.random() * .36 - .18);
   const formDifference = () => matchForm[0] - matchForm[1];
-  // Red cards affect the match differently depending on the player's position.
+  // Red cards affect shot volume and defensive vulnerability separately.
+  // Midfielder impact is the exact midpoint between attacker and defender impact.
   const redCardImpact = i => teams[i].players.reduce((impact, player) => {
     if (!player.sentOff) return impact;
     const position = String(player.position || '').toUpperCase();
     if (['ST', 'CF', 'LW', 'RW'].includes(position)) {
-      impact.attack += .25;
-      impact.defense += .01;
+      impact.ownShots += .25;
+      impact.opponentShots += .04;
+      impact.opponentScoring += 0;
       impact.overall += 2;
     } else if (['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(position)) {
-      impact.attack += .10;
-      impact.defense += .07;
+      impact.ownShots += .15;
+      impact.opponentShots += .13;
+      impact.opponentScoring += .06;
       impact.overall += 3;
     } else if (position === 'GK') {
-      impact.attack += .005;
-      impact.defense += .22;
+      impact.ownShots += .01;
+      impact.opponentShots += .10;
+      impact.opponentScoring += .22;
       impact.overall += 5;
     } else {
       // Fullbacks, centre-backs and other defensive positions.
-      impact.attack += .015;
-      impact.defense += .16;
+      impact.ownShots += .05;
+      impact.opponentShots += .22;
+      impact.opponentScoring += .12;
       impact.overall += 4;
     }
     return impact;
-  }, { attack: 0, defense: 0, overall: 0 });
+  }, { ownShots: 0, opponentShots: 0, opponentScoring: 0, overall: 0 });
   const matchOverall = i => teams[i].overall - redCardImpact(i).overall;
   // Better teams still get more attacking phases, but match form can narrow or widen the gap.
   const pickAttack = () => Math.random() < Math.max(.28, Math.min(.72, .5 + (matchOverall(0) - matchOverall(1)) * .009 + formDifference() * .25)) ? 0 : 1;
@@ -224,8 +229,8 @@ async function runLiveMatch(interaction, home, away) {
     // Give stronger teams a clear edge while keeping upsets possible.
     const formBoost = (matchForm[ai] - matchForm[1 - ai]) * .25;
     const defendingRedCardImpact = redCardImpact(1 - ai);
-    // An attacking red card reduces the number of shots, not the quality of shots that still happen.
-    const chance = Math.max(.06, Math.min(.50, .23 + edge * .003 + (p.shooting - g.goalkeeping) * .0015 + formBoost + defendingRedCardImpact.defense * .45));
+    // Defensive red cards make the opposition's shots more likely to become goals.
+    const chance = Math.max(.06, Math.min(.50, .23 + edge * .003 + (p.shooting - g.goalkeeping) * .0015 + formBoost + defendingRedCardImpact.opponentScoring));
     if (Math.random() < chance) {
       stats[ai].sot++;
       scoreGoal(ai, p);
@@ -305,7 +310,7 @@ async function runLiveMatch(interaction, home, away) {
       const overallGap = matchOverall(possessionTeam) - matchOverall(1 - possessionTeam);
       const attackingRedCardImpact = redCardImpact(possessionTeam);
       const defendingRedCardImpact = redCardImpact(1 - possessionTeam);
-      const shotChance = Math.max(.20, Math.min(.66, .46 + overallGap * .003 + (matchForm[possessionTeam] - matchForm[1 - possessionTeam]) * .22 - attackingRedCardImpact.attack + defendingRedCardImpact.defense * .45));
+      const shotChance = Math.max(.16, Math.min(.70, .46 + overallGap * .003 + (matchForm[possessionTeam] - matchForm[1 - possessionTeam]) * .22 - attackingRedCardImpact.ownShots + defendingRedCardImpact.opponentShots));
       if (r < .16 + shotChance) shot(possessionTeam);
     }
   }
