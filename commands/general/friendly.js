@@ -81,10 +81,11 @@ async function runLiveMatch(interaction, home, away) {
     ownGoal: '<:owngoal:1362833434082283811>',
   };
   let pens = null, minute = 0, currentMessage = null;
+  let inExtraTime = false, inFirstHalfStoppage = false;
   const teamHistory = [[], []];
   let systemHistory = [];
   let minuteEventsLog = [];
-  const formatMinute = m => m > 90 && m <= 99 ? '90+' + (m - 90) : String(m);
+  const formatMinute = m => inFirstHalfStoppage && m > 45 ? '45+' + (m - 45) : (!inExtraTime && m > 90 && m <= 99 ? '90+' + (m - 90) : String(m));
   const log = (i, player, emoji, m = minute, extra = '') => {
     const name = player ? player.name : teams[i].name;
     minuteEventsLog.push({ team: i, text: name + ' ' + emoji + (extra ? ' ' + extra : '') + ' ' + formatMinute(m) + "'" });
@@ -338,8 +339,18 @@ async function runLiveMatch(interaction, home, away) {
   minuteEventsLog = [{ team: null, text: '**KICK-OFF**' }];
   await publish();
   await playPeriod(45);
+  const firstHalfStoppage = 1 + Math.floor(Math.random() * 3);
+  inFirstHalfStoppage = true;
+  for (let extra = 1; extra <= firstHalfStoppage || pending.length; extra++) {
+    if (extra > 8) break;
+    minute = 45 + extra; minuteEventsLog = [];
+    if (extra > 1 || pending.length) playMinute();
+    await publish();
+  }
+  inFirstHalfStoppage = false;
   minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**HALF-TIME**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
   await publish();
+  minute = 45;
   await playPeriod(90);
   const stoppage = 2 + Math.floor(Math.random() * 3);
   for (let extra = 1; extra <= stoppage || pending.length; extra++) {
@@ -353,8 +364,13 @@ async function runLiveMatch(interaction, home, away) {
 
   if (score[0] === score[1]) {
     await interaction.followUp({ content: '**Extra time**' });
-    await playPeriod(minute + 15);
-    await playPeriod(minute + 15);
+    inExtraTime = true;
+    minute = 90;
+    await playPeriod(105);
+    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**EXTRA-TIME HALF-TIME**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+    await publish();
+    await playPeriod(120);
+    inExtraTime = false;
   }
   if (score[0] === score[1]) {
     pens = [0, 0];
