@@ -24,12 +24,12 @@ const COLORS = {
 function buildComponents(state, totalPages, disabled = false) {
   const navigation = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId('card_search_prev')
+      .setCustomId('player_search_prev')
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('⬅️')
       .setDisabled(disabled || state.page <= 0),
     new ButtonBuilder()
-      .setCustomId('card_search_next')
+      .setCustomId('player_search_next')
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('➡️')
       .setDisabled(disabled || state.page >= totalPages - 1),
@@ -37,7 +37,7 @@ function buildComponents(state, totalPages, disabled = false) {
 
   const category = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId('card_search_category')
+      .setCustomId('player_search_category')
       .setLabel('Category: ' + state.category.charAt(0).toUpperCase() + state.category.slice(1))
       .setStyle(ButtonStyle.Primary)
       .setDisabled(disabled),
@@ -53,7 +53,7 @@ function buildComponents(state, totalPages, disabled = false) {
   ];
   const position = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId('card_search_position')
+      .setCustomId('player_search_position')
       .setPlaceholder('Position: ' + (state.position || 'All'))
       .setMinValues(1)
       .setMaxValues(1)
@@ -126,7 +126,7 @@ async function buildPage(state) {
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('card')
+    .setName('player')
     .setDescription('Browse the FutBot player card catalog')
     .addSubcommand(subcommand =>
       subcommand
@@ -169,15 +169,15 @@ module.exports = {
 
       collector.on('collect', async component => {
         try {
-          if (component.customId === 'card_search_prev') {
+          if (component.customId === 'player_search_prev') {
             state.page = Math.max(0, state.page - 1);
-          } else if (component.customId === 'card_search_next') {
+          } else if (component.customId === 'player_search_next') {
             state.page += 1;
-          } else if (component.customId === 'card_search_category') {
+          } else if (component.customId === 'player_search_category') {
             const index = CATEGORIES.indexOf(state.category);
             state.category = CATEGORIES[(index + 1) % CATEGORIES.length];
             state.page = 0;
-          } else if (component.customId === 'card_search_position') {
+          } else if (component.customId === 'player_search_position') {
             state.position = component.values[0] === 'all' ? '' : component.values[0];
             state.page = 0;
           }
@@ -185,7 +185,7 @@ module.exports = {
           const nextPayload = await buildPage(state);
           await component.update(nextPayload);
         } catch (error) {
-          console.error('[Card search pagination]', error);
+          console.error('[Player search pagination]', error);
           if (!component.replied && !component.deferred) {
             await component.reply({
               content: 'Could not load that page: ' + String(error.message || 'Unknown API error').slice(0, 1200),
@@ -205,9 +205,9 @@ module.exports = {
         }
       });
     } catch (error) {
-      console.error('[Card search]', error);
+      console.error('[Player search]', error);
       return interaction.editReply({
-        content: '**Card search error**\n' + String(error.message || 'Unknown API error').slice(0, 1800),
+        content: '**Player search error**\n' + String(error.message || 'Unknown API error').slice(0, 1800),
         embeds: [],
         components: [],
       });
