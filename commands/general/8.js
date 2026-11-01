@@ -3,21 +3,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const { futbotApi } = require('../../utils/futbotDiscord');
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('8')
-    .setDescription('View and manage your eight-player lineup')
-    .addSubcommand(s => s.setName('show').setDescription('Show your eight-player lineup'))
-    .addSubcommand(s => s.setName('add').setDescription('Add an owned player to a lineup slot')
-      .addStringOption(o => o.setName('player').setDescription('Player name or part of their name').setRequired(true))
-      .addIntegerOption(o => o.setName('slot').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
-    .addSubcommandGroup(g => g.setName('remove').setDescription('Remove players from your lineup')
-      .addSubcommand(s => s.setName('slot').setDescription('Remove a player from one lineup slot')
-        .addIntegerOption(o => o.setName('number').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
-      .addSubcommand(s => s.setName('all').setDescription('Remove every player from your lineup')))
-    .addSubcommand(s => s.setName('swap').setDescription('Swap two players between lineup slots')
-      .addIntegerOption(o => o.setName('slot1').setDescription('First slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8))
-      .addIntegerOption(o => o.setName('slot2').setDescription('Second slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
-    .addSubcommand(s => s.setName('formation').setDescription('Choose a formation for your eight-player lineup')),
+  data: null,
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
