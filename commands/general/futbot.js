@@ -5,16 +5,7 @@ const stats = ['battles_won','battles_played','battles_lost','battles_drawn','ro
 const secrets = ['itscominghome','jogabonito','pineappleonpizza','fubball','theflyingdutchmen','mayonnaise'];
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('futbot').setDescription('FutBot player, cards, packs and economy')
-    .addSubcommandGroup(g => g.setName('player').setDescription('Profiles and rewards')
-      .addSubcommand(s => s.setName('profile').setDescription('View a player profile').addUserOption(o => o.setName('user').setDescription('Player')))
-      .addSubcommand(s => s.setName('starter').setDescription('Claim your one-time starter pack'))
-      .addSubcommand(s => s.setName('secret').setDescription('Claim a secret card reward').addStringOption(o => o.setName('code').setDescription('Secret code').setRequired(true).addChoices(...secrets.map(v => ({name:v,value:v}))))))
-    .addSubcommandGroup(g => g.setName('pack').setDescription('Player packs and odds')
-      .addSubcommand(s => s.setName('weight').setDescription('View overall odds for Bronze, Silver, or Gold packs')))
-    .addSubcommandGroup(g => g.setName('economy').setDescription('Selling cards and rankings')
-      .addSubcommand(s => s.setName('leaderboard').setDescription('View a leaderboard').addStringOption(o => o.setName('stat').setDescription('Statistic').setRequired(true).addChoices(...stats.map(v => ({name:v.replace(/_/g,' '),value:v})))).addIntegerOption(o => o.setName('limit').setDescription('Entries (1-25)').setMinValue(1).setMaxValue(25)))),
+  data: null,
 
   async execute(interaction) {
     const group = interaction.options.getSubcommandGroup();
