@@ -158,18 +158,16 @@ async function runLiveMatch(interaction, home, away) {
   };
   const makeEmbed = () => new EmbedBuilder().setColor(0x3498db)
     .setTitle('⚽ FRIENDLY MATCH · ' + formatMinute(minute) + "'")
-    .setDescription('**⏱️ ' + formatMinute(minute) + "'**\n**" + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**' + (systemHistory.length ? '\n\n' + systemHistory.join('\n') : ''))
+    .setDescription('**⏱️ ' + formatMinute(minute) + "'**\n**" + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**')
     .addFields(
       { name: home.name, value: teamHistory[0].join('\n\n').slice(-1024) || 'No events yet.', inline: true },
-      { name: away.name, value: teamHistory[1].join('\n\n').slice(-1024) || 'No events yet.', inline: true }
+      { name: away.name, value: teamHistory[1].join('\n\n').slice(-1024) || 'No events yet.', inline: true },
+      ...systemHistory.map(text => ({ name: '\u200B', value: text, inline: false }))
     )
     .setFooter({ text: 'Match events' });
   const publish = async () => {
     for (const event of minuteEventsLog) {
-      if (event.team === null) {
-        teamHistory[0].push(event.text);
-        teamHistory[1].push(event.text);
-      }
+      if (event.team === null) systemHistory.push(event.text);
       else if (event.text.startsWith('　• ') && teamHistory[event.team].length) teamHistory[event.team][teamHistory[event.team].length - 1] += '\n' + event.text;
       else teamHistory[event.team].push(event.text);
     }
@@ -339,20 +337,20 @@ async function runLiveMatch(interaction, home, away) {
     await publish();
   }
   if (score[0] !== score[1]) {
-    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n**FULL-TIME**\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━ **FULL-TIME** ━━━━━━━━━━' }];
     await publish();
   } else {
-    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n**EXTRA TIME**\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━ **EXTRA TIME** ━━━━━━━━━━' }];
     await publish();
     inExtraTime = true;
     minute = 90;
     await playPeriod(105);
-    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n**EXTRA-TIME HALF-TIME**\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━ **EXTRA-TIME HALF-TIME** ━━━━━━━━━━' }];
     await publish();
     await playPeriod(120);
     inExtraTime = false;
     if (score[0] === score[1]) {
-      minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n**PENALTY SHOOTOUT**\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+      minuteEventsLog = [{ team: null, text: '━━━━━━━━━━ **PENALTY SHOOTOUT** ━━━━━━━━━━' }];
       await publish();
       pens = [0, 0];
       const penaltyOrder = t => {
@@ -400,7 +398,7 @@ async function runLiveMatch(interaction, home, away) {
         if (suddenDeathIndex % 2 === 0 && pens[0] !== pens[1]) break;
       }
     } else {
-      minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n**FULL-TIME**\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+      minuteEventsLog = [{ team: null, text: '━━━━━━━━━━ **FULL-TIME** ━━━━━━━━━━' }];
       await publish();
     }
   }
