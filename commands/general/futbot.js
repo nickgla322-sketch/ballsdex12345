@@ -95,3 +95,5 @@ module.exports = {
     }
   },
 };
+
+// Deployment refresh: keep this service on the latest repository revision.
