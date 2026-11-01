@@ -59,7 +59,7 @@ async function runLiveMatch(interaction, home, away) {
   const playerPerformance = new Map();
   const performanceFor = (teamIndex, player) => {
     const key = teamIndex + ':' + player.id;
-    if (!playerPerformance.has(key)) playerPerformance.set(key, { player, teamIndex, goals: 0, assists: 0, saves: 0 });
+    if (!playerPerformance.has(key)) playerPerformance.set(key, { player, teamIndex, goals: 0, assists: 0, saves: 0, yellowCards: 0, redCards: 0, ownGoals: 0 });
     return playerPerformance.get(key);
   };
   teams.forEach((team, teamIndex) => team.players.forEach(player => performanceFor(teamIndex, player)));
@@ -91,9 +91,11 @@ async function runLiveMatch(interaction, home, away) {
   const giveYellow = (teamIndex, player) => {
     if (!player || player.position === 'GK') return;
     player.yellow++;
+    performanceFor(teamIndex, player).yellowCards++;
     log(teamIndex, player, EMOJI.yellow);
     if (player.yellow >= 2) {
       player.sentOff = true;
+      performanceFor(teamIndex, player).redCards++;
       log(teamIndex, player, EMOJI.red);
     }
   };
@@ -112,28 +114,28 @@ async function runLiveMatch(interaction, home, away) {
   // Form affects attacking flow and shot quality, but does not replace player/team ratings.
   const matchForm = teams.map(() => Math.random() * .36 - .18);
   const formDifference = () => matchForm[0] - matchForm[1];
-  // Red cards sharply increase the opponent's shot volume.
-  // Each additional red card doubles the impact of the previous one.
+  // Red cards give the opponent an advantage, but the effect grows gradually.
+  // Each additional red card has a smaller extra impact than before.
   const redCardImpact = i => {
     let redCards = 0;
     return teams[i].players.reduce((impact, player) => {
       if (!player.sentOff) return impact;
       const position = String(player.position || '').toUpperCase();
-      const multiplier = 2 ** redCards;
+      const multiplier = 1.6 ** redCards;
       redCards++;
-      impact.overall += 4 * multiplier;
+      impact.overall += 3 * multiplier;
       if (['ST', 'CF', 'LW', 'RW'].includes(position)) {
-        impact.ownShots += .40 * multiplier;
-        impact.opponentShots += .20 * multiplier;
+        impact.ownShots += .32 * multiplier;
+        impact.opponentShots += .16 * multiplier;
       } else if (['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(position)) {
-        impact.ownShots += .20 * multiplier;
-        impact.opponentShots += .45 * multiplier;
+        impact.ownShots += .16 * multiplier;
+        impact.opponentShots += .36 * multiplier;
       } else if (position === 'GK') {
-        impact.ownShots += .08 * multiplier;
-        impact.opponentShots += .60 * multiplier;
+        impact.ownShots += .06 * multiplier;
+        impact.opponentShots += .48 * multiplier;
       } else {
-        impact.ownShots += .08 * multiplier;
-        impact.opponentShots += .70 * multiplier;
+        impact.ownShots += .06 * multiplier;
+        impact.opponentShots += .56 * multiplier;
       }
       return impact;
     }, { ownShots: 0, opponentShots: 0, opponentScoring: 0, overall: 0 });
@@ -233,13 +235,22 @@ async function runLiveMatch(interaction, home, away) {
     stats[ai].shots++;
     const g = getKeeper(defending);
     const edge = matchOverall(ai) - matchOverall(1 - ai);
-    // Rare own goals can happen when a defender gets involved in a dangerous attack.
-    if (Math.random() < .006) {
-      const defender = choosePlayer(field(defending), x => x.defense + x.effective * .2);
-      if (defender) {
+    // Own goals are rare, with defenders most at risk. Lower-rated players
+    // are more likely to be selected, while every position can score one.
+    if (Math.random() < .008) {
+      const ownGoalPlayer = choosePlayer(activePlayers(defending), x => {
+        const position = String(x.position || '').toUpperCase();
+        const positionWeight = ['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(position) ? 6
+          : ['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(position) ? 2.5
+          : ['GK'].includes(position) ? 1.8 : 0.9;
+        const ratingWeight = Math.max(.55, Math.min(1.65, 1.6 - (x.effective - 60) * .025));
+        return positionWeight * ratingWeight;
+      });
+      if (ownGoalPlayer) {
         stats[ai].sot++;
         score[ai]++;
-        minuteEventsLog.push({ team: 1 - ai, text: defender.name + ' ' + EMOJI.ownGoal + ' ' + formatMinute(minute) + "'" });
+        performanceFor(1 - ai, ownGoalPlayer).ownGoals++;
+        minuteEventsLog.push({ team: 1 - ai, text: ownGoalPlayer.name + ' ' + EMOJI.ownGoal + ' ' + formatMinute(minute) + "'" });
         return;
       }
     }
@@ -300,6 +311,7 @@ async function runLiveMatch(interaction, home, away) {
     stats[oi].fouls++;
     if (offender.position !== 'GK' && Math.random() < .025) {
       offender.sentOff = true;
+      performanceFor(oi, offender).redCards++;
       log(oi, offender, EMOJI.red);
     } else if (Math.random() < .20) {
       giveYellow(oi, offender);
@@ -431,7 +443,7 @@ async function runLiveMatch(interaction, home, away) {
   const winner = pens ? (pens[0] > pens[1] ? 0 : 1) : (score[0] === score[1] ? null : (score[0] > score[1] ? 0 : 1));
   const performances = [...playerPerformance.values()];
   // Keep all eligible players in the MOTM pool, not just goalscorers.
-  const eligiblePerformances = performances.filter(p => !p.player.sentOff || p.goals >= 5);
+  const eligiblePerformances = performances;
   const motmCandidates = eligiblePerformances.map(p => {
     const isGoalkeeper = p.player.position === 'GK';
     const isDefender = ['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p.player.position);
@@ -448,7 +460,12 @@ async function runLiveMatch(interaction, home, away) {
       if (conceded === 0) weight += 5;
       else if (conceded <= 1) weight += 3;
     }
-    return { ...p, contributions: p.goals + p.assists, weight };
+    // Cards and own goals make a player less likely to earn MOTM, without
+    // automatically ruling them out if they otherwise had a great match.
+    weight *= Math.pow(.78, p.yellowCards);
+    weight *= Math.pow(.40, p.redCards);
+    weight *= Math.pow(.35, p.ownGoals);
+    return { ...p, contributions: p.goals + p.assists, weight: Math.max(.05, weight) };
   });
 
   const totalWeight = motmCandidates.reduce((sum, p) => sum + p.weight, 0);
