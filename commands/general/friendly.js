@@ -185,7 +185,7 @@ async function runLiveMatch(interaction, home, away) {
   const publish = async () => {
     for (const event of minuteEventsLog) {
       if (event.team === null) {
-        if (event.text.includes('HALF-TIME')) halfTimeText = '**--------------------------HALFTIME--------------------------**';
+        if (event.text.includes('HALF-TIME') && !event.text.includes('EXTRA-TIME')) halfTimeText = '**--------------------------HALFTIME--------------------------**';
         else systemHistory.push(event.text);
       }
       else {
@@ -363,15 +363,15 @@ async function runLiveMatch(interaction, home, away) {
     await publish();
   }
   if (score[0] !== score[1]) {
-    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ **FULL-TIME** ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+    minuteEventsLog = [{ team: null, text: '**--------------------------FULL-TIME--------------------------**' }];
     await publish();
   } else {
-    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ **EXTRA TIME** ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+    minuteEventsLog = [{ team: null, text: '**--------------------------EXTRA TIME--------------------------**' }];
     await publish();
     inExtraTime = true;
     minute = 90;
     await playPeriod(105);
-    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ **EXTRA-TIME HALF-TIME** ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+    minuteEventsLog = [{ team: null, text: '**--------------------------EXTRA-TIME HALFTIME--------------------------**' }];
     await publish();
     await playPeriod(120);
     inExtraTime = false;
@@ -424,7 +424,7 @@ async function runLiveMatch(interaction, home, away) {
         if (suddenDeathIndex % 2 === 0 && pens[0] !== pens[1]) break;
       }
     } else {
-      minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ **FULL-TIME** ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+      minuteEventsLog = [{ team: null, text: '**--------------------------FULL-TIME--------------------------**' }];
       await publish();
     }
   }
