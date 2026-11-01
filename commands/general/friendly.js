@@ -376,50 +376,39 @@ async function runLiveMatch(interaction, home, away) {
   }
   const winner = pens ? (pens[0] > pens[1] ? 0 : 1) : (score[0] === score[1] ? null : (score[0] > score[1] ? 0 : 1));
   const performances = [...playerPerformance.values()];
-  // A sent-off player cannot win MOTM unless they scored at least five goals.
+  // Keep all eligible players in the MOTM pool, not just goalscorers.
   const eligiblePerformances = performances.filter(p => !p.player.sentOff || p.goals >= 5);
-  // If anyone scored, assist-only and defensive performances cannot beat a goalscorer.
-  const goalScorers = eligiblePerformances.filter(p => p.goals > 0);
-  const motmPool = goalScorers.length ? goalScorers : eligiblePerformances;
-  const motmCandidates = motmPool.map(p => {
+  const motmCandidates = eligiblePerformances.map(p => {
     const isGoalkeeper = p.player.position === 'GK';
     const isDefender = ['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p.player.position);
     const conceded = score[1 - p.teamIndex];
-    const contributions = p.goals + p.assists;
-
-    // Goals carry much more weight than assists when comparing scorers.
     let weight = 1 + p.goals * 12 + p.assists * 2;
 
-    // Defenders can still win, especially in a clean sheet, but OVR alone
-    // does not decide the award.
-    if (isGoalkeeper && p.saves > 0) {
-      weight += p.saves * 1.5;
-      if (conceded === 0) weight += 2;
-    } else if (isDefender && conceded <= 1) {
-      weight += 2 + Math.max(0, p.player.defense - 60) / 30;
-      if (conceded === 0) weight += 2;
+    // Seven saves can make a goalkeeper a serious MOTM contender.
+    if (isGoalkeeper) {
+      weight += p.saves * 3;
+      if (conceded === 0) weight += 5;
+      else if (conceded <= 1) weight += 2;
+    } else if (isDefender) {
+      weight += 2 + Math.max(0, p.player.defense - 60) / 12;
+      if (conceded === 0) weight += 5;
+      else if (conceded <= 1) weight += 3;
     }
-
-    return { ...p, contributions, weight };
+    return { ...p, contributions: p.goals + p.assists, weight };
   });
 
-  // Weighted selection keeps attacking contributions favored while allowing
-  // standout defensive performances to win occasionally.
   const totalWeight = motmCandidates.reduce((sum, p) => sum + p.weight, 0);
   let roll = Math.random() * totalWeight;
   let standout = motmCandidates[motmCandidates.length - 1];
   for (const candidate of motmCandidates) {
     roll -= candidate.weight;
-    if (roll <= 0) {
-      standout = candidate;
-      break;
-    }
+    if (roll <= 0) { standout = candidate; break; }
   }
 
   const motm = {
     player: standout.player,
     team: teams[standout.teamIndex],
-    reason: standout.contributions > 0
+    reason: standout.goals > 0 || standout.assists > 0
       ? standout.goals + ' goals, ' + standout.assists + ' assists'
       : standout.player.position === 'GK'
         ? standout.saves + ' saves'
