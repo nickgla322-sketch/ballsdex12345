@@ -82,7 +82,7 @@ async function runLiveMatch(interaction, home, away) {
   const kickoffText = '**━━━━━━━━━━━━━━━━━━━━ KICK-OFF ━━━━━━━━━━━━━━━━━━━━**';
   let halfTimeText = null;
   let systemHistory = [];
-  let penaltyHistory = [];
+  const penaltyHistory = [[], []];
   let inPenaltyShootout = false;
   let minuteEventsLog = [];
   const formatMinute = m => inFirstHalfStoppage && m > 45 ? '45+' + (m - 45) : (!inExtraTime && m > 90 && m <= 99 ? '90+' + (m - 90) : String(m));
@@ -180,7 +180,13 @@ async function runLiveMatch(interaction, home, away) {
       );
     }
     fields.push(...systemHistory.map(text => ({ name: '\u200B', value: text, inline: false })));
-    fields.push(...penaltyHistory.map(text => ({ name: '\u200B', value: text, inline: false })));
+    if (inPenaltyShootout) {
+      fields.push(
+        { name: home.name, value: '\u200B\n\n' + (penaltyHistory[0].join('\n\n').slice(-1024) || 'Waiting for penalties...'), inline: true },
+        { name: '\u200B', value: '\u200B', inline: true },
+        { name: away.name, value: '\u200B\n\n' + (penaltyHistory[1].join('\n\n').slice(-1024) || 'Waiting for penalties...'), inline: true },
+      );
+    }
     return new EmbedBuilder().setColor(0x3498db)
       .setTitle('⚽ FRIENDLY MATCH · ' + formatMinute(minute) + "'")
       .setDescription('**⏱️ ' + formatMinute(minute) + "'**\n**" + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**')
@@ -194,7 +200,7 @@ async function runLiveMatch(interaction, home, away) {
         else systemHistory.push(event.text);
       }
       else if (inPenaltyShootout) {
-        penaltyHistory.push(event.text);
+        penaltyHistory[event.team].push(event.text);
       }
       else {
         const history = currentHalf === 0 ? teamHistory : secondHalfHistory;
@@ -414,7 +420,7 @@ async function runLiveMatch(interaction, home, away) {
         const p = orders[i][attempts[i] % orders[i].length];
         attempts[i]++;
         const g = getKeeper(teams[1 - i]);
-        const goal = Math.random() < Math.max(.66, Math.min(.86, .76 + (p.shooting - g.goalkeeping) / 500));
+        const goal = Math.random() < Math.max(.74, Math.min(.93, .84 + (p.shooting - g.goalkeeping) / 500));
         if (goal) pens[i]++;
         minuteEventsLog = [{
           team: i,
