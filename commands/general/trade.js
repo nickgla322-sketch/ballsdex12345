@@ -56,8 +56,8 @@ module.exports = {
         ]);
         const cardInventories = cardInventoryLists.flat();
         state.balances = {
-          p1: Number(p1Profile.balance ?? 0),
-          p2: Number(p2Profile.balance ?? 0),
+          p1: Number(p1Profile.coins ?? p1Profile.balance ?? 0),
+          p2: Number(p2Profile.coins ?? p2Profile.balance ?? 0),
         };
         state.cardNames = {};
         for (const card of cardInventories) state.cardNames[card.card_id] = card.name + ' · ' + card.overall + ' OVR';
@@ -141,7 +141,7 @@ module.exports = {
             if (!Number.isSafeInteger(amount) || amount < 0) return submitted.reply({ content: 'Enter a whole number of 0 or more.', ephemeral: true });
             const latest = await get('/api/v1/exchanges/' + session.session_id);
             const profile = await get('/api/v1/players/' + c.user.id);
-            const balance = Number(profile.balance ?? 0);
+            const balance = Number(profile.coins ?? profile.balance ?? 0);
             if (amount > balance) {
               return submitted.reply({
                 content: 'You only have **' + balance.toLocaleString() + ' coins**. Your offer cannot be higher than your balance.',
