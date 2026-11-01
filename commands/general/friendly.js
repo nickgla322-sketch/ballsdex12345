@@ -79,7 +79,7 @@ async function runLiveMatch(interaction, home, away) {
   const teamHistory = [[], []];
   const secondHalfHistory = [[], []];
   let currentHalf = 0;
-  const kickoffText = '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀**KICK-OFF**';
+  const kickoffText = '**━━━━━━━━━━━━━━━━━━━━ KICK-OFF ━━━━━━━━━━━━━━━━━━━━**';
   let halfTimeText = null;
   let systemHistory = [];
   let minuteEventsLog = [];
@@ -185,7 +185,7 @@ async function runLiveMatch(interaction, home, away) {
   const publish = async () => {
     for (const event of minuteEventsLog) {
       if (event.team === null) {
-        if (event.text.includes('HALF-TIME')) halfTimeText = '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀**HALF-TIME**';
+        if (event.text.includes('HALF-TIME')) halfTimeText = '**--------------------------HALFTIME--------------------------**';
         else systemHistory.push(event.text);
       }
       else {
