@@ -14,15 +14,35 @@ module.exports = {
     const sub=interaction.options.getSubcommand();
     const embed=new EmbedBuilder().setColor(0x3498db).setFooter({text:'FutBot • '+VERSION});
     if(sub==='help') {
-      embed.setTitle('⚽ FutBot Help').setDescription('Collect football cards, build decks, and compete with other players.')
+      embed.setTitle('⚽ FutBot Help')
+        .setDescription('Your league player collection, club, lineup, packs, and trading commands.')
         .addFields(
-          {name:'Getting started',value:'/futbot player register - Create your profile\n/futbot player starter - Claim your starter cards\n/futbot player daily - Claim daily coins and card choices'},
-          {name:'Collection',value:'/futbot cards search - Search cards\n/futbot player inventory - View your cards\n/futbotimage card - View card artwork\n/futbotimage minted - Generate your edition image'},
-          {name:'Packs and economy',value:'/futbot packs catalog - Browse packs\n/futbot packs buy and /futbot packs open\n/futbot economy sell - Sell cards'},
-          {name:'Decks and battles',value:'/futbot decks save - Save a five-card deck\n/futbotbattle challenge - Challenge a player\n/futbotbattle status - Check a battle'},
-          {name:'Social and trading',value:'/futbot social friends - View friends\n/futbottrade offer - One-for-one trade\n/futbotexchange create - Multi-card/coin exchange\n/futbotmarket list - List a card'},
-          {name:'More',value:'Use /futbotdrop for card drops, /futbot tradeup for trade-ups.'}
-        );
+          {
+            name:'Getting started',
+            value:'/futbot player profile - View your FutBot profile\n/futbot player starter - Claim your starter pack\n/claim - Claim a player card\n/daily - Claim your daily rewards',
+          },
+          {
+            name:'Players and lineup',
+            value:'/card player search - Browse the player card catalog\n/club search - View the players you own\n/8 show - View your Starting 8\n/8 add - Add a player to your lineup\n/8 remove slot or /8 remove all - Remove lineup players\n/8 swap - Swap lineup slots\n/8 formation - Change your formation',
+          },
+          {
+            name:'Packs and coins',
+            value:'/pack - Browse and buy player packs\n/futbot pack weight - View pack odds\n/buy - Buy a player from the market\n/sell - Sell one of your players\n/futbot economy leaderboard - View the coin or battle leaderboards',
+          },
+          {
+            name:'Trading and matches',
+            value:'/trade - Start a player and coin trade with someone\n/friendly - Challenge someone to a friendly match',
+          },
+          {
+            name:'League commands',
+            value:'/division - Browse divisions and teams\n/teaminfo - View team information',
+          },
+          {
+            name:'Other',
+            value:'/futbot player secret - Redeem a secret code\n/futbotdrop status - Check a card drop\n/futbotstatus - Check the FutBot API connection',
+          }
+        )
+        .setFooter({ text:'Use the command options in Discord for required details.' });
     } else if(sub==='about') {
       embed.setTitle('About FutBot').addFields(
         {name:'Version',value:VERSION,inline:true},
