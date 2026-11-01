@@ -116,26 +116,26 @@ async function runLiveMatch(interaction, home, away) {
   const redCardImpact = i => teams[i].players.reduce((impact, player) => {
     if (!player.sentOff) return impact;
     const position = String(player.position || '').toUpperCase();
-    impact.overall += 5;
+    impact.overall += 4;
     if (['ST', 'CF', 'LW', 'RW'].includes(position)) {
-      // Losing a forward weakens attacking output, but the effect is kept moderate.
-      impact.ownShots += .24;
-      impact.opponentShots += .06;
-      impact.opponentScoring += .015;
+      // Losing a forward slightly reduces attacking output.
+      impact.ownShots += .20;
+      impact.opponentShots += .05;
+      impact.opponentScoring += .012;
     } else if (['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(position)) {
-      // A missing midfielder affects both ball progression and defensive cover.
-      impact.ownShots += .19;
-      impact.opponentShots += .15;
-      impact.opponentScoring += .06;
+      // A missing midfielder modestly affects progression and defensive cover.
+      impact.ownShots += .16;
+      impact.opponentShots += .12;
+      impact.opponentScoring += .05;
     } else if (position === 'GK') {
-      impact.ownShots += .08;
-      impact.opponentShots += .24;
-      impact.opponentScoring += .135;
-    } else {
-      // Losing a defender creates an opening, without overwhelming the match.
-      impact.ownShots += .09;
-      impact.opponentShots += .29;
+      impact.ownShots += .07;
+      impact.opponentShots += .20;
       impact.opponentScoring += .11;
+    } else {
+      // Losing a defender creates some space, but has a controlled impact.
+      impact.ownShots += .07;
+      impact.opponentShots += .24;
+      impact.opponentScoring += .09;
     }
     return impact;
   }, { ownShots: 0, opponentShots: 0, opponentScoring: 0, overall: 0 });
@@ -390,7 +390,9 @@ async function runLiveMatch(interaction, home, away) {
   }
   const winner = pens ? (pens[0] > pens[1] ? 0 : 1) : (score[0] === score[1] ? null : (score[0] > score[1] ? 0 : 1));
   const performances = [...playerPerformance.values()];
-  const motmCandidates = performances.map(p => {
+  // A sent-off player cannot win MOTM unless they scored at least five goals.
+  const eligiblePerformances = performances.filter(p => !p.player.sentOff || p.goals >= 5);
+  const motmCandidates = eligiblePerformances.map(p => {
     const isGoalkeeper = p.player.position === 'GK';
     const isDefender = ['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p.player.position);
     const conceded = score[1 - p.teamIndex];
