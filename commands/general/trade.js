@@ -78,7 +78,7 @@ module.exports = {
               value: [
                 (state.p1_confirmed ? '✓' : '◷') + ' **' + names.p1 + '** ' + (state.p1_confirmed ? 'accepted' : 'waiting'),
                 (state.p2_confirmed ? '✓' : '◷') + ' **' + names.p2 + '** ' + (state.p2_confirmed ? 'accepted' : 'waiting'),
-              ].join('\\n'),
+              ].join('\n'),
               inline: false,
             },
           );
@@ -151,8 +151,8 @@ module.exports = {
             }
             await put('/api/v1/exchanges/' + session.session_id + '/offer', { user_id: c.user.id, card_ids: latest[side + '_cards'], coins: amount });
             await submitted.reply({
-              content: '**Coin offer updated**\\nCurrent balance: **' + balance.toLocaleString() +
-                ' coins**\\nAfter trade: **' + (balance - amount).toLocaleString() + ' coins**\\nBoth players must accept again.',
+              content: '**Coin offer updated**\nCurrent balance: **' + balance.toLocaleString() +
+                ' coins**\nAfter trade: **' + (balance - amount).toLocaleString() + ' coins**\nBoth players must accept again.',
               ephemeral: true,
             });
             await build('Offer changed; both players must accept again.');
