@@ -47,8 +47,7 @@ module.exports = {
       if (sub === 'equip-title') return run(interaction, () => post(base + '/title', {achievement_id:interaction.options.getInteger('achievement-id')}), 'Equip title');
       if (sub === 'secret') return run(interaction, () => post(base + '/secrets/' + interaction.options.getString('code'), {}), 'Secret reward');
     }
-    if (group === 'cards') {
-      if (group === 'pack' && sub === 'weight') {
+    if (group === 'pack' && sub === 'weight') {
         const menu = new StringSelectMenuBuilder()
           .setCustomId('futbot_pack_weight:' + interaction.user.id)
           .setPlaceholder('Choose a pack to view its odds')
@@ -91,7 +90,8 @@ module.exports = {
           try { await interaction.editReply({ components: [new ActionRowBuilder().addComponents(menu.setDisabled(true))] }); } catch {}
         });
         return;
-      }
+    }
+    if (group === 'cards') {
       if (sub === 'copies') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/cards/' + cardId + '/copies'), 'Card editions');
     }
     if (group === 'social') {
