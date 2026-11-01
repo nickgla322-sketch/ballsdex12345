@@ -24,7 +24,6 @@ module.exports = {
     .addSubcommand(s=>s.setName('help').setDescription('Show FutBot commands and how to get started'))
     .addSubcommand(s=>s.setName('about').setDescription('About FutBot'))
     .addSubcommand(s=>s.setName('version').setDescription('Show the FutBot version'))
-    .addSubcommand(s=>s.setName('changelog').setDescription('View recent FutBot updates'))
     .addSubcommand(s=>s.setName('achievements').setDescription('View your achievements').addUserOption(o=>o.setName('user').setDescription('Player to inspect'))),
   async execute(interaction) {
     const sub=interaction.options.getSubcommand();
