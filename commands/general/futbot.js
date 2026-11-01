@@ -17,7 +17,6 @@ module.exports = {
     .addSubcommandGroup(g => g.setName('economy').setDescription('Selling cards and rankings')
       .addSubcommand(s => s.setName('leaderboard').setDescription('View a leaderboard').addStringOption(o => o.setName('stat').setDescription('Statistic').setRequired(true).addChoices(...stats.map(v => ({name:v.replace(/_/g,' '),value:v})))).addIntegerOption(o => o.setName('limit').setDescription('Entries (1-25)').setMinValue(1).setMaxValue(25))))
     .addSubcommandGroup(g => g.setName('tradeup').setDescription('Exchange five cards for a higher rarity card')
-      .addSubcommand(s => s.setName('eligible').setDescription('View eligible cards').addStringOption(o => o.setName('tier').setDescription('Tier').setRequired(true).addChoices(...tierChoices)))
       .addSubcommand(s => s.setName('execute').setDescription('Trade up five inventory copies').addStringOption(o => o.setName('tier').setDescription('Tier').setRequired(true).addChoices(...tierChoices)).addStringOption(o => o.setName('row-ids').setDescription('Five inventory row IDs, comma-separated').setRequired(true)))),
 
   async execute(interaction) {
@@ -89,7 +88,6 @@ module.exports = {
     }
     if (group === 'tradeup') {
       const tier = interaction.options.getString('tier');
-      if (sub === 'eligible') return run(interaction, () => futbotApi.request(base + '/trade-up/' + tier), 'Trade-up eligible cards');
       if (sub === 'execute') return run(interaction, () => post('/api/v1/trade-up', {user_id:uid,tier,inventory_row_ids:parseIdList(interaction.options.getString('row-ids'),'Inventory row IDs')}), 'Trade-up');
     }
   },
