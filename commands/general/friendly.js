@@ -135,7 +135,7 @@ async function runLiveMatch(interaction, home, away) {
   }, { attack: 0, defense: 0, overall: 0 });
   const matchOverall = i => teams[i].overall - redCardImpact(i).overall;
   // Better teams still get more attacking phases, but match form can narrow or widen the gap.
-  const pickAttack = () => Math.random() < Math.max(.28, Math.min(.72, .5 + (matchOverall(0) - matchOverall(1)) * .009 + formDifference() * .25));
+  const pickAttack = () => Math.random() < Math.max(.28, Math.min(.72, .5 + (matchOverall(0) - matchOverall(1)) * .009 + formDifference() * .25)) ? 0 : 1;
   const addPossession = i => { stats[i].possession++; };
   const scoreGoal = (i, scorer, kind = 'normal') => {
     score[i]++;
