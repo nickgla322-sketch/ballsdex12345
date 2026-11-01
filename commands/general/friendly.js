@@ -163,16 +163,16 @@ async function runLiveMatch(interaction, home, away) {
   const makeEmbed = () => {
     const fields = [
       { name: '\u200B', value: kickoffText, inline: false },
-      { name: home.name, value: '\n' + (teamHistory[0].join('\\n\\n').slice(-1024) || 'No events yet.'), inline: true },
+      { name: home.name, value: '\u200B\n\n' + (teamHistory[0].join('\n\n').slice(-1024) || 'No events yet.'), inline: true },
       { name: '\u200B', value: '\u200B', inline: true },
-      { name: away.name, value: '\n' + (teamHistory[1].join('\\n\\n').slice(-1024) || 'No events yet.'), inline: true },
+      { name: away.name, value: '\u200B\n\n' + (teamHistory[1].join('\n\n').slice(-1024) || 'No events yet.'), inline: true },
     ];
     if (halfTimeText) {
       fields.push({ name: '\u200B', value: halfTimeText, inline: false });
       fields.push(
-        { name: home.name, value: '\n' + (secondHalfHistory[0].join('\\n\\n').slice(-1024) || 'No events yet.'), inline: true },
+        { name: home.name, value: '\u200B\n\n' + (secondHalfHistory[0].join('\n\n').slice(-1024) || 'No events yet.'), inline: true },
         { name: '\u200B', value: '\u200B', inline: true },
-        { name: away.name, value: '\n' + (secondHalfHistory[1].join('\\n\\n').slice(-1024) || 'No events yet.'), inline: true },
+        { name: away.name, value: '\u200B\n\n' + (secondHalfHistory[1].join('\n\n').slice(-1024) || 'No events yet.'), inline: true },
       );
     }
     fields.push(...systemHistory.map(text => ({ name: '\u200B', value: text, inline: false })));
