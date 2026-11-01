@@ -95,8 +95,8 @@ async function runLiveMatch(interaction, home, away) {
     return list[list.length - 1];
   };
   const getKeeper = t => t.players.find(p => p.position === 'GK' && !p.sentOff) || { name: 'Emergency GK', goalkeeping: 18 };
-  // Overall gives an advantage, but it should not decide possession too heavily.
-  const pickAttack = () => Math.random() < Math.max(.38, Math.min(.62, .5 + (home.overall - away.overall) * .006)) ? 0 : 1;
+  // Better teams win more attacking phases, while weaker teams still get opportunities.
+  const pickAttack = () => Math.random() < Math.max(.32, Math.min(.68, .5 + (home.overall - away.overall) * .012)) ? 0 : 1;
   const addPossession = i => { stats[i].possession++; };
   const scoreGoal = (i, scorer, kind = 'normal') => {
     score[i]++;
@@ -245,7 +245,12 @@ async function runLiveMatch(interaction, home, away) {
     const r = Math.random();
     if (r < .07) foul();
     else if (r < .12) corner(possessionTeam);
-    else if (r < .50) shot(possessionTeam);
+    else {
+      // Stronger teams create more shooting opportunities from each attacking phase.
+      const overallGap = teams[possessionTeam].overall - teams[1 - possessionTeam].overall;
+      const shotChance = Math.max(.28, Math.min(.52, .40 + overallGap * .006));
+      if (r < .12 + shotChance) shot(possessionTeam);
+    }
   }
   const playPeriod = async end => {
     for (let m = minute + 1; m <= end; m++) {
