@@ -31,8 +31,6 @@ module.exports = {
         { name: home.name + ' · Statistics', value: '**Goals:** ' + result.stats[0].goals + '\n**Shots:** ' + result.stats[0].shots + '\n**Shots on target:** ' + result.stats[0].sot + '\n**Possession:** ' + result.stats[0].possession + '%\n**Saves:** ' + result.stats[0].saves + '\n**Corners:** ' + result.stats[0].corners + '\n**Fouls:** ' + result.stats[0].fouls, inline: true },
         { name: away.name + ' · Statistics', value: '**Goals:** ' + result.stats[1].goals + '\n**Shots:** ' + result.stats[1].shots + '\n**Shots on target:** ' + result.stats[1].sot + '\n**Possession:** ' + result.stats[1].possession + '%\n**Saves:** ' + result.stats[1].saves + '\n**Corners:** ' + result.stats[1].corners + '\n**Fouls:** ' + result.stats[1].fouls, inline: true }
       ).addFields(
-        { name: home.name + ' · Player Ratings', value: result.ratings[0], inline: true },
-        { name: away.name + ' · Player Ratings', value: result.ratings[1], inline: true },
         { name: home.name, value: home.overall + ' OVR · ' + active(home).length + '/8 players remaining', inline: true },
         { name: away.name, value: away.overall + ' OVR · ' + active(away).length + '/8 players remaining', inline: true }
       );
@@ -59,7 +57,6 @@ function playerLabel(player, team) { return '**' + player.name + '** (<@' + team
 async function runLiveMatch(interaction, home, away) {
   const teams = [home, away], score = [0, 0], pending = [];
   const stats = teams.map(() => ({ shots: 0, sot: 0, saves: 0, corners: 0, fouls: 0, possession: 0 }));
-  const playerStats = teams.map(t => new Map(t.players.map(p => [p.id, { goals: 0, assists: 0, saves: 0, cards: 0, ownGoals: 0, missedPenalties: 0, shots: 0 }])));
   const EMOJI = {
     red: '<:redcard:1361074355538497556>',
     yellow: '<:yellowcard:1361074497007915018>',
@@ -93,7 +90,6 @@ async function runLiveMatch(interaction, home, away) {
   const addPossession = i => { stats[i].possession++; };
   const scoreGoal = (i, scorer, kind = 'normal') => {
     score[i]++;
-    playerStats[i].get(scorer.id).goals++;
     if (kind === 'penalty') {
       log(i, scorer, EMOJI.penaltyGoal);
       return;
@@ -103,7 +99,6 @@ async function runLiveMatch(interaction, home, away) {
     if (teammates.length && Math.random() < .70) {
       const assister = choosePlayer(teammates, p => p.dribbling + p.effective * .25);
       if (assister) {
-        playerStats[i].get(assister.id).assists++;
         minuteEventsLog.push({ team: i, text: '　• ' + assister.name + ' ' + EMOJI.assist });
       }
     }
@@ -136,11 +131,15 @@ async function runLiveMatch(interaction, home, away) {
 
   function shot(ai) {
     const at = teams[ai], defending = teams[1 - ai];
-    const p = choosePlayer(attackers(at).length ? attackers(at) : field(at), x => x.shooting + x.dribbling * .3 + x.effective * .2);
+    // Any outfield player can score; attackers are favored, but midfielders and defenders remain eligible.
+    const p = choosePlayer(field(at), x => {
+      const positionBoost = ['ST', 'CF', 'LW', 'RW'].includes(x.position) ? 1.55
+        : ['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(x.position) ? 1.2 : 0.8;
+      return (x.shooting + x.dribbling * .3 + x.effective * .2) * positionBoost;
+    });
     if (!p) return;
     stats[ai].shots++;
     const g = getKeeper(defending);
-    playerStats[ai].get(p.id).shots++;
     const edge = at.overall - defending.overall;
     // Rare own goals can happen when a defender gets involved in a dangerous attack.
     if (Math.random() < .006) {
@@ -148,7 +147,6 @@ async function runLiveMatch(interaction, home, away) {
       if (defender) {
         stats[ai].sot++;
         score[ai]++;
-        playerStats[1 - ai].get(defender.id).ownGoals++;
         minuteEventsLog.push({ team: 1 - ai, text: defender.name + ' ' + EMOJI.ownGoal + ' ' + minute + "'" });
         return;
       }
@@ -160,7 +158,6 @@ async function runLiveMatch(interaction, home, away) {
     } else if (Math.random() < .72) {
       stats[ai].sot++;
       stats[1 - ai].saves++;
-      if (playerStats[1 - ai].has(g.id)) playerStats[1 - ai].get(g.id).saves++;
       log(1 - ai, g, EMOJI.save, minute, '(' + p.name + ')');
       if (Math.random() < .16) pending.push(() => corner(ai));
     }
@@ -189,7 +186,6 @@ async function runLiveMatch(interaction, home, away) {
         stats[ai].shots++; stats[ai].sot++; scoreGoal(ai, kicker, 'penalty');
       } else {
         stats[ai].shots++; stats[1 - ai].saves++;
-        playerStats[ai].get(kicker.id).missedPenalties++;
         log(ai, kicker, EMOJI.missedPenalty);
       }
     });
@@ -202,14 +198,28 @@ async function runLiveMatch(interaction, home, away) {
     stats[oi].fouls++;
     if (Math.random() < .025) {
       offender.sentOff = true;
-      playerStats[oi].get(offender.id).cards += 2;
       log(oi, offender, EMOJI.red);
     } else if (Math.random() < .20) {
       offender.yellow++;
-      if (offender.yellow >= 2) { offender.sentOff = true; playerStats[oi].get(offender.id).cards += 2; log(oi, offender, EMOJI.red); }
-      else { playerStats[oi].get(offender.id).cards++; log(oi, offender, EMOJI.yellow); }
+      if (offender.yellow >= 2) { offender.sentOff = true; log(oi, offender, EMOJI.red); }
+      else log(oi, offender, EMOJI.yellow);
     }
-    pending.push(() => { if (Math.random() < .045) penalty(ai); else freeKick(ai, victim); });
+    pending.push(() => {
+      if (Math.random() < .045) {
+        // A penalty is accompanied by a yellow card for the player who committed the foul.
+        offender.yellow++;
+        if (offender.yellow >= 2) {
+          offender.sentOff = true;
+          log(oi, offender, EMOJI.red);
+        } else {
+          log(oi, offender, EMOJI.yellow);
+        }
+        minuteEventsLog.push({ team: ai, text: '**⚠️ PENALTY TO ' + victim.name.toUpperCase() + '!**' });
+        penalty(ai);
+      } else {
+        freeKick(ai, victim);
+      }
+    });
   }
   function playMinute() {
     const possessionTeam = pickAttack();
@@ -275,13 +285,5 @@ async function runLiveMatch(interaction, home, away) {
     goals: score[i],
     possession: percentages[i],
   }));
-  const ratings = teams.map((team, i) => team.players.map(p => {
-    const ps = playerStats[i].get(p.id);
-    let rating = 6 + ps.goals * 1.2 + ps.assists * 0.7 + ps.saves * 0.45 - ps.cards * 0.65 - ps.ownGoals * 1.2 - ps.missedPenalties * 0.7;
-    if (p.position === 'GK' && ps.saves === 0 && score[1 - i] > 0) rating -= 0.25;
-    if (p.sentOff) rating -= 0.8;
-    rating = Math.max(3, Math.min(10, rating));
-    return '**' + p.name + '** — ' + rating.toFixed(1) + '/10';
-  }).join('\n'));
-  return { score, pens, winner, stats: resultStats, ratings };
+  return { score, pens, winner, stats: resultStats };
 }
