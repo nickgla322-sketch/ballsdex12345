@@ -55,9 +55,23 @@ module.exports = {
           const cards = state[side + '_cards'] || [];
           return (cards.length ? cards.map(id => '• ' + (state.cardNames?.[id] || ('Card #' + id))).join('\n') : '• No players offered') + '\n**Coins:** ' + Number(state[side + '_coins'] || 0).toLocaleString();
         };
-        const embed = new EmbedBuilder().setTitle('FutBot Trade').setColor(0x5865f2)
-          .setDescription('**' + names.p1 + '**\n' + desc('p1') + '\n\n**' + names.p2 + '**\n' + desc('p2'))
-          .addFields({ name: 'Acceptances', value: names.p1 + ': ' + (state.p1_confirmed ? 'Accepted' : 'Waiting') + '\n' + names.p2 + ': ' + (state.p2_confirmed ? 'Accepted' : 'Waiting') });
+        const acceptedName = (name, accepted) => (accepted ? '✓ ' : '◷ ') + name;
+        const embed = new EmbedBuilder()
+          .setTitle('⚽ Player Trade')
+          .setColor(state.p1_confirmed && state.p2_confirmed ? 0x57f287 : 0x5865f2)
+          .setDescription('Review both offers below. Any offer change resets both acceptances.')
+          .addFields(
+            { name: acceptedName(names.p1, state.p1_confirmed), value: desc('p1'), inline: true },
+            { name: acceptedName(names.p2, state.p2_confirmed), value: desc('p2'), inline: true },
+            {
+              name: 'Trade status',
+              value: [
+                (state.p1_confirmed ? '✓' : '◷') + ' **' + names.p1 + '** ' + (state.p1_confirmed ? 'accepted' : 'waiting'),
+                (state.p2_confirmed ? '✓' : '◷') + ' **' + names.p2 + '** ' + (state.p2_confirmed ? 'accepted' : 'waiting'),
+              ].join('\\n'),
+              inline: false,
+            },
+          );
         if (note) embed.setFooter({ text: note });
         const side = sideFor(interaction.user.id);
         const rows = state.status === 'open' ? [new ActionRowBuilder().addComponents(
