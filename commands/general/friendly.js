@@ -56,10 +56,11 @@ function teamsafeName(team) { return team.name; }
 async function runLiveMatch(interaction, home, away) {
   const teams = [home, away], score = [0, 0], pending = [];
   const scorerGoals = new Map();
+  const goalTimeline = [];
   const playerPerformance = new Map();
   const performanceFor = (teamIndex, player) => {
     const key = teamIndex + ':' + player.id;
-    if (!playerPerformance.has(key)) playerPerformance.set(key, { player, teamIndex, goals: 0, assists: 0, saves: 0, yellowCards: 0, redCards: 0, ownGoals: 0 });
+    if (!playerPerformance.has(key)) playerPerformance.set(key, { player, teamIndex, goals: 0, assists: 0, saves: 0, missedPenalties: 0, yellowCards: 0, redCards: 0, ownGoals: 0 });
     return playerPerformance.get(key);
   };
   teams.forEach((team, teamIndex) => team.players.forEach(player => performanceFor(teamIndex, player)));
@@ -149,6 +150,7 @@ async function runLiveMatch(interaction, home, away) {
   const scoreGoal = (i, scorer, kind = 'normal') => {
     score[i]++;
     performanceFor(i, scorer).goals++;
+    goalTimeline.push({ teamIndex: i, player: scorer });
     if (kind === 'penalty') {
       log(i, scorer, EMOJI.penaltyGoal);
       return;
@@ -309,6 +311,7 @@ async function runLiveMatch(interaction, home, away) {
         stats[ai].shots++; stats[ai].sot++; scoreGoal(ai, kicker, 'penalty');
       } else {
         stats[ai].shots++; stats[1 - ai].saves++;
+        performanceFor(ai, kicker).missedPenalties++;
         if (g.position === 'GK') performanceFor(1 - ai, g).saves++;
         log(ai, kicker, EMOJI.missedPenalty);
       }
@@ -454,50 +457,53 @@ async function runLiveMatch(interaction, home, away) {
   }
   const winner = pens ? (pens[0] > pens[1] ? 0 : 1) : (score[0] === score[1] ? null : (score[0] > score[1] ? 0 : 1));
   const performances = [...playerPerformance.values()];
-  // Keep all eligible players in the MOTM pool, not just goalscorers.
-  const eligiblePerformances = performances;
-  const motmCandidates = eligiblePerformances.map(p => {
+  const defenders = ['CB', 'LB', 'RB', 'LWB', 'RWB'];
+  const motmCandidates = performances.map(p => {
     const isGoalkeeper = p.player.position === 'GK';
-    const isDefender = ['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p.player.position);
-    const conceded = score[1 - p.teamIndex];
-    let weight = 1 + p.goals * 12 + p.assists * 2;
+    const isDefender = defenders.includes(p.player.position);
+    const cleanSheet = score[1 - p.teamIndex] === 0 && !p.player.sentOff;
+    let points = p.goals * 6
+      + p.assists * 4
+      + p.saves * 2
+      - p.missedPenalties * 3
+      - p.yellowCards * 2
+      - p.redCards * 8
+      - p.ownGoals * 6;
 
-    // Seven saves can make a goalkeeper a serious MOTM contender.
-    if (isGoalkeeper) {
-      weight += p.saves * 3;
-      if (conceded === 0) weight += 5;
-      else if (conceded <= 1) weight += 2;
-    } else if (isDefender) {
-      weight += 2 + Math.max(0, p.player.defense - 60) / 12;
-      if (conceded === 0) weight += 5;
-      else if (conceded <= 1) weight += 3;
+    if (cleanSheet && isGoalkeeper) points += 4;
+    else if (cleanSheet && isDefender) points += 5;
+    if (p.goals >= 3) points += 3;
+    if (p.assists >= 2) points += 2;
+
+    // Award +2 for the goal that established the eventual winning margin.
+    if (!pens && winner !== null) {
+      const runningScore = [0, 0];
+      for (const goal of goalTimeline) {
+        runningScore[goal.teamIndex]++;
+        if (goal.teamIndex === winner && runningScore[winner] === score[1 - winner] + 1
+          && goal.player && goal.player.id === p.player.id && goal.teamIndex === p.teamIndex) {
+          points += 2;
+          break;
+        }
+      }
     }
-    // Cards and own goals make a player less likely to earn MOTM, without
-    // automatically ruling them out if they otherwise had a great match.
-    weight *= Math.pow(.78, p.yellowCards);
-    weight *= Math.pow(.40, p.redCards);
-    weight *= Math.pow(.35, p.ownGoals);
-    return { ...p, contributions: p.goals + p.assists, weight: Math.max(.05, weight) };
+    return { ...p, points };
   });
 
-  const totalWeight = motmCandidates.reduce((sum, p) => sum + p.weight, 0);
-  let roll = Math.random() * totalWeight;
-  let standout = motmCandidates[motmCandidates.length - 1];
-  for (const candidate of motmCandidates) {
-    roll -= candidate.weight;
-    if (roll <= 0) { standout = candidate; break; }
-  }
-
+  // Highest points wins. Ties are broken by goals, assists, then saves.
+  motmCandidates.sort((a, b) =>
+    b.points - a.points ||
+    b.goals - a.goals ||
+    b.assists - a.assists ||
+    b.saves - a.saves
+  );
+  const standout = motmCandidates[0];
   const motm = {
     player: standout.player,
     team: teams[standout.teamIndex],
-    reason: standout.goals > 0 || standout.assists > 0
-      ? standout.goals + ' goals, ' + standout.assists + ' assists'
-      : standout.player.position === 'GK'
-        ? standout.saves + ' saves'
-        : ['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(standout.player.position)
-          ? 'Outstanding defensive performance'
-          : 'Strong all-round performance'
+    reason: standout.points + ' MOTM points (' +
+      standout.goals + ' goals, ' + standout.assists + ' assists, ' +
+      standout.saves + ' saves)'
   };
   const totalPossession = stats[0].possession + stats[1].possession;
   const percentages = stats.map(s => totalPossession ? Math.round(s.possession / totalPossession * 100) : 50);
