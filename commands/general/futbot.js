@@ -1,9 +1,8 @@
 const { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
-const { futbotApi, userIdOption, parseIdList, queryString, run, post } = require('../../utils/futbotDiscord');
+const { futbotApi, userIdOption, queryString, run, post } = require('../../utils/futbotDiscord');
 
 const stats = ['battles_won','battles_played','battles_lost','battles_drawn','rounds_won','rounds_played','rounds_lost','rounds_drawn','coins','cards_dropped','cards_sold'];
 const secrets = ['itscominghome','jogabonito','pineappleonpizza','fubball','theflyingdutchmen','mayonnaise'];
-const tierChoices = [{name:'Common',value:'common'},{name:'Uncommon',value:'uncommon'},{name:'Rare',value:'rare'}];
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -16,8 +15,6 @@ module.exports = {
       .addSubcommand(s => s.setName('weight').setDescription('View overall odds for Bronze, Silver, or Gold packs')))
     .addSubcommandGroup(g => g.setName('economy').setDescription('Selling cards and rankings')
       .addSubcommand(s => s.setName('leaderboard').setDescription('View a leaderboard').addStringOption(o => o.setName('stat').setDescription('Statistic').setRequired(true).addChoices(...stats.map(v => ({name:v.replace(/_/g,' '),value:v})))).addIntegerOption(o => o.setName('limit').setDescription('Entries (1-25)').setMinValue(1).setMaxValue(25))))
-    .addSubcommandGroup(g => g.setName('tradeup').setDescription('Exchange five cards for a higher rarity card')
-      .addSubcommand(s => s.setName('execute').setDescription('Trade up five inventory copies').addStringOption(o => o.setName('tier').setDescription('Tier').setRequired(true).addChoices(...tierChoices)).addStringOption(o => o.setName('row-ids').setDescription('Five inventory row IDs, comma-separated').setRequired(true)))),
 
   async execute(interaction) {
     const group = interaction.options.getSubcommandGroup();
@@ -85,10 +82,6 @@ module.exports = {
 
     if (group === 'economy') {
       if (sub === 'leaderboard') return run(interaction, () => futbotApi.request('/api/v1/leaderboards/' + interaction.options.getString('stat') + queryString({limit:interaction.options.getInteger('limit') || 10})), 'Leaderboard');
-    }
-    if (group === 'tradeup') {
-      const tier = interaction.options.getString('tier');
-      if (sub === 'execute') return run(interaction, () => post('/api/v1/trade-up', {user_id:uid,tier,inventory_row_ids:parseIdList(interaction.options.getString('row-ids'),'Inventory row IDs')}), 'Trade-up');
     }
   },
 };
