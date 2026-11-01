@@ -7,9 +7,7 @@ const {
 const futbotApi = require('../../utils/futbotApi');
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('futbotstatus')
-    .setDescription('Check the connection to the FutBot game API'),
+  data: null,
 
   async execute(interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
