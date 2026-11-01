@@ -95,7 +95,8 @@ async function runLiveMatch(interaction, home, away) {
     return list[list.length - 1];
   };
   const getKeeper = t => t.players.find(p => p.position === 'GK' && !p.sentOff) || { name: 'Emergency GK', goalkeeping: 18 };
-  const pickAttack = () => Math.random() < Math.max(.25, Math.min(.75, .5 + (home.overall - away.overall) * .012)) ? 0 : 1;
+  // Overall gives an advantage, but it should not decide possession too heavily.
+  const pickAttack = () => Math.random() < Math.max(.38, Math.min(.62, .5 + (home.overall - away.overall) * .006)) ? 0 : 1;
   const addPossession = i => { stats[i].possession++; };
   const scoreGoal = (i, scorer, kind = 'normal') => {
     score[i]++;
@@ -160,11 +161,12 @@ async function runLiveMatch(interaction, home, away) {
         return;
       }
     }
-    const chance = Math.max(.10, Math.min(.68, .23 + edge * .012 + (p.shooting - g.goalkeeping) * .002));
+    // Keep scoring chances modest; overall and player stats matter, but variance stays high enough for upsets.
+    const chance = Math.max(.08, Math.min(.32, .14 + edge * .005 + (p.shooting - g.goalkeeping) * .001));
     if (Math.random() < chance) {
       stats[ai].sot++;
       scoreGoal(ai, p);
-    } else if (Math.random() < .72) {
+    } else if (Math.random() < .45) {
       stats[ai].sot++;
       stats[1 - ai].saves++;
       log(1 - ai, g, EMOJI.save, minute, '(' + p.name + ')');
@@ -177,14 +179,14 @@ async function runLiveMatch(interaction, home, away) {
     stats[ai].corners++;
     const target = choosePlayer(attackers(t).filter(p => p.id !== taker.id), p => p.effective + p.shooting * .3);
     if (target) pending.push(() => {
-      if (Math.random() < .16) { stats[ai].shots++; stats[ai].sot++; scoreGoal(ai, target); }
+      if (Math.random() < .10) { stats[ai].shots++; stats[ai].sot++; scoreGoal(ai, target); }
       else if (Math.random() < .35) { stats[ai].shots++; }
     });
   }
   function freeKick(ai, victim) {
     const t = teams[ai], taker = choosePlayer(field(t), p => p.shooting * .6 + p.effective * .4);
     if (!taker) return;
-    pending.push(() => { if (Math.random() < .30) shot(ai); });
+    pending.push(() => { if (Math.random() < .20) shot(ai); });
   }
   function penalty(ai) {
     const t = teams[ai], g = getKeeper(teams[1 - ai]);
@@ -227,9 +229,9 @@ async function runLiveMatch(interaction, home, away) {
     addPossession(possessionTeam);
     if (pending.length) { pending.shift()(); return; }
     const r = Math.random();
-    if (r < .10) foul();
-    else if (r < .17) corner(possessionTeam);
-    else if (r < .45) shot(possessionTeam);
+    if (r < .07) foul();
+    else if (r < .12) corner(possessionTeam);
+    else if (r < .32) shot(possessionTeam);
   }
   const playPeriod = async end => {
     for (let m = minute + 1; m <= end; m++) {
