@@ -103,7 +103,7 @@ module.exports = {
         const futbotCommands = new Set([
           '8', 'friendly', 'players', 'daily', 'claim', 'buy', 'sell', 'pack', 'futbot', 'futbotbattle', 'futbotdrop',
           'futbotimage', 'futbotinfo', 'futbotmarket',
-          'futbotstatus', 'futbotsuggest', 'futbottrade', 'futbotadmin',
+          'futbotstatus', 'futbotsuggest', 'futbotadmin',
         ]);
 
         if (futbotCommands.has(interaction.commandName)) {
