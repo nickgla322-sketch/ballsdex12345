@@ -46,8 +46,7 @@ module.exports = {
             { label: 'Bronze Pack', value: 'bronze', description: '45-64 overall players' },
             { label: 'Silver Pack', value: 'silver', description: '65-74 overall players' },
             { label: 'Gold Pack', value: 'gold', description: '75-99 overall players' },
-            { label: '/claim', value: 'claim', description: '1 random card' },
-            { label: '/daily', value: 'daily', description: '3 random cards + 1,000 coins' },
+            { label: '/claim + /daily', value: 'claim_daily', description: '1 claim card + 3 daily cards + 1,000 coins' },
           );
         const row = new ActionRowBuilder().addComponents(menu);
         const message = await interaction.reply({
@@ -64,7 +63,7 @@ module.exports = {
           await component.deferUpdate();
           try {
             const tier = component.values[0];
-            const isReward = tier === 'claim' || tier === 'daily';
+            const isReward = tier === 'claim_daily';
             const response = await futbotApi.request(isReward ? '/api/v1/rewards/odds' : '/api/v1/packs/odds/' + tier, { method: 'GET' });
             const data = response?.data ?? response;
             const lines = (data.overalls || []).map(item => {
@@ -74,7 +73,7 @@ module.exports = {
                 Number(item.percentage || 0).toFixed(2) + '%**  •  ' + players;
             });
             const embed = new EmbedBuilder()
-              .setTitle(isReward ? (tier === 'claim' ? '/claim Card Odds' : '/daily Card Odds') : (tier.charAt(0).toUpperCase() + tier.slice(1)) + ' Pack Odds')
+              .setTitle(isReward ? '/claim + /daily Card Odds' : (tier.charAt(0).toUpperCase() + tier.slice(1)) + ' Pack Odds')
               .setColor(0x5865f2)
               .setDescription(lines.length
                 ? '**' + (isReward ? 'Chance per card' : 'Overall odds') + '**\n\n' + lines.join('\n')
