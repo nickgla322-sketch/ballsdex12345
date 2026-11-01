@@ -116,26 +116,26 @@ async function runLiveMatch(interaction, home, away) {
   const redCardImpact = i => teams[i].players.reduce((impact, player) => {
     if (!player.sentOff) return impact;
     const position = String(player.position || '').toUpperCase();
-    impact.overall += 7;
+    impact.overall += 5;
     if (['ST', 'CF', 'LW', 'RW'].includes(position)) {
-      // Losing a forward noticeably weakens the team's ability to create attacks.
-      impact.ownShots += .32;
-      impact.opponentShots += .08;
-      impact.opponentScoring += .02;
+      // Losing a forward weakens attacking output, but the effect is kept moderate.
+      impact.ownShots += .24;
+      impact.opponentShots += .06;
+      impact.opponentScoring += .015;
     } else if (['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(position)) {
-      // A missing midfielder hurts both ball progression and defensive cover.
-      impact.ownShots += .25;
-      impact.opponentShots += .20;
-      impact.opponentScoring += .08;
+      // A missing midfielder affects both ball progression and defensive cover.
+      impact.ownShots += .19;
+      impact.opponentShots += .15;
+      impact.opponentScoring += .06;
     } else if (position === 'GK') {
-      impact.ownShots += .10;
-      impact.opponentShots += .32;
-      impact.opponentScoring += .18;
+      impact.ownShots += .08;
+      impact.opponentShots += .24;
+      impact.opponentScoring += .135;
     } else {
-      // Losing a defender creates a much larger opening for the opposition.
-      impact.ownShots += .12;
-      impact.opponentShots += .38;
-      impact.opponentScoring += .15;
+      // Losing a defender creates an opening, without overwhelming the match.
+      impact.ownShots += .09;
+      impact.opponentShots += .29;
+      impact.opponentScoring += .11;
     }
     return impact;
   }, { ownShots: 0, opponentShots: 0, opponentScoring: 0, overall: 0 });
