@@ -23,8 +23,6 @@ module.exports = {
     .addSubcommandGroup(g => g.setName('social').setDescription('Friends and requests')
       .addSubcommand(s => s.setName('friends').setDescription('View your friends'))
       .addSubcommand(s => s.setName('requests').setDescription('View incoming friend requests'))
-      .addSubcommand(s => s.setName('add').setDescription('Send a friend request').addUserOption(o => o.setName('user').setDescription('Player').setRequired(true)))
-      .addSubcommand(s => s.setName('accept').setDescription('Accept a friend request').addIntegerOption(o => o.setName('request-id').setDescription('Request ID').setRequired(true)))
       .addSubcommand(s => s.setName('decline').setDescription('Decline a friend request').addIntegerOption(o => o.setName('request-id').setDescription('Request ID').setRequired(true)))
       .addSubcommand(s => s.setName('remove').setDescription('Remove a friend').addUserOption(o => o.setName('user').setDescription('Friend').setRequired(true))))
     .addSubcommandGroup(g => g.setName('economy').setDescription('Selling cards and rankings')
@@ -58,8 +56,6 @@ module.exports = {
     if (group === 'social') {
       if (sub === 'friends') return run(interaction, () => futbotApi.request(base + '/friends'), 'Friends');
       if (sub === 'requests') return run(interaction, () => futbotApi.request(base + '/friend-requests'), 'Friend requests');
-      if (sub === 'add') return run(interaction, () => post('/api/v1/friends/requests', {requester_id:uid,recipient_id:user.id}), 'Friend request');
-      if (sub === 'accept' || sub === 'decline') return run(interaction, () => post('/api/v1/friends/requests/' + interaction.options.getInteger('request-id') + '/' + sub, {user_id:uid}), 'Friend request');
       if (sub === 'remove') return run(interaction, () => post('/api/v1/friends/remove', {user_id:uid,friend_id:user.id}), 'Remove friend');
     }
     if (group === 'economy') {
