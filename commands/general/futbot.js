@@ -14,7 +14,7 @@ module.exports = {
     .addSubcommandGroup(g => g.setName('pack').setDescription('Player packs and odds')
       .addSubcommand(s => s.setName('weight').setDescription('View overall odds for Bronze, Silver, or Gold packs')))
     .addSubcommandGroup(g => g.setName('economy').setDescription('Selling cards and rankings')
-      .addSubcommand(s => s.setName('leaderboard').setDescription('View a leaderboard').addStringOption(o => o.setName('stat').setDescription('Statistic').setRequired(true).addChoices(...stats.map(v => ({name:v.replace(/_/g,' '),value:v})))).addIntegerOption(o => o.setName('limit').setDescription('Entries (1-25)').setMinValue(1).setMaxValue(25))))
+      .addSubcommand(s => s.setName('leaderboard').setDescription('View a leaderboard').addStringOption(o => o.setName('stat').setDescription('Statistic').setRequired(true).addChoices(...stats.map(v => ({name:v.replace(/_/g,' '),value:v})))).addIntegerOption(o => o.setName('limit').setDescription('Entries (1-25)').setMinValue(1).setMaxValue(25)))),
 
   async execute(interaction) {
     const group = interaction.options.getSubcommandGroup();
