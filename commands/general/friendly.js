@@ -111,7 +111,7 @@ async function runLiveMatch(interaction, home, away) {
   const formDifference = () => matchForm[0] - matchForm[1];
   // A sending-off has a real team-wide cost, not just the loss of one player from selection.
   // Each missing player is worth roughly 6 OVR points in the match simulation.
-  const matchOverall = i => teams[i].overall - teams[i].players.filter(p => p.sentOff).length * 6;
+  const matchOverall = i => teams[i].overall - teams[i].players.filter(p => p.sentOff).length * 8;
   // Better teams still get more attacking phases, but match form can narrow or widen the gap.
   const pickAttack = () => Math.random() < Math.max(.28, Math.min(.72, .5 + (matchOverall(0) - matchOverall(1)) * .009 + formDifference() * .25)) ? 0 : 1;
   const addPossession = i => { stats[i].possession++; };
@@ -201,8 +201,8 @@ async function runLiveMatch(interaction, home, away) {
     }
     // Give stronger teams a clear edge while keeping upsets possible.
     const formBoost = (matchForm[ai] - matchForm[1 - ai]) * .25;
-    const manpowerPenalty = teams[ai].players.filter(player => player.sentOff).length * .025;
-    const opponentManpowerBonus = teams[1 - ai].players.filter(player => player.sentOff).length * .015;
+    const manpowerPenalty = teams[ai].players.filter(player => player.sentOff).length * .035;
+    const opponentManpowerBonus = teams[1 - ai].players.filter(player => player.sentOff).length * .02;
     const chance = Math.max(.06, Math.min(.50, .23 + edge * .003 + (p.shooting - g.goalkeeping) * .0015 + formBoost - manpowerPenalty + opponentManpowerBonus));
     if (Math.random() < chance) {
       stats[ai].sot++;
@@ -283,7 +283,7 @@ async function runLiveMatch(interaction, home, away) {
       const overallGap = matchOverall(possessionTeam) - matchOverall(1 - possessionTeam);
       const sentOffCount = teams[possessionTeam].players.filter(player => player.sentOff).length;
       const opponentSentOffCount = teams[1 - possessionTeam].players.filter(player => player.sentOff).length;
-      const shotChance = Math.max(.24, Math.min(.64, .46 + overallGap * .003 + (matchForm[possessionTeam] - matchForm[1 - possessionTeam]) * .22 - sentOffCount * .045 + opponentSentOffCount * .025));
+      const shotChance = Math.max(.24, Math.min(.64, .46 + overallGap * .003 + (matchForm[possessionTeam] - matchForm[1 - possessionTeam]) * .22 - sentOffCount * .06 + opponentSentOffCount * .035));
       if (r < .16 + shotChance) shot(possessionTeam);
     }
   }
