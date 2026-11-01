@@ -95,19 +95,18 @@ async function runLiveMatch(interaction, home, away) {
     const teammates = field(teams[i]).filter(p => p.id !== scorer.id);
     if (teammates.length && Math.random() < .70) {
       const assister = choosePlayer(teammates, p => p.dribbling + p.effective * .25);
-      if (assister) log(i, assister, EMOJI.assist);
+      if (assister) minuteEventsLog.push({ team: i, text: '　• ' + assister.name + ' ' + EMOJI.assist });
     }
   };
   const makeEmbed = () => new EmbedBuilder().setColor(0x3498db)
-    .setTitle('⚽ FRIENDLY MATCH')
-    .setDescription('**' + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**' + (systemHistory.length ? '\n\n' + systemHistory.join('\n') : ''))
+    .setTitle('⚽ FRIENDLY MATCH · ' + minute + "'")
+    .setDescription('**⏱️ ' + minute + "'**\n**" + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**' + (systemHistory.length ? '\n\n' + systemHistory.join('\n') : ''))
     .addFields(
       { name: '<@' + home.id + '>', value: teamHistory[0].join('\n').slice(-1024) || 'No events yet.', inline: true },
       { name: '<@' + away.id + '>', value: teamHistory[1].join('\n').slice(-1024) || 'No events yet.', inline: true }
     )
     .setFooter({ text: 'Match events' });
   const publish = async () => {
-    if (!minuteEventsLog.length) return;
     for (const event of minuteEventsLog) {
       if (event.team === null) systemHistory.push(event.text);
       else teamHistory[event.team].push(event.text);
@@ -121,7 +120,7 @@ async function runLiveMatch(interaction, home, away) {
     } else {
       await currentMessage.edit({ embeds: [makeEmbed()] });
     }
-    await sleep(2500);
+    await sleep(1100);
   };
 
   function shot(ai) {
@@ -148,7 +147,7 @@ async function runLiveMatch(interaction, home, away) {
     } else if (Math.random() < .72) {
       stats[ai].sot++;
       stats[1 - ai].saves++;
-      log(1 - ai, g, EMOJI.save, minute, '(Shot by ' + p.name + ')');
+      log(1 - ai, g, EMOJI.save, minute, '(' + p.name + ')');
       if (Math.random() < .16) pending.push(() => corner(ai));
     }
   }
