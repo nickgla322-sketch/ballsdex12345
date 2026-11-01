@@ -134,7 +134,16 @@ async function runLiveMatch(interaction, home, away) {
       systemHistory = systemHistory.slice(-4);
       currentMessage = await interaction.followUp({ embeds: [makeEmbed()], fetchReply: true });
     } else {
-      await currentMessage.edit({ embeds: [makeEmbed()] });
+      try {
+        // Never let a slow Discord message edit hold the match clock forever.
+        await Promise.race([
+          currentMessage.edit({ embeds: [makeEmbed()] }),
+          sleep(15000).then(() => { throw new Error('Friendly match message edit timed out'); }),
+        ]);
+      } catch (error) {
+        console.error('[friendly] Live message edit failed; sending a replacement:', error);
+        currentMessage = await interaction.followUp({ embeds: [makeEmbed()], fetchReply: true });
+      }
     }
     await sleep(1100);
     // Keep the penalty announcement visible for an extra three seconds before the kick.
@@ -163,8 +172,8 @@ async function runLiveMatch(interaction, home, away) {
         return;
       }
     }
-    // Keep scoring chances modest; overall and player stats matter, but variance stays high enough for upsets.
-    const chance = Math.max(.08, Math.min(.32, .14 + edge * .005 + (p.shooting - g.goalkeeping) * .001));
+    // Give stronger teams a clear edge while keeping upsets possible.
+    const chance = Math.max(.09, Math.min(.32, .16 + edge * .004 + (p.shooting - g.goalkeeping) * .001));
     if (Math.random() < chance) {
       stats[ai].sot++;
       scoreGoal(ai, p);
@@ -236,7 +245,7 @@ async function runLiveMatch(interaction, home, away) {
     const r = Math.random();
     if (r < .07) foul();
     else if (r < .12) corner(possessionTeam);
-    else if (r < .32) shot(possessionTeam);
+    else if (r < .50) shot(possessionTeam);
   }
   const playPeriod = async end => {
     for (let m = minute + 1; m <= end; m++) {
