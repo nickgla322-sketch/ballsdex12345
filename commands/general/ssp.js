@@ -83,7 +83,7 @@ module.exports = {
    .addSubcommand(s=>s.setName('remove-card').setDescription('Permanently remove a catalog card').addIntegerOption(o=>o.setName('card-id').setDescription('Catalog card ID').setRequired(true).setMinValue(1)))
    .addSubcommand(s=>s.setName('import-json').setDescription('Import 1-50 cards from a JSON file').addAttachmentOption(o=>o.setName('file').setDescription('JSON card file').setRequired(true)))
    .addSubcommand(s=>s.setName('wipe-cards').setDescription('Delete every player card from the catalog').addStringOption(o=>o.setName('confirmation').setDescription('Type WIPE ALL CARDS exactly').setRequired(true).setMaxLength(30))))
-  .addSubcommandGroup(g=>g.setName('info').setDescription('SSP help').addSubcommand(s=>s.setName('help').setDescription('Show SSP commands')))
+  .addSubcommand(s=>s.setName('help').setDescription('Show SSP commands'))
   .addSubcommand(s=>s.setName('packs').setDescription('Browse and buy player packs'))
   .addSubcommand(s=>s.setName('friendly').setDescription('Challenge someone').addUserOption(o=>o.setName('opponent').setDescription('Opponent').setRequired(true)))
   .addSubcommand(s=>s.setName('claim').setDescription('Claim a player card'))
@@ -101,7 +101,7 @@ module.exports = {
    if(!i.memberPermissions?.has(PermissionFlagsBits.Administrator)) return i.reply({content:'You need Administrator permissions to use SSP admin commands.',ephemeral:true});
    return admin.execute(proxy(i,null,s));
   }
-  if(g==='info') return info.execute(proxy(i,null,'help'));
+  if(!g && s==='help') return info.execute(proxy(i,null,'help'));
   return ({packs:()=>packs.execute(i,client),friendly:()=>friendly.execute(i,client),claim:()=>claim.execute(i,client),daily:()=>daily.execute(i,client),buy:()=>buy.execute(i,client),sell:()=>sell.execute(i,client),trade:()=>trade.execute(i,client)})[s]?.();
  },
  handleSelect:(...a)=>packs.handleSelect(...a),
