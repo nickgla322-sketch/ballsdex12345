@@ -10,7 +10,6 @@ module.exports = {
     .setName('futbot').setDescription('FutBot player, cards, packs and economy')
     .addSubcommandGroup(g => g.setName('player').setDescription('Profiles and rewards')
       .addSubcommand(s => s.setName('profile').setDescription('View a player profile').addUserOption(o => o.setName('user').setDescription('Player')))
-      .addSubcommand(s => s.setName('stats').setDescription('View player statistics').addUserOption(o => o.setName('user').setDescription('Player')))
       .addSubcommand(s => s.setName('starter').setDescription('Claim your one-time starter pack'))
       .addSubcommand(s => s.setName('secret').setDescription('Claim a secret card reward').addStringOption(o => o.setName('code').setDescription('Secret code').setRequired(true).addChoices(...secrets.map(v => ({name:v,value:v}))))))
     .addSubcommandGroup(g => g.setName('pack').setDescription('Player packs and odds')
@@ -30,7 +29,6 @@ module.exports = {
 
     if (group === 'player') {
       if (sub === 'profile') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid)), 'Profile');
-      if (sub === 'stats') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/stats'), 'Stats');
       if (sub === 'starter') return run(interaction, () => post(base + '/starter-pack', {}), 'Starter pack');
       if (sub === 'secret') return run(interaction, () => post(base + '/secrets/' + interaction.options.getString('code'), {}), 'Secret reward');
     }
