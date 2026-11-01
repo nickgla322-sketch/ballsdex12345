@@ -11,8 +11,7 @@ const { futbotApi, queryString, cardFile } = require('../../utils/futbotDiscord'
 const PAGE_SIZE = 5;
 const CATEGORIES = ['bronze', 'silver', 'gold', 'special'];
 const POSITIONS = [
-  'GK', 'CB', 'LCB', 'RCB', 'LB', 'RB', 'LWB', 'RWB',
-  'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'CF', 'ST',
+  'GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LW', 'RW', 'ST',
 ];
 const COLORS = {
   bronze: 0xCD7F32,
