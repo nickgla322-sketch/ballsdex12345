@@ -1,3 +1,4 @@
+// Friendly match command — deployment refresh.
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { futbotApi } = require('../../utils/futbotDiscord');
 module.exports = {
