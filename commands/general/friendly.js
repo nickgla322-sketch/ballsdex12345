@@ -168,12 +168,10 @@ async function runLiveMatch(interaction, home, away) {
     .setFooter({ text: 'Match events' });
   const publish = async () => {
     for (const event of minuteEventsLog) {
-      if (event.team === null && event.text.includes('HALF-TIME')) {
-        // Put the halftime divider at the end of both first-half event columns.
-        teamHistory[0].push('━━━━━━━━━━━━━━━━━━━━\n**HALF-TIME**\n━━━━━━━━━━━━━━━━━━━━');
-        teamHistory[1].push('━━━━━━━━━━━━━━━━━━━━\n**HALF-TIME**\n━━━━━━━━━━━━━━━━━━━━');
+      if (event.team === null) {
+        teamHistory[0].push(event.text);
+        teamHistory[1].push(event.text);
       }
-      else if (event.team === null) systemHistory.push(event.text);
       else if (event.text.startsWith('　• ') && teamHistory[event.team].length) teamHistory[event.team][teamHistory[event.team].length - 1] += '\n' + event.text;
       else teamHistory[event.team].push(event.text);
     }
@@ -342,37 +340,71 @@ async function runLiveMatch(interaction, home, away) {
     if (extra > 1 || pending.length) playMinute();
     await publish();
   }
-  minuteEventsLog = [{ team: null, text: '**FULL-TIME**' }];
-  await publish();
-
-  if (score[0] === score[1]) {
-    await interaction.followUp({ content: '**Extra time**' });
+  if (score[0] !== score[1]) {
+    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n**FULL-TIME**\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+    await publish();
+  } else {
+    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n**EXTRA TIME**\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+    await publish();
     inExtraTime = true;
     minute = 90;
     await playPeriod(105);
-    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**EXTRA-TIME HALF-TIME**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n**EXTRA-TIME HALF-TIME**\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
     await publish();
     await playPeriod(120);
     inExtraTime = false;
-  }
-  if (score[0] === score[1]) {
-    pens = [0, 0];
-    const kick = async i => {
-      const t = teams[i], g = getKeeper(teams[1 - i]);
-      const p = choosePlayer(field(t), x => x.shooting + x.effective * .2);
-      if (!p) return;
-      const goal = Math.random() < Math.max(.66, Math.min(.86, .76 + (p.shooting - g.goalkeeping) / 500));
-      if (goal) pens[i]++;
-      minuteEventsLog = [];
-      log(i, p, goal ? EMOJI.penaltyGoal : EMOJI.missedPenalty, minute, '(Shootout)');
+    if (score[0] === score[1]) {
+      minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n**PENALTY SHOOTOUT**\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
       await publish();
-    };
-    for (let r = 0; r < 5; r++) {
-      for (let i = 0; i < 2; i++) await kick(i);
-      const left = 4 - r;
-      if (pens[0] > pens[1] + left || pens[1] > pens[0] + left) break;
+      pens = [0, 0];
+      const penaltyOrder = t => {
+        const rank = p => ['ST', 'CF', 'LW', 'RW', 'CAM'].includes(p.position) ? 0
+          : ['CM', 'CDM', 'LM', 'RM'].includes(p.position) ? 1
+          : p.position === 'GK' ? 3 : 2;
+        return activePlayers(t).slice().sort((a, b) => rank(a) - rank(b) || b.effective - a.effective);
+      };
+      const orders = teams.map(penaltyOrder);
+      const attempts = [0, 0];
+      const kick = async i => {
+        const p = orders[i][attempts[i]++];
+        if (!p) return;
+        const g = getKeeper(teams[1 - i]);
+        const goal = Math.random() < Math.max(.66, Math.min(.86, .76 + (p.shooting - g.goalkeeping) / 500));
+        if (goal) pens[i]++;
+        minuteEventsLog = [{
+          team: i,
+          text: p.name + ' ' + (goal ? EMOJI.penaltyGoal : EMOJI.missedPenalty)
+            + ' **' + pens[0] + '–' + pens[1] + '** (' + attempts[i] + 'th penalty)'
+        }];
+        await publish();
+        await sleep(2000);
+      };
+      // No player repeats until every available player has taken one penalty.
+      for (let round = 0; round < Math.max(orders[0].length, orders[1].length); round++) {
+        for (let i = 0; i < 2; i++) if (round < orders[i].length) await kick(i);
+      }
+      // Sudden death starts only after the full lineup has taken a turn.
+      let suddenDeathIndex = 0;
+      while (pens[0] === pens[1]) {
+        const i = suddenDeathIndex % 2;
+        const p = orders[i][Math.floor(suddenDeathIndex / 2) % orders[i].length];
+        const g = getKeeper(teams[1 - i]);
+        const goal = Math.random() < Math.max(.66, Math.min(.86, .76 + (p.shooting - g.goalkeeping) / 500));
+        if (goal) pens[i]++;
+        minuteEventsLog = [{
+          team: i,
+          text: p.name + ' ' + (goal ? EMOJI.penaltyGoal : EMOJI.missedPenalty)
+            + ' **' + pens[0] + '–' + pens[1] + '** (Sudden death)'
+        }];
+        await publish();
+        await sleep(2000);
+        suddenDeathIndex++;
+        if (suddenDeathIndex % 2 === 0 && pens[0] !== pens[1]) break;
+      }
+    } else {
+      minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n**FULL-TIME**\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+      await publish();
     }
-    while (pens[0] === pens[1]) { await kick(0); await kick(1); }
   }
   const winner = pens ? (pens[0] > pens[1] ? 0 : 1) : (score[0] === score[1] ? null : (score[0] > score[1] ? 0 : 1));
   const performances = [...playerPerformance.values()];
