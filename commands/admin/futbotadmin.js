@@ -62,28 +62,8 @@ function addCardFields(sub, required, includeRequiredImage = false) {
 }
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('futbotadmin')
-    .setDescription('Administer FutBot players and the card catalog')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .addSubcommand(s => s.setName('give-coins').setDescription('Give coins to a player')
-      .addUserOption(o => o.setName('user').setDescription('Player').setRequired(true))
-      .addIntegerOption(o => o.setName('amount').setDescription('Coins to give').setRequired(true).setMinValue(1)))
-    .addSubcommand(s => s.setName('give-card').setDescription('Give a catalog card to a player')
-      .addUserOption(o => o.setName('user').setDescription('Player').setRequired(true))
-      .addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true).setMinValue(1)))
-    .addSubcommand(s => s.setName('remove-player-card').setDescription('Remove a card from a player inventory')
-      .addUserOption(o => o.setName('user').setDescription('Player').setRequired(true))
-      .addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true).setMinValue(1)))
-    .addSubcommand(s => addCardFields(s.setName('create-card').setDescription('Create a new card in the catalog'), true, true))
-    .addSubcommand(s => addCardFields(s.setName('replace-card').setDescription('Replace selected details or image on a catalog card'), false)
-      .addAttachmentOption(o => o.setName('image').setDescription('Optional replacement image')))
-    .addSubcommand(s => s.setName('remove-card').setDescription('Permanently remove a card, all copies, and saved lineup entries')
-      .addIntegerOption(o => o.setName('card-id').setDescription('Catalog card ID').setRequired(true).setMinValue(1)))
-    .addSubcommand(s => s.setName('import-json').setDescription('Import 1-50 cards from a JSON file')
-      .addAttachmentOption(o => o.setName('file').setDescription('JSON file with card data and image_base64 values').setRequired(true)))
-    .addSubcommand(s => s.setName('wipe-cards').setDescription('Permanently delete every player card from the catalog')
-      .addStringOption(o => o.setName('confirmation').setDescription('Type WIPE ALL CARDS exactly').setRequired(true).setMaxLength(30))),
+  data: null,
+
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
     const admin_id = userIdOption(interaction);
