@@ -26,7 +26,12 @@ module.exports = {
       });
       await inventory(interaction.user.id);
       await inventory(target.id);
-      session = data(await post('/api/v1/exchanges', { player1_id: Number(interaction.user.id), player2_id: Number(target.id) }));
+      session = data(await post('/api/v1/exchanges', {
+        player1_id: Number(interaction.user.id),
+        player2_id: Number(target.id),
+        player1_name: interaction.member?.displayName || interaction.user.username,
+        player2_name: target.globalName || target.username,
+      }));
       const invite = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('trade_invite_yes').setLabel('Accept').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId('trade_invite_no').setLabel('Decline').setStyle(ButtonStyle.Danger)
