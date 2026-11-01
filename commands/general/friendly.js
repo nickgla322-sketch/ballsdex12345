@@ -115,29 +115,26 @@ async function runLiveMatch(interaction, home, away) {
   const redCardImpact = i => teams[i].players.reduce((impact, player) => {
     if (!player.sentOff) return impact;
     const position = String(player.position || '').toUpperCase();
+    impact.overall += 7;
     if (['ST', 'CF', 'LW', 'RW'].includes(position)) {
       // Losing a forward noticeably weakens the team's ability to create attacks.
       impact.ownShots += .32;
       impact.opponentShots += .08;
       impact.opponentScoring += .02;
-      impact.overall += 5;
     } else if (['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(position)) {
       // A missing midfielder hurts both ball progression and defensive cover.
       impact.ownShots += .25;
       impact.opponentShots += .20;
       impact.opponentScoring += .08;
-      impact.overall += 7;
     } else if (position === 'GK') {
       impact.ownShots += .10;
       impact.opponentShots += .32;
       impact.opponentScoring += .18;
-      impact.overall += 10;
     } else {
       // Losing a defender creates a much larger opening for the opposition.
       impact.ownShots += .12;
       impact.opponentShots += .38;
       impact.opponentScoring += .15;
-      impact.overall += 9;
     }
     return impact;
   }, { ownShots: 0, opponentShots: 0, opponentScoring: 0, overall: 0 });
