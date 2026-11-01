@@ -109,8 +109,11 @@ async function runLiveMatch(interaction, home, away) {
   // Form affects attacking flow and shot quality, but does not replace player/team ratings.
   const matchForm = teams.map(() => Math.random() * .36 - .18);
   const formDifference = () => matchForm[0] - matchForm[1];
+  // A sending-off has a real team-wide cost, not just the loss of one player from selection.
+  // Each missing player is worth roughly 6 OVR points in the match simulation.
+  const matchOverall = i => teams[i].overall - teams[i].players.filter(p => p.sentOff).length * 6;
   // Better teams still get more attacking phases, but match form can narrow or widen the gap.
-  const pickAttack = () => Math.random() < Math.max(.30, Math.min(.70, .5 + (home.overall - away.overall) * .009 + formDifference() * .25)) ? 0 : 1;
+  const pickAttack = () => Math.random() < Math.max(.28, Math.min(.72, .5 + (matchOverall(0) - matchOverall(1)) * .009 + formDifference() * .25)) ? 0 : 1;
   const addPossession = i => { stats[i].possession++; };
   const scoreGoal = (i, scorer, kind = 'normal') => {
     score[i]++;
@@ -185,7 +188,7 @@ async function runLiveMatch(interaction, home, away) {
     if (!p) return;
     stats[ai].shots++;
     const g = getKeeper(defending);
-    const edge = at.overall - defending.overall;
+    const edge = matchOverall(ai) - matchOverall(1 - ai);
     // Rare own goals can happen when a defender gets involved in a dangerous attack.
     if (Math.random() < .006) {
       const defender = choosePlayer(field(defending), x => x.defense + x.effective * .2);
@@ -198,7 +201,9 @@ async function runLiveMatch(interaction, home, away) {
     }
     // Give stronger teams a clear edge while keeping upsets possible.
     const formBoost = (matchForm[ai] - matchForm[1 - ai]) * .25;
-    const chance = Math.max(.08, Math.min(.48, .23 + edge * .003 + (p.shooting - g.goalkeeping) * .0015 + formBoost));
+    const manpowerPenalty = teams[ai].players.filter(player => player.sentOff).length * .025;
+    const opponentManpowerBonus = teams[1 - ai].players.filter(player => player.sentOff).length * .015;
+    const chance = Math.max(.06, Math.min(.50, .23 + edge * .003 + (p.shooting - g.goalkeeping) * .0015 + formBoost - manpowerPenalty + opponentManpowerBonus));
     if (Math.random() < chance) {
       stats[ai].sot++;
       scoreGoal(ai, p);
@@ -275,8 +280,10 @@ async function runLiveMatch(interaction, home, away) {
     else if (r < .16) corner(possessionTeam);
     else {
       // More attacks lead to attempts, with a noticeable boost for the stronger side.
-      const overallGap = teams[possessionTeam].overall - teams[1 - possessionTeam].overall;
-      const shotChance = Math.max(.32, Math.min(.62, .46 + overallGap * .003 + (matchForm[possessionTeam] - matchForm[1 - possessionTeam]) * .22));
+      const overallGap = matchOverall(possessionTeam) - matchOverall(1 - possessionTeam);
+      const sentOffCount = teams[possessionTeam].players.filter(player => player.sentOff).length;
+      const opponentSentOffCount = teams[1 - possessionTeam].players.filter(player => player.sentOff).length;
+      const shotChance = Math.max(.24, Math.min(.64, .46 + overallGap * .003 + (matchForm[possessionTeam] - matchForm[1 - possessionTeam]) * .22 - sentOffCount * .045 + opponentSentOffCount * .025));
       if (r < .16 + shotChance) shot(possessionTeam);
     }
   }
