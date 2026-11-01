@@ -137,6 +137,8 @@ async function runLiveMatch(interaction, home, away) {
       await currentMessage.edit({ embeds: [makeEmbed()] });
     }
     await sleep(1100);
+    // Keep the penalty announcement visible for an extra three seconds before the kick.
+    if (minuteEventsLog.some(event => event.text.includes('PENALTY TO '))) await sleep(3000);
   };
 
   function shot(ai) {
@@ -190,7 +192,10 @@ async function runLiveMatch(interaction, home, away) {
   }
   function penalty(ai) {
     const t = teams[ai], g = getKeeper(teams[1 - ai]);
-    const kicker = choosePlayer(field(t), p => p.shooting + p.effective * .2);
+    // Penalties are taken by the highest-rated attacker, never a random centre-back.
+    const attackers = field(t).filter(p => ['ST', 'CF', 'LW', 'RW', 'CAM'].includes(p.position));
+    const kicker = (attackers.length ? attackers : field(t))
+      .reduce((best, p) => !best || p.effective > best.effective ? p : best, null);
     if (!kicker) return;
     pending.push(() => {
       if (Math.random() < Math.max(.66, Math.min(.88, .77 + (kicker.shooting - g.goalkeeping) / 500))) {
