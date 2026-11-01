@@ -5,10 +5,8 @@ const CREATOR='noobmaster';
 const DESCRIPTION='Collect player cards from your Roblox soccer league, build your Starting 8 lineup, trade players, and manage your club.';
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('futbotinfo').setDescription('FutBot help and information')
-    .addSubcommand(s=>s.setName('help').setDescription('Show FutBot commands and how to get started'))
-    .addSubcommand(s=>s.setName('about').setDescription('About FutBot'))
-    .addSubcommand(s=>s.setName('version').setDescription('Show the FutBot version')),
+  data: null,
+
   async execute(interaction) {
     const sub=interaction.options.getSubcommand();
     const embed=new EmbedBuilder().setColor(0x3498db).setFooter({text:'FutBot • '+VERSION});
@@ -18,19 +16,19 @@ module.exports = {
         .addFields(
           {
             name:'Getting started',
-            value:'/futbot player profile - View your FutBot profile\n/futbot player starter - Claim your starter pack\n/claim - Claim a player card\n/daily - Claim your daily rewards',
+            value:'/ssp player profile - View your FutBot profile\n/ssp player starter - Claim your starter pack\n/ssp claim - Claim a player card\n/ssp daily - Claim your daily rewards',
           },
           {
             name:'Players and lineup',
-            value:'/card player search - Browse the player card catalog\n/club search - View the players you own\n/8 show - View your Starting 8\n/8 add - Add a player to your lineup\n/8 remove slot or /8 remove all - Remove lineup players\n/8 swap - Swap lineup slots\n/8 formation - Change your formation',
+            value:'/ssp player search - Browse the player card catalog\n/ssp club search - View the players you own\n/ssp 8 show - View your Starting 8\n/ssp 8 add - Add a player to your lineup\n/ssp 8 remove or /ssp 8 clear - Remove lineup players\n/ssp 8 swap - Swap lineup slots\n/ssp 8 formation - Change your formation',
           },
           {
             name:'Packs and coins',
-            value:'/pack - Browse and buy player packs\n/futbot pack weight - View pack odds\n/buy - Buy a player from the market\n/sell - Sell one of your players\n/futbot economy leaderboard - View the coin or battle leaderboards',
+            value:'/ssp packs - Browse and buy player packs\n/ssp pack weight - View pack odds\n/ssp buy - Buy a player from the market\n/ssp sell - Sell one of your players\n/ssp economy leaderboard - View the coin or battle leaderboards',
           },
           {
             name:'Trading and matches',
-            value:'/trade - Start a player and coin trade with someone\n/friendly - Challenge someone to a friendly match',
+            value:'/ssp trade - Start a player and coin trade with someone\n/ssp friendly - Challenge someone to a friendly match',
           },
           {
             name:'League commands',
@@ -38,7 +36,7 @@ module.exports = {
           },
           {
             name:'Other',
-            value:'/futbot player secret - Redeem a secret code\n/futbotdrop status - Check a card drop\n/futbotstatus - Check the FutBot API connection',
+            value:'/ssp player secret - Redeem a secret code\n',
           }
         )
         .setFooter({ text:'Use the command options in Discord for required details.' });
