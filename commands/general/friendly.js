@@ -82,6 +82,8 @@ async function runLiveMatch(interaction, home, away) {
   const kickoffText = '**━━━━━━━━━━━━━━━━━━━━ KICK-OFF ━━━━━━━━━━━━━━━━━━━━**';
   let halfTimeText = null;
   let systemHistory = [];
+  let penaltyHistory = [];
+  let inPenaltyShootout = false;
   let minuteEventsLog = [];
   const formatMinute = m => inFirstHalfStoppage && m > 45 ? '45+' + (m - 45) : (!inExtraTime && m > 90 && m <= 99 ? '90+' + (m - 90) : String(m));
   const log = (i, player, emoji, m = minute, extra = '') => {
@@ -178,6 +180,7 @@ async function runLiveMatch(interaction, home, away) {
       );
     }
     fields.push(...systemHistory.map(text => ({ name: '\u200B', value: text, inline: false })));
+    fields.push(...penaltyHistory.map(text => ({ name: '\u200B', value: text, inline: false })));
     return new EmbedBuilder().setColor(0x3498db)
       .setTitle('⚽ FRIENDLY MATCH · ' + formatMinute(minute) + "'")
       .setDescription('**⏱️ ' + formatMinute(minute) + "'**\n**" + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**')
@@ -189,6 +192,9 @@ async function runLiveMatch(interaction, home, away) {
       if (event.team === null) {
         if (event.text.includes('HALF-TIME') && !event.text.includes('EXTRA-TIME')) halfTimeText = '**--------------------------HALFTIME--------------------------**';
         else systemHistory.push(event.text);
+      }
+      else if (inPenaltyShootout) {
+        penaltyHistory.push(event.text);
       }
       else {
         const history = currentHalf === 0 ? teamHistory : secondHalfHistory;
@@ -392,6 +398,7 @@ async function runLiveMatch(interaction, home, away) {
       inExtraTime = false;
     }
     if (score[0] === score[1] || FORCE_PENALTIES) {
+      inPenaltyShootout = true;
       minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ **PENALTY SHOOTOUT** ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
       await publish();
       pens = [0, 0];
@@ -404,8 +411,8 @@ async function runLiveMatch(interaction, home, away) {
       const orders = teams.map(penaltyOrder);
       const attempts = [0, 0];
       const kick = async i => {
-        const p = orders[i][attempts[i]++];
-        if (!p) return;
+        const p = orders[i][attempts[i] % orders[i].length];
+        attempts[i]++;
         const g = getKeeper(teams[1 - i]);
         const goal = Math.random() < Math.max(.66, Math.min(.86, .76 + (p.shooting - g.goalkeeping) / 500));
         if (goal) pens[i]++;
@@ -417,27 +424,22 @@ async function runLiveMatch(interaction, home, away) {
         await publish();
         await sleep(2000);
       };
-      // No player repeats until every available player has taken one penalty.
-      for (let round = 0; round < Math.max(orders[0].length, orders[1].length); round++) {
-        for (let i = 0; i < 2; i++) if (round < orders[i].length) await kick(i);
+      // Best of five: finish as soon as the other team cannot catch up.
+      let decided = false;
+      for (let round = 0; round < 5 && !decided; round++) {
+        await kick(0);
+        if (pens[0] > pens[1] + (5 - attempts[1])) {
+          decided = true;
+          break;
+        }
+        await kick(1);
+        if (pens[1] > pens[0] + (5 - attempts[0])) decided = true;
       }
-      // Sudden death starts only after the full lineup has taken a turn.
-      let suddenDeathIndex = 0;
-      while (pens[0] === pens[1]) {
-        const i = suddenDeathIndex % 2;
-        const p = orders[i][Math.floor(suddenDeathIndex / 2) % orders[i].length];
-        const g = getKeeper(teams[1 - i]);
-        const goal = Math.random() < Math.max(.66, Math.min(.86, .76 + (p.shooting - g.goalkeeping) / 500));
-        if (goal) pens[i]++;
-        minuteEventsLog = [{
-          team: i,
-          text: p.name + ' ' + (goal ? EMOJI.penaltyGoal : EMOJI.missedPenalty)
-            + ' **' + pens[0] + '–' + pens[1] + '** (Sudden death)'
-        }];
-        await publish();
-        await sleep(2000);
-        suddenDeathIndex++;
-        if (suddenDeathIndex % 2 === 0 && pens[0] !== pens[1]) break;
+      // If tied after five each, continue in paired sudden-death rounds.
+      while (!decided && pens[0] === pens[1]) {
+        await kick(0);
+        await kick(1);
+        if (pens[0] !== pens[1]) decided = true;
       }
     } else {
       minuteEventsLog = [{ team: null, text: '**--------------------------FULL-TIME--------------------------**' }];
