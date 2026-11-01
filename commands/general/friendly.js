@@ -126,8 +126,7 @@ async function runLiveMatch(interaction, home, away) {
       const defender = choosePlayer(field(defending), x => x.defense + x.effective * .2);
       if (defender) {
         stats[ai].sot++;
-        scoreGoal(ai, defender, 'own');
-        minuteEventsLog.pop();
+        score[ai]++;
         minuteEventsLog.push(defender.name + ' ' + EMOJI.ownGoal + ' ' + minute + "'");
         return;
       }
