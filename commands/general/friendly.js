@@ -28,7 +28,7 @@ module.exports = {
       const result = await runLiveMatch(interaction, home, away);
       const winner = result.winner === null ? 'The friendly ends in a draw.' : '🏆 **' + (result.winner === 0 ? home.name : away.name) + '** win the friendly!';
       const motm = result.motm;
-      const summary = new EmbedBuilder().setColor(result.winner === null ? 0x95a5a6 : 0xf1c40f).setTitle('🏁 FINAL RESULT').setDescription('**' + home.name + ' ' + result.score[0] + '–' + result.score[1] + ' ' + away.name + '**' + (result.pens ? '\nPenalty shootout: **' + result.pens[0] + '–' + result.pens[1] + '**' : '') + '\n\n' + winner + '\n\n⭐ **MAN OF THE MATCH: ' + motm.player.name + '** (' + teamsafeName(motm.team) + ')\n' + motm.reason).addFields(
+      const summary = new EmbedBuilder().setColor(result.winner === null ? 0x95a5a6 : 0xf1c40f).setTitle('🏁 FINAL RESULT').setDescription('**' + home.name + ' ' + result.score[0] + '–' + result.score[1] + ' ' + away.name + '**' + (result.pens ? '\nPenalty shootout: **' + result.pens[0] + '–' + result.pens[1] + '**' : '') + '\n\n' + winner + '\n\n⭐ **MOTM: ' + motm.player.name + '** (' + teamsafeName(motm.team) + ')' + (motm.stats ? '\n' + motm.stats : '')).addFields(
         { name: home.name + ' · Statistics', value: '**Goals:** ' + result.stats[0].goals + '\n**Shots:** ' + result.stats[0].shots + '\n**Shots on target:** ' + result.stats[0].sot + '\n**Possession:** ' + result.stats[0].possession + '%\n\n**' + home.overall + ' OVR** · ' + active(home).length + '/8 players remaining', inline: true },
         { name: away.name + ' · Statistics', value: '**Goals:** ' + result.stats[1].goals + '\n**Shots:** ' + result.stats[1].shots + '\n**Shots on target:** ' + result.stats[1].sot + '\n**Possession:** ' + result.stats[1].possession + '%\n\n**' + away.overall + ' OVR** · ' + active(away).length + '/8 players remaining', inline: true }
       );
@@ -498,12 +498,21 @@ async function runLiveMatch(interaction, home, away) {
     b.saves - a.saves
   );
   const standout = motmCandidates[0];
+  const motmStats = [
+    ['Goals', standout.goals],
+    ['Assists', standout.assists],
+    ['Saves', standout.saves],
+    ['Yellow cards', standout.yellowCards],
+    ['Red cards', standout.redCards],
+    ['Own goals', standout.ownGoals],
+    ['Missed penalties', standout.missedPenalties],
+  ].filter(([, value]) => Number(value) > 0)
+    .map(([label, value]) => '**' + label + ':** ' + value);
+
   const motm = {
     player: standout.player,
     team: teams[standout.teamIndex],
-    reason: standout.points + ' MOTM points (' +
-      standout.goals + ' goals, ' + standout.assists + ' assists, ' +
-      standout.saves + ' saves)'
+    stats: motmStats.join(' • ')
   };
   const totalPossession = stats[0].possession + stats[1].possession;
   const percentages = stats.map(s => totalPossession ? Math.round(s.possession / totalPossession * 100) : 50);
