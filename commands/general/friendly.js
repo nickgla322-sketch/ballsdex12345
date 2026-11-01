@@ -57,6 +57,9 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 function playerLabel(player, team) { return '**' + player.name + '** (<@' + team.id + '>)'; }
 function teamsafeName(team) { return team.name; }
 async function runLiveMatch(interaction, home, away) {
+  // TEMP TESTING SWITCH: set to false (or remove this block) to restore normal red-card chances.
+  const FORCE_ONE_RED_CARD_FOR_TESTING = true;
+  let forcedRedCardShown = false;
   const teams = [home, away], score = [0, 0], pending = [];
   const scorerGoals = new Map();
   const playerPerformance = new Map();
@@ -301,6 +304,17 @@ async function runLiveMatch(interaction, home, away) {
   function playMinute() {
     const possessionTeam = pickAttack();
     addPossession(possessionTeam);
+    // TEMP TEST: guarantee one non-goalkeeper red card at minute 10 in every match.
+    if (FORCE_ONE_RED_CARD_FOR_TESTING && !forcedRedCardShown && minute >= 10) {
+      const teamIndex = Math.random() < .5 ? 0 : 1;
+      const player = choosePlayer(field(teams[teamIndex]), () => 1);
+      if (player) {
+        player.sentOff = true;
+        forcedRedCardShown = true;
+        log(teamIndex, player, EMOJI.red);
+        return;
+      }
+    }
     if (pending.length) { pending.shift()(); return; }
     const r = Math.random();
     if (r < .09) foul();
