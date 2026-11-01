@@ -154,7 +154,7 @@ async function runLiveMatch(interaction, home, away) {
       return;
     }
     log(i, scorer, EMOJI.goal);
-    scorerGoals.set(scorer.id, (scorerGoals.get(scorer.id) || 0) + 1);
+    scorerGoals.set(i + ':' + scorer.id, (scorerGoals.get(i + ':' + scorer.id) || 0) + 1);
     const teammates = field(teams[i]).filter(p => p.id !== scorer.id);
     if (teammates.length && Math.random() < .70) {
       const assister = choosePlayer(teammates, p => p.dribbling + p.effective * .25);
@@ -239,7 +239,7 @@ async function runLiveMatch(interaction, home, away) {
     const p = choosePlayer(field(at), x => {
       const positionBoost = ['ST', 'CF', 'LW', 'RW'].includes(x.position) ? 1.45
         : ['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(x.position) ? 1.2 : 0.85;
-      const previousGoals = scorerGoals.get(x.id) || 0;
+      const previousGoals = scorerGoals.get(ai + ':' + x.id) || 0;
       // Ratings and attacking positions help, but scoring once reduces the chance of monopolizing every goal.
       return (x.shooting * .75 + x.dribbling * .25 + x.effective * .08) * positionBoost / (1 + previousGoals * .85);
     });
