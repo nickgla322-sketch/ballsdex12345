@@ -23,7 +23,7 @@ function buildPage(cards, startingEightIds, page, totalPages) {
   }).join('\n\n');
 
   return new EmbedBuilder()
-    .setTitle('Your Players')
+    .setTitle('Your Club')
     .setColor(0x5865f2)
     .setDescription(description || 'You do not own any players yet.')
     .setFooter({ text: 'Page ' + (page + 1) + ' of ' + totalPages + ' • ' + cards.length + ' players' });
@@ -34,12 +34,12 @@ function buildButtons(page, totalPages, disabled = false) {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId('players_show_prev')
+        .setCustomId('club_search_prev')
         .setStyle(ButtonStyle.Secondary)
         .setEmoji('⬅️')
         .setDisabled(disabled || page === 0),
       new ButtonBuilder()
-        .setCustomId('players_show_next')
+        .setCustomId('club_search_next')
         .setStyle(ButtonStyle.Secondary)
         .setEmoji('➡️')
         .setDisabled(disabled || page >= totalPages - 1),
@@ -49,11 +49,11 @@ function buildButtons(page, totalPages, disabled = false) {
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('players')
+    .setName('club')
     .setDescription('View all the players you own')
     .addSubcommand(subcommand =>
       subcommand
-        .setName('show')
+        .setName('search')
         .setDescription('Show player names, positions, overalls, and lineup status')
     ),
 
@@ -109,8 +109,8 @@ module.exports = {
       });
 
       collector.on('collect', async buttonInteraction => {
-        if (buttonInteraction.customId === 'players_show_prev') page = Math.max(0, page - 1);
-        if (buttonInteraction.customId === 'players_show_next') page = Math.min(totalPages - 1, page + 1);
+        if (buttonInteraction.customId === 'club_search_prev') page = Math.max(0, page - 1);
+        if (buttonInteraction.customId === 'club_search_next') page = Math.min(totalPages - 1, page + 1);
         await buttonInteraction.update({
           embeds: [buildPage(cards, startingEightIds, page, totalPages)],
           components: buildButtons(page, totalPages),
@@ -127,7 +127,7 @@ module.exports = {
         }
       });
     } catch (error) {
-      console.error('[players show]', error);
+      console.error('[club search]', error);
       return interaction.editReply({
         content: '**Players error**\\n' + String(error.message || 'Unknown API error').slice(0, 1800),
         embeds: [],
