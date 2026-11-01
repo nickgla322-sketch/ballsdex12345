@@ -48,7 +48,17 @@ module.exports = {
       const sideFor = id => String(id) === interaction.user.id ? 'p1' : 'p2';
       const build = async note => {
         state = await get('/api/v1/exchanges/' + session.session_id);
-        const cardInventories = (await Promise.all([inventory(interaction.user.id), inventory(target.id)])).flat();
+        const [p1Profile, p2Profile, ...cardInventoryLists] = await Promise.all([
+          get('/api/v1/players/' + interaction.user.id),
+          get('/api/v1/players/' + target.id),
+          inventory(interaction.user.id),
+          inventory(target.id),
+        ]);
+        const cardInventories = cardInventoryLists.flat();
+        state.balances = {
+          p1: Number(p1Profile.balance ?? 0),
+          p2: Number(p2Profile.balance ?? 0),
+        };
         state.cardNames = {};
         for (const card of cardInventories) state.cardNames[card.card_id] = card.name + ' · ' + card.overall + ' OVR';
         const desc = side => {
@@ -130,8 +140,20 @@ module.exports = {
             const amount = Number(submitted.fields.getTextInputValue('amount'));
             if (!Number.isSafeInteger(amount) || amount < 0) return submitted.reply({ content: 'Enter a whole number of 0 or more.', ephemeral: true });
             const latest = await get('/api/v1/exchanges/' + session.session_id);
+            const profile = await get('/api/v1/players/' + c.user.id);
+            const balance = Number(profile.balance ?? 0);
+            if (amount > balance) {
+              return submitted.reply({
+                content: 'You only have **' + balance.toLocaleString() + ' coins**. Your offer cannot be higher than your balance.',
+                ephemeral: true,
+              });
+            }
             await put('/api/v1/exchanges/' + session.session_id + '/offer', { user_id: c.user.id, card_ids: latest[side + '_cards'], coins: amount });
-            await submitted.reply({ content: 'Coin offer updated. Both acceptances were reset.', ephemeral: true });
+            await submitted.reply({
+              content: '**Coin offer updated**\\nCurrent balance: **' + balance.toLocaleString() +
+                ' coins**\\nAfter trade: **' + (balance - amount).toLocaleString() + ' coins**\\nBoth players must accept again.',
+              ephemeral: true,
+            });
             await build('Offer changed; both players must accept again.');
           } else if (c.customId === 'tr_accept') {
             await c.deferUpdate();
