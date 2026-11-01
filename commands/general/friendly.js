@@ -29,11 +29,8 @@ module.exports = {
       const winner = result.winner === null ? 'The friendly ends in a draw.' : '🏆 **' + (result.winner === 0 ? home.name : away.name) + '** win the friendly!';
       const motm = result.motm;
       const summary = new EmbedBuilder().setColor(result.winner === null ? 0x95a5a6 : 0xf1c40f).setTitle('🏁 FINAL RESULT').setDescription('**' + home.name + ' ' + result.score[0] + '–' + result.score[1] + ' ' + away.name + '**' + (result.pens ? '\nPenalty shootout: **' + result.pens[0] + '–' + result.pens[1] + '**' : '') + '\n\n' + winner + '\n\n⭐ **MAN OF THE MATCH: ' + motm.player.name + '** (' + teamsafeName(motm.team) + ')\n' + motm.reason).addFields(
-        { name: home.name + ' · Statistics', value: '**Goals:** ' + result.stats[0].goals + '\n**Shots:** ' + result.stats[0].shots + '\n**Shots on target:** ' + result.stats[0].sot + '\n**Possession:** ' + result.stats[0].possession + '%', inline: true },
-        { name: away.name + ' · Statistics', value: '**Goals:** ' + result.stats[1].goals + '\n**Shots:** ' + result.stats[1].shots + '\n**Shots on target:** ' + result.stats[1].sot + '\n**Possession:** ' + result.stats[1].possession + '%', inline: true }
-      ).addFields(
-        { name: home.name, value: home.overall + ' OVR · ' + active(home).length + '/8 players remaining', inline: true },
-        { name: away.name, value: away.overall + ' OVR · ' + active(away).length + '/8 players remaining', inline: true }
+        { name: home.name + ' · Statistics', value: '**Goals:** ' + result.stats[0].goals + '\n**Shots:** ' + result.stats[0].shots + '\n**Shots on target:** ' + result.stats[0].sot + '\n**Possession:** ' + result.stats[0].possession + '%\n\n**' + home.overall + ' OVR** · ' + active(home).length + '/8 players remaining', inline: true },
+        { name: away.name + ' · Statistics', value: '**Goals:** ' + result.stats[1].goals + '\n**Shots:** ' + result.stats[1].shots + '\n**Shots on target:** ' + result.stats[1].sot + '\n**Possession:** ' + result.stats[1].possession + '%\n\n**' + away.overall + ' OVR** · ' + active(away).length + '/8 players remaining', inline: true }
       );
       await interaction.followUp({ embeds: [summary] });
     } catch (error) { console.error('[friendly]', error); await interaction.followUp({ content: '**Friendly error:** ' + String(error.message || 'Could not start the match.').slice(0, 1500), ephemeral: true }); }
