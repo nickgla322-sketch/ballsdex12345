@@ -54,8 +54,6 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 function playerLabel(player, team) { return '**' + player.name + '** (<@' + team.id + '>)'; }
 function teamsafeName(team) { return team.name; }
 async function runLiveMatch(interaction, home, away) {
-  // TEMP TESTING SWITCH: set to false to restore normal extra-time and shootout rules.
-  const FORCE_PENALTY_SHOOTOUT_FOR_TESTING = true;
   const teams = [home, away], score = [0, 0], pending = [];
   const scorerGoals = new Map();
   const playerPerformance = new Map();
@@ -374,7 +372,7 @@ async function runLiveMatch(interaction, home, away) {
         minuteEventsLog = [{
           team: i,
           text: p.name + ' ' + (goal ? EMOJI.penaltyGoal : EMOJI.missedPenalty)
-            + ' **' + pens[0] + '–' + pens[1] + '** (' + attempts[i] + 'th penalty)'
+            + ' **' + pens[0] + '–' + pens[1] + '** (Penalty #' + attempts[i] + ')'
         }];
         await publish();
         await sleep(2000);
