@@ -34,6 +34,9 @@ module.exports = {
       const sideFor = id => String(id) === String(state.player1_id) ? 'p1' : 'p2';
       const build = async note => {
         state = await get('/api/v1/exchanges/' + session.session_id);
+        const cardInventories = (await Promise.all([inventory(state.player1_id), inventory(state.player2_id)])).flat();
+        state.cardNames = {};
+        for (const card of cardInventories) state.cardNames[card.card_id] = card.name + ' · ' + card.overall + ' OVR';
         const desc = side => {
           const cards = state[side + '_cards'] || [];
           return (cards.length ? cards.map(id => '• ' + (state.cardNames?.[id] || ('Card #' + id))).join('\n') : '• No players offered') + '\n**Coins:** ' + Number(state[side + '_coins'] || 0).toLocaleString();
