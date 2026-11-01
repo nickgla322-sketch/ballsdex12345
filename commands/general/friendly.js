@@ -118,24 +118,21 @@ async function runLiveMatch(interaction, home, away) {
     const position = String(player.position || '').toUpperCase();
     impact.overall += 4;
     if (['ST', 'CF', 'LW', 'RW'].includes(position)) {
-      // Losing a forward slightly reduces attacking output.
-      impact.ownShots += .20;
-      impact.opponentShots += .05;
-      impact.opponentScoring += .012;
+      // Losing a striker heavily reduces this team's attacking chances.
+      impact.ownShots += .40;
+      impact.opponentShots += .08;
     } else if (['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(position)) {
-      // A missing midfielder modestly affects progression and defensive cover.
-      impact.ownShots += .16;
-      impact.opponentShots += .12;
-      impact.opponentScoring += .05;
-    } else if (position === 'GK') {
-      impact.ownShots += .07;
+      // Losing a midfielder affects both teams' attacking chances.
+      impact.ownShots += .20;
       impact.opponentShots += .20;
-      impact.opponentScoring += .11;
+    } else if (position === 'GK') {
+      // Goalkeepers are protected from red cards, but keep a safe fallback.
+      impact.ownShots += .08;
+      impact.opponentShots += .30;
     } else {
-      // Losing a defender creates some space, but has a controlled impact.
-      impact.ownShots += .07;
-      impact.opponentShots += .24;
-      impact.opponentScoring += .09;
+      // Losing a defender gives the opposing team many more attacking chances.
+      impact.ownShots += .08;
+      impact.opponentShots += .40;
     }
     return impact;
   }, { ownShots: 0, opponentShots: 0, opponentScoring: 0, overall: 0 });
@@ -392,14 +389,17 @@ async function runLiveMatch(interaction, home, away) {
   const performances = [...playerPerformance.values()];
   // A sent-off player cannot win MOTM unless they scored at least five goals.
   const eligiblePerformances = performances.filter(p => !p.player.sentOff || p.goals >= 5);
-  const motmCandidates = eligiblePerformances.map(p => {
+  // If anyone scored, assist-only and defensive performances cannot beat a goalscorer.
+  const goalScorers = eligiblePerformances.filter(p => p.goals > 0);
+  const motmPool = goalScorers.length ? goalScorers : eligiblePerformances;
+  const motmCandidates = motmPool.map(p => {
     const isGoalkeeper = p.player.position === 'GK';
     const isDefender = ['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p.player.position);
     const conceded = score[1 - p.teamIndex];
     const contributions = p.goals + p.assists;
 
-    // Goals and assists should usually outweigh defensive ratings.
-    let weight = 1 + p.goals * 6 + p.assists * 5;
+    // Goals carry much more weight than assists when comparing scorers.
+    let weight = 1 + p.goals * 12 + p.assists * 2;
 
     // Defenders can still win, especially in a clean sheet, but OVR alone
     // does not decide the award.
