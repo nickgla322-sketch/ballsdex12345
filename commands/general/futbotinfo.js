@@ -1,9 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { run } = require('../../utils/futbotDiscord');
 
 const VERSION='1.7.1';
 const CREATOR='noobmaster';
-const DESCRIPTION='Collect football player cards, build five-card decks, and battle other players using your favourite footballers.';
+const DESCRIPTION='Collect player cards from your Roblox soccer league, build your Starting 8 lineup, trade players, and manage your club.';
 
 module.exports = {
   data: new SlashCommandBuilder().setName('futbotinfo').setDescription('FutBot help and information')
@@ -51,8 +50,6 @@ module.exports = {
       );
     } else if(sub==='version') {
       embed.setTitle('FutBot Version').setDescription('Current version: **'+VERSION+'**');
-    } else if(sub==='changelog') {
-      embed.setTitle('FutBot Changelog').setDescription(CHANGELOG.map(item=>'• '+item).join('\n'));
     }
     return interaction.reply({embeds:[embed],ephemeral:true});
   },
