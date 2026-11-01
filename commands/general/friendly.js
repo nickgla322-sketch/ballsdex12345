@@ -65,6 +65,7 @@ async function runLiveMatch(interaction, home, away) {
     if (!playerPerformance.has(key)) playerPerformance.set(key, { player, teamIndex, goals: 0, assists: 0, saves: 0 });
     return playerPerformance.get(key);
   };
+  teams.forEach((team, teamIndex) => team.players.forEach(player => performanceFor(teamIndex, player)));
   const stats = teams.map(() => ({ shots: 0, sot: 0, saves: 0, corners: 0, fouls: 0, possession: 0 }));
   const EMOJI = {
     red: '<:redcard:1361074355538497556>',
