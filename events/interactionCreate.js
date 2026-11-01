@@ -102,7 +102,7 @@ module.exports = {
       try {
         const futbotCommands = new Set([
           '8', 'friendly', 'players', 'daily', 'claim', 'buy', 'sell', 'pack', 'futbot', 'futbotbattle', 'futbotdrop',
-          'futbotexchange', 'futbotimage', 'futbotinfo', 'futbotmarket',
+          'futbotimage', 'futbotinfo', 'futbotmarket',
           'futbotstatus', 'futbotsuggest', 'futbottrade', 'futbotadmin',
         ]);
 
