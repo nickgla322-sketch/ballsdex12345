@@ -46,6 +46,8 @@ module.exports = {
             { label: 'Bronze Pack', value: 'bronze', description: '45-64 overall players' },
             { label: 'Silver Pack', value: 'silver', description: '65-74 overall players' },
             { label: 'Gold Pack', value: 'gold', description: '75-99 overall players' },
+            { label: '/claim', value: 'claim', description: '1 random card' },
+            { label: '/daily', value: 'daily', description: '3 random cards + 1,000 coins' },
           );
         const row = new ActionRowBuilder().addComponents(menu);
         const message = await interaction.reply({
@@ -62,7 +64,8 @@ module.exports = {
           await component.deferUpdate();
           try {
             const tier = component.values[0];
-            const response = await futbotApi.request('/api/v1/packs/odds/' + tier, { method: 'GET' });
+            const isReward = tier === 'claim' || tier === 'daily';
+            const response = await futbotApi.request(isReward ? '/api/v1/rewards/odds' : '/api/v1/packs/odds/' + tier, { method: 'GET' });
             const data = response?.data ?? response;
             const lines = (data.overalls || []).map(item => {
               const count = Number(item.count || 0);
@@ -71,12 +74,12 @@ module.exports = {
                 Number(item.percentage || 0).toFixed(2) + '%**  •  ' + players;
             });
             const embed = new EmbedBuilder()
-              .setTitle((tier.charAt(0).toUpperCase() + tier.slice(1)) + ' Pack Odds')
+              .setTitle(isReward ? (tier === 'claim' ? '/claim Card Odds' : '/daily Card Odds') : (tier.charAt(0).toUpperCase() + tier.slice(1)) + ' Pack Odds')
               .setColor(0x5865f2)
               .setDescription(lines.length
-                ? '**Overall odds**\n\n' + lines.join('\n')
+                ? '**' + (isReward ? 'Chance per card' : 'Overall odds') + '**\n\n' + lines.join('\n')
                 : 'No eligible players were found for this pack.')
-              .setFooter({ text: 'Based on ' + Number(data.total_players || 0).toLocaleString() + ' eligible players in the current card catalog. Odds may change when the catalog changes.' });
+              .setFooter({ text: ((isReward ? 'Each card uses these base odds. /daily selects 3 cards without repeats, so later draws can shift slightly. ' : 'Based on ') + Number(data.total_players || 0).toLocaleString() + ' eligible players in the current card catalog. Odds may change when the catalog changes.) });
             await component.editReply({ content: null, embeds: [embed], components: [row] });
           } catch (error) {
             await component.followUp({ content: 'Could not load pack odds: ' + String(error.message || 'Unknown API error').slice(0, 1200), flags: MessageFlags.Ephemeral });
