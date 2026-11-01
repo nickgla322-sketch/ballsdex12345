@@ -28,7 +28,7 @@ module.exports = {
       await inventory(target.id);
       session = data(await post('/api/v1/exchanges', {
         player1_id: interaction.user.id,
-        player2_id: Number(target.id),
+        player2_id: target.id,
         player1_name: interaction.member?.displayName || interaction.user.username,
         player2_name: target.globalName || target.username,
       }));
@@ -45,10 +45,10 @@ module.exports = {
       }
       const names = { p1: interaction.user.username, p2: target.username };
       let state = await get('/api/v1/exchanges/' + session.session_id);
-      const sideFor = id => String(id) === String(state.player1_id) ? 'p1' : 'p2';
+      const sideFor = id => String(id) === interaction.user.id ? 'p1' : 'p2';
       const build = async note => {
         state = await get('/api/v1/exchanges/' + session.session_id);
-        const cardInventories = (await Promise.all([inventory(state.player1_id), inventory(state.player2_id)])).flat();
+        const cardInventories = (await Promise.all([inventory(interaction.user.id), inventory(target.id)])).flat();
         state.cardNames = {};
         for (const card of cardInventories) state.cardNames[card.card_id] = card.name + ' · ' + card.overall + ' OVR';
         const desc = side => {
@@ -88,13 +88,14 @@ module.exports = {
       const collector = msg.createMessageComponentCollector({ time: 900000 });
       collector.on('collect', async c => {
         if (![interaction.user.id, target.id].includes(c.user.id)) return c.reply({ content: 'This is not your trade.', ephemeral: true });
-        const side = c.user.id === String(state.player1_id) ? 'p1' : 'p2';
+        const side = c.user.id === interaction.user.id ? 'p1' : 'p2';
         try {
           if (c.customId === 'tr_add' || c.customId === 'tr_remove') {
             const latest = await get('/api/v1/exchanges/' + session.session_id);
             const offered = latest[side + '_cards'] || [];
             const owned = await inventory(c.user.id);
-            const choices = (c.customId === 'tr_add' ? owned.filter(x => !offered.includes(Number(x.card_id))) : owned.filter(x => offered.includes(Number(x.card_id)))).slice(0, 25);
+            const uniqueOwned = [...new Map(owned.map(card => [String(card.card_id), card])).values()];
+            const choices = (c.customId === 'tr_add' ? uniqueOwned.filter(x => !offered.some(id => String(id) === String(x.card_id))) : uniqueOwned.filter(x => offered.some(id => String(id) === String(x.card_id)))).slice(0, 25);
             if (!choices.length) return c.reply({ content: 'No players available for that action.', ephemeral: true });
             const menu = new StringSelectMenuBuilder().setCustomId('tr_select_' + c.customId.slice(3)).setPlaceholder('Choose player card(s)').setMinValues(1).setMaxValues(c.customId === 'tr_add' ? Math.min(MAX - offered.length, choices.length) : choices.length)
               .addOptions(choices.map(x => ({ label: (x.name + ' · ' + x.overall + ' OVR').slice(0, 100), value: String(x.card_id) })));
