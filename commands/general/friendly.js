@@ -228,10 +228,10 @@ async function runLiveMatch(interaction, home, away) {
       }
     }
     // Give stronger teams a clear edge while keeping upsets possible.
-    const formBoost = (matchForm[ai] - matchForm[1 - ai]) * .25;
+    const formBoost = (matchForm[ai] - matchForm[1 - ai]) * .12;
     const defendingRedCardImpact = redCardImpact(1 - ai);
-    // Defensive red cards make the opposition's shots more likely to become goals.
-    const chance = Math.max(.06, Math.min(.50, .23 + edge * .003 + (p.shooting - g.goalkeeping) * .0015 + formBoost + defendingRedCardImpact.opponentScoring));
+    // Keep finishing rates realistic; ratings give an edge without deciding every shot.
+    const chance = Math.max(.04, Math.min(.32, .14 + edge * .0015 + (p.shooting - g.goalkeeping) * .001 + formBoost + defendingRedCardImpact.opponentScoring));
     if (Math.random() < chance) {
       stats[ai].sot++;
       scoreGoal(ai, p);
@@ -311,7 +311,7 @@ async function runLiveMatch(interaction, home, away) {
       const overallGap = matchOverall(possessionTeam) - matchOverall(1 - possessionTeam);
       const attackingRedCardImpact = redCardImpact(possessionTeam);
       const defendingRedCardImpact = redCardImpact(1 - possessionTeam);
-      const shotChance = Math.max(.16, Math.min(.70, .46 + overallGap * .003 + (matchForm[possessionTeam] - matchForm[1 - possessionTeam]) * .22 - attackingRedCardImpact.ownShots + defendingRedCardImpact.opponentShots));
+      const shotChance = Math.max(.12, Math.min(.52, .32 + overallGap * .0015 + (matchForm[possessionTeam] - matchForm[1 - possessionTeam]) * .12 - attackingRedCardImpact.ownShots + defendingRedCardImpact.opponentShots));
       if (r < .16 + shotChance) shot(possessionTeam);
     }
   }
