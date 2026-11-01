@@ -85,10 +85,10 @@ module.exports = {
         if (note) embed.setFooter({ text: note });
         const side = sideFor(interaction.user.id);
         const rows = state.status === 'open' ? [new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('tr_add').setLabel('Add Player').setStyle(ButtonStyle.Primary).setDisabled((state[side + '_cards'] || []).length >= MAX),
+          new ButtonBuilder().setCustomId('tr_add').setLabel('Add Player').setStyle(ButtonStyle.Primary).setDisabled((state.p1_cards || []).length >= MAX && (state.p2_cards || []).length >= MAX),
           new ButtonBuilder().setCustomId('tr_remove').setLabel('Remove Player').setStyle(ButtonStyle.Secondary).setDisabled(!(state[side + '_cards'] || []).length),
           new ButtonBuilder().setCustomId('tr_coins').setLabel('Set Coins').setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder().setCustomId('tr_accept').setLabel(state[side + '_confirmed'] ? 'Accepted' : 'Accept Trade').setStyle(ButtonStyle.Success).setDisabled(false),
+          new ButtonBuilder().setCustomId('tr_accept').setLabel(state[side + '_confirmed'] ? 'Unaccept' : 'Accept Trade').setStyle(state[side + '_confirmed'] ? ButtonStyle.Secondary : ButtonStyle.Success).setDisabled(false),
           new ButtonBuilder().setCustomId('tr_end').setLabel('End Trade').setStyle(ButtonStyle.Danger)
         )] : [];
         await interaction.editReply({ content: state.status === 'completed' ? 'Trade completed! Cards and coins have been transferred.' : state.status === 'cancelled' ? 'Trade ended. Nothing was transferred.' : '', embeds: [embed], components: rows });
@@ -117,6 +117,7 @@ module.exports = {
           if (c.customId === 'tr_add' || c.customId === 'tr_remove') {
             const latest = await get('/api/v1/exchanges/' + session.session_id);
             const offered = latest[side + '_cards'] || [];
+            if (c.customId === 'tr_add' && offered.length >= MAX) return c.reply({ content: 'You already offered the maximum of 5 players.', ephemeral: true });
             const owned = await inventory(c.user.id);
             const uniqueOwned = [...new Map(owned.map(card => [String(card.card_id), card])).values()];
             const choices = (c.customId === 'tr_add' ? uniqueOwned.filter(x => !offered.some(id => String(id) === String(x.card_id))) : uniqueOwned.filter(x => offered.some(id => String(id) === String(x.card_id)))).slice(0, 25);
@@ -157,8 +158,16 @@ module.exports = {
             await build('Offer changed; both players must accept again.');
           } else if (c.customId === 'tr_accept') {
             await c.deferUpdate();
+            const beforeConfirm = await get('/api/v1/exchanges/' + session.session_id);
+            const otherSide = side === 'p1' ? 'p2' : 'p1';
+            if (!beforeConfirm[side + '_confirmed'] && beforeConfirm[otherSide + '_confirmed']) {
+              await c.followUp({ content: 'Both players are accepting. Trade will complete in 3 seconds unless an offer changes.', ephemeral: true }).catch(() => {});
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              const afterWait = await get('/api/v1/exchanges/' + session.session_id);
+              if (afterWait.status !== 'open' || !afterWait[otherSide + '_confirmed']) return build('Trade confirmation was interrupted.');
+            }
             await post('/api/v1/exchanges/' + session.session_id + '/confirm', { user_id: c.user.id });
-            await build('Acceptance recorded.');
+            await build(state[side + '_confirmed'] ? 'Acceptance removed.' : 'Acceptance recorded.');
             if (state.status === 'completed') collector.stop('completed');
           } else if (c.customId === 'tr_end') {
             await c.deferUpdate();
