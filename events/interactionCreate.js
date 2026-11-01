@@ -12,7 +12,7 @@ module.exports = {
     }
 
     if (interaction.isButton() && interaction.customId.startsWith('futbot_pack_buy:')) {
-      const command = client.commands.get('pack');
+      const command = client.commands.get('ssp');
       if (!command?.handleButton) return;
       try {
         await command.handleButton(interaction);
@@ -141,7 +141,7 @@ module.exports = {
       const customId = interaction.customId;
 
       if (customId.startsWith('futbot_pack_tier:')) {
-        const command = client.commands.get('pack');
+        const command = client.commands.get('ssp');
         if (!command?.handleSelect) return;
         try {
           await command.handleSelect(interaction);
