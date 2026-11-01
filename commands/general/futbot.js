@@ -13,18 +13,11 @@ module.exports = {
       .addSubcommand(s => s.setName('stats').setDescription('View player statistics').addUserOption(o => o.setName('user').setDescription('Player')))
       .addSubcommand(s => s.setName('inventory').setDescription('View a player inventory').addUserOption(o => o.setName('user').setDescription('Player')))
       .addSubcommand(s => s.setName('starter').setDescription('Claim your one-time starter pack'))
-      .addSubcommand(s => s.setName('achievements').setDescription('View your achievements'))
-      .addSubcommand(s => s.setName('equip-title').setDescription('Equip an unlocked title').addIntegerOption(o => o.setName('achievement-id').setDescription('Achievement ID').setRequired(true)))
       .addSubcommand(s => s.setName('secret').setDescription('Claim a secret card reward').addStringOption(o => o.setName('code').setDescription('Secret code').setRequired(true).addChoices(...secrets.map(v => ({name:v,value:v}))))))
     .addSubcommandGroup(g => g.setName('cards').setDescription('Search and inspect cards')
       .addSubcommand(s => s.setName('copies').setDescription('View your editions of a card').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)).addUserOption(o => o.setName('user').setDescription('Player'))))
     .addSubcommandGroup(g => g.setName('pack').setDescription('Player packs and odds')
       .addSubcommand(s => s.setName('weight').setDescription('View overall odds for Bronze, Silver, or Gold packs')))
-    .addSubcommandGroup(g => g.setName('social').setDescription('Friends and requests')
-      .addSubcommand(s => s.setName('friends').setDescription('View your friends'))
-      .addSubcommand(s => s.setName('requests').setDescription('View incoming friend requests'))
-      .addSubcommand(s => s.setName('decline').setDescription('Decline a friend request').addIntegerOption(o => o.setName('request-id').setDescription('Request ID').setRequired(true)))
-      .addSubcommand(s => s.setName('remove').setDescription('Remove a friend').addUserOption(o => o.setName('user').setDescription('Friend').setRequired(true))))
     .addSubcommandGroup(g => g.setName('economy').setDescription('Selling cards and rankings')
       .addSubcommand(s => s.setName('leaderboard').setDescription('View a leaderboard').addStringOption(o => o.setName('stat').setDescription('Statistic').setRequired(true).addChoices(...stats.map(v => ({name:v.replace(/_/g,' '),value:v})))).addIntegerOption(o => o.setName('limit').setDescription('Entries (1-25)').setMinValue(1).setMaxValue(25))))
     .addSubcommandGroup(g => g.setName('tradeup').setDescription('Exchange five cards for a higher rarity card')
@@ -43,8 +36,6 @@ module.exports = {
       if (sub === 'stats') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/stats'), 'Stats');
       if (sub === 'inventory') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/inventory'), 'Inventory');
       if (sub === 'starter') return run(interaction, () => post(base + '/starter-pack', {}), 'Starter pack');
-      if (sub === 'achievements') return run(interaction, () => futbotApi.request(base + '/achievements'), 'Achievements');
-      if (sub === 'equip-title') return run(interaction, () => post(base + '/title', {achievement_id:interaction.options.getInteger('achievement-id')}), 'Equip title');
       if (sub === 'secret') return run(interaction, () => post(base + '/secrets/' + interaction.options.getString('code'), {}), 'Secret reward');
     }
     if (group === 'pack' && sub === 'weight') {
@@ -93,11 +84,6 @@ module.exports = {
     }
     if (group === 'cards') {
       if (sub === 'copies') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/cards/' + cardId + '/copies'), 'Card editions');
-    }
-    if (group === 'social') {
-      if (sub === 'friends') return run(interaction, () => futbotApi.request(base + '/friends'), 'Friends');
-      if (sub === 'requests') return run(interaction, () => futbotApi.request(base + '/friend-requests'), 'Friend requests');
-      if (sub === 'remove') return run(interaction, () => post('/api/v1/friends/remove', {user_id:uid,friend_id:user.id}), 'Remove friend');
     }
     if (group === 'economy') {
       if (sub === 'leaderboard') return run(interaction, () => futbotApi.request('/api/v1/leaderboards/' + interaction.options.getString('stat') + queryString({limit:interaction.options.getInteger('limit') || 10})), 'Leaderboard');
