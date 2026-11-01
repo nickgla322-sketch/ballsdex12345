@@ -109,11 +109,33 @@ async function runLiveMatch(interaction, home, away) {
   // Form affects attacking flow and shot quality, but does not replace player/team ratings.
   const matchForm = teams.map(() => Math.random() * .36 - .18);
   const formDifference = () => matchForm[0] - matchForm[1];
-  // A sending-off has a real team-wide cost, not just the loss of one player from selection.
-  // Each missing player is worth roughly 6 OVR points in the match simulation.
-  const matchOverall = i => teams[i].overall - teams[i].players.filter(p => p.sentOff).length * 8;
+  // Red cards affect the match differently depending on the player's position.
+  const redCardImpact = i => teams[i].players.reduce((impact, player) => {
+    if (!player.sentOff) return impact;
+    const position = String(player.position || '').toUpperCase();
+    if (['ST', 'CF', 'LW', 'RW'].includes(position)) {
+      impact.attack += .13;
+      impact.defense += .01;
+      impact.overall += 2;
+    } else if (['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(position)) {
+      impact.attack += .07;
+      impact.defense += .07;
+      impact.overall += 3;
+    } else if (position === 'GK') {
+      impact.attack += .005;
+      impact.defense += .22;
+      impact.overall += 5;
+    } else {
+      // Fullbacks, centre-backs and other defensive positions.
+      impact.attack += .015;
+      impact.defense += .16;
+      impact.overall += 4;
+    }
+    return impact;
+  }, { attack: 0, defense: 0, overall: 0 });
+  const matchOverall = i => teams[i].overall - redCardImpact(i).overall;
   // Better teams still get more attacking phases, but match form can narrow or widen the gap.
-  const pickAttack = () => Math.random() < Math.max(.28, Math.min(.72, .5 + (matchOverall(0) - matchOverall(1)) * .009 + formDifference() * .25)) ? 0 : 1;
+  const pickAttack = () => Math.random() < Math.max(.28, Math.min(.72, .5 + (matchOverall(0) - matchOverall(1)) * .009 + formDifference() * .25));
   const addPossession = i => { stats[i].possession++; };
   const scoreGoal = (i, scorer, kind = 'normal') => {
     score[i]++;
@@ -201,9 +223,9 @@ async function runLiveMatch(interaction, home, away) {
     }
     // Give stronger teams a clear edge while keeping upsets possible.
     const formBoost = (matchForm[ai] - matchForm[1 - ai]) * .25;
-    const manpowerPenalty = teams[ai].players.filter(player => player.sentOff).length * .035;
-    const opponentManpowerBonus = teams[1 - ai].players.filter(player => player.sentOff).length * .02;
-    const chance = Math.max(.06, Math.min(.50, .23 + edge * .003 + (p.shooting - g.goalkeeping) * .0015 + formBoost - manpowerPenalty + opponentManpowerBonus));
+    const attackingRedCardImpact = redCardImpact(ai);
+    const defendingRedCardImpact = redCardImpact(1 - ai);
+    const chance = Math.max(.06, Math.min(.50, .23 + edge * .003 + (p.shooting - g.goalkeeping) * .0015 + formBoost - attackingRedCardImpact.attack * .15 + defendingRedCardImpact.defense * .45));
     if (Math.random() < chance) {
       stats[ai].sot++;
       scoreGoal(ai, p);
@@ -281,9 +303,9 @@ async function runLiveMatch(interaction, home, away) {
     else {
       // More attacks lead to attempts, with a noticeable boost for the stronger side.
       const overallGap = matchOverall(possessionTeam) - matchOverall(1 - possessionTeam);
-      const sentOffCount = teams[possessionTeam].players.filter(player => player.sentOff).length;
-      const opponentSentOffCount = teams[1 - possessionTeam].players.filter(player => player.sentOff).length;
-      const shotChance = Math.max(.24, Math.min(.64, .46 + overallGap * .003 + (matchForm[possessionTeam] - matchForm[1 - possessionTeam]) * .22 - sentOffCount * .06 + opponentSentOffCount * .035));
+      const attackingRedCardImpact = redCardImpact(possessionTeam);
+      const defendingRedCardImpact = redCardImpact(1 - possessionTeam);
+      const shotChance = Math.max(.20, Math.min(.66, .46 + overallGap * .003 + (matchForm[possessionTeam] - matchForm[1 - possessionTeam]) * .22 - attackingRedCardImpact.attack + defendingRedCardImpact.defense * .45));
       if (r < .16 + shotChance) shot(possessionTeam);
     }
   }
