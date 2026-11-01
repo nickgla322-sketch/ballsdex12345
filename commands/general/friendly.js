@@ -172,9 +172,9 @@ async function runLiveMatch(interaction, home, away) {
     if (halfTimeText) {
       fields.push({ name: '\u200B', value: halfTimeText, inline: false });
       fields.push(
-        { name: home.name, value: '\u200B\n\n' + (secondHalfHistory[0].join('\n\n').slice(-1024) || 'No events yet.'), inline: true },
+        { name: '\u200B', value: '\u200B\n\n' + (secondHalfHistory[0].join('\n\n').slice(-1024) || 'No events yet.'), inline: true },
         { name: '\u200B', value: '\u200B', inline: true },
-        { name: away.name, value: '\u200B\n\n' + (secondHalfHistory[1].join('\n\n').slice(-1024) || 'No events yet.'), inline: true },
+        { name: '\u200B', value: '\u200B\n\n' + (secondHalfHistory[1].join('\n\n').slice(-1024) || 'No events yet.'), inline: true },
       );
     }
     fields.push(...systemHistory.map(text => ({ name: '\u200B', value: text, inline: false })));
@@ -374,20 +374,24 @@ async function runLiveMatch(interaction, home, away) {
     if (extra > 1 || pending.length) playMinute();
     await publish();
   }
-  if (score[0] !== score[1]) {
+  // TEMPORARY TEST SWITCH: set to false to restore normal full-time/extra-time rules.
+  const FORCE_PENALTIES = true;
+  if (score[0] !== score[1] && !FORCE_PENALTIES) {
     minuteEventsLog = [{ team: null, text: '**--------------------------FULL-TIME--------------------------**' }];
     await publish();
   } else {
-    minuteEventsLog = [{ team: null, text: '**--------------------------EXTRA TIME--------------------------**' }];
-    await publish();
-    inExtraTime = true;
-    minute = 90;
-    await playPeriod(105);
-    minuteEventsLog = [{ team: null, text: '**--------------------------EXTRA-TIME HALFTIME--------------------------**' }];
-    await publish();
-    await playPeriod(120);
-    inExtraTime = false;
-    if (score[0] === score[1]) {
+    if (!FORCE_PENALTIES) {
+      minuteEventsLog = [{ team: null, text: '**--------------------------EXTRA TIME--------------------------**' }];
+      await publish();
+      inExtraTime = true;
+      minute = 90;
+      await playPeriod(105);
+      minuteEventsLog = [{ team: null, text: '**--------------------------EXTRA-TIME HALFTIME--------------------------**' }];
+      await publish();
+      await playPeriod(120);
+      inExtraTime = false;
+    }
+    if (score[0] === score[1] || FORCE_PENALTIES) {
       minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ **PENALTY SHOOTOUT** ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
       await publish();
       pens = [0, 0];
