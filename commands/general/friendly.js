@@ -56,6 +56,7 @@ function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 function playerLabel(player, team) { return '**' + player.name + '** (<@' + team.id + '>)'; }
 async function runLiveMatch(interaction, home, away) {
   const teams = [home, away], score = [0, 0], pending = [];
+  const scorerGoals = new Map();
   const stats = teams.map(() => ({ shots: 0, sot: 0, saves: 0, corners: 0, fouls: 0, possession: 0 }));
   const EMOJI = {
     red: '<:redcard:1361074355538497556>',
@@ -105,6 +106,7 @@ async function runLiveMatch(interaction, home, away) {
       return;
     }
     log(i, scorer, EMOJI.goal);
+    scorerGoals.set(scorer.id, (scorerGoals.get(scorer.id) || 0) + 1);
     const teammates = field(teams[i]).filter(p => p.id !== scorer.id);
     if (teammates.length && Math.random() < .70) {
       const assister = choosePlayer(teammates, p => p.dribbling + p.effective * .25);
@@ -154,9 +156,11 @@ async function runLiveMatch(interaction, home, away) {
     const at = teams[ai], defending = teams[1 - ai];
     // Any outfield player can score; attackers are favored, but midfielders and defenders remain eligible.
     const p = choosePlayer(field(at), x => {
-      const positionBoost = ['ST', 'CF', 'LW', 'RW'].includes(x.position) ? 1.55
-        : ['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(x.position) ? 1.2 : 0.8;
-      return (x.shooting + x.dribbling * .3 + x.effective * .2) * positionBoost;
+      const positionBoost = ['ST', 'CF', 'LW', 'RW'].includes(x.position) ? 1.45
+        : ['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(x.position) ? 1.2 : 0.85;
+      const previousGoals = scorerGoals.get(x.id) || 0;
+      // Ratings and attacking positions help, but scoring once reduces the chance of monopolizing every goal.
+      return (x.shooting * .75 + x.dribbling * .25 + x.effective * .08) * positionBoost / (1 + previousGoals * .85);
     });
     if (!p) return;
     stats[ai].shots++;
@@ -173,15 +177,15 @@ async function runLiveMatch(interaction, home, away) {
       }
     }
     // Give stronger teams a clear edge while keeping upsets possible.
-    const chance = Math.max(.09, Math.min(.32, .16 + edge * .004 + (p.shooting - g.goalkeeping) * .001));
+    const chance = Math.max(.14, Math.min(.43, .23 + edge * .004 + (p.shooting - g.goalkeeping) * .002));
     if (Math.random() < chance) {
       stats[ai].sot++;
       scoreGoal(ai, p);
-    } else if (Math.random() < .45) {
+    } else if (Math.random() < .25) {
       stats[ai].sot++;
       stats[1 - ai].saves++;
       log(1 - ai, g, EMOJI.save, minute, '(' + p.name + ')');
-      if (Math.random() < .16) pending.push(() => corner(ai));
+      if (Math.random() < .22) pending.push(() => corner(ai));
     }
   }
   function corner(ai) {
@@ -201,19 +205,20 @@ async function runLiveMatch(interaction, home, away) {
   }
   function penalty(ai) {
     const t = teams[ai], g = getKeeper(teams[1 - ai]);
-    // Penalties are taken by the highest-rated attacker, never a random centre-back.
+    // The highest-rated eligible attacker takes the penalty.
     const attackers = field(t).filter(p => ['ST', 'CF', 'LW', 'RW', 'CAM'].includes(p.position));
     const kicker = (attackers.length ? attackers : field(t))
       .reduce((best, p) => !best || p.effective > best.effective ? p : best, null);
-    if (!kicker) return;
+    if (!kicker) return null;
     pending.push(() => {
-      if (Math.random() < Math.max(.66, Math.min(.88, .77 + (kicker.shooting - g.goalkeeping) / 500))) {
+      if (Math.random() < Math.max(.72, Math.min(.91, .82 + (kicker.shooting - g.goalkeeping) / 500))) {
         stats[ai].shots++; stats[ai].sot++; scoreGoal(ai, kicker, 'penalty');
       } else {
         stats[ai].shots++; stats[1 - ai].saves++;
         log(ai, kicker, EMOJI.missedPenalty);
       }
     });
+    return kicker;
   }
   function foul() {
     const oi = Math.random() < .5 ? 0 : 1, ai = 1 - oi;
@@ -231,8 +236,8 @@ async function runLiveMatch(interaction, home, away) {
       if (Math.random() < .045) {
         // A penalty is accompanied by a yellow card for the player who committed the foul.
         giveYellow(oi, offender);
-        minuteEventsLog.push({ team: ai, text: '**⚠️ PENALTY TO ' + victim.name.toUpperCase() + '!**' });
-        penalty(ai);
+        const kicker = penalty(ai);
+        if (kicker) minuteEventsLog.push({ team: ai, text: '**⚠️ PENALTY TO ' + kicker.name.toUpperCase() + '!**' });
       } else {
         freeKick(ai, victim);
       }
@@ -243,13 +248,13 @@ async function runLiveMatch(interaction, home, away) {
     addPossession(possessionTeam);
     if (pending.length) { pending.shift()(); return; }
     const r = Math.random();
-    if (r < .07) foul();
-    else if (r < .12) corner(possessionTeam);
+    if (r < .09) foul();
+    else if (r < .16) corner(possessionTeam);
     else {
-      // Stronger teams create more shooting opportunities from each attacking phase.
+      // More attacks lead to attempts, with a noticeable boost for the stronger side.
       const overallGap = teams[possessionTeam].overall - teams[1 - possessionTeam].overall;
-      const shotChance = Math.max(.28, Math.min(.52, .40 + overallGap * .006));
-      if (r < .12 + shotChance) shot(possessionTeam);
+      const shotChance = Math.max(.34, Math.min(.60, .48 + overallGap * .006));
+      if (r < .16 + shotChance) shot(possessionTeam);
     }
   }
   const playPeriod = async end => {
