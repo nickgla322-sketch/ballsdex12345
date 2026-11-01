@@ -27,7 +27,7 @@ module.exports = {
       await inventory(interaction.user.id);
       await inventory(target.id);
       session = data(await post('/api/v1/exchanges', {
-        player1_id: Number(interaction.user.id),
+        player1_id: interaction.user.id,
         player2_id: Number(target.id),
         player1_name: interaction.member?.displayName || interaction.user.username,
         player2_name: target.globalName || target.username,
@@ -40,7 +40,7 @@ module.exports = {
       const invitation = await msg.awaitMessageComponent({ time: 30000, filter: i => i.user.id === target.id });
       await invitation.deferUpdate();
       if (invitation.customId === 'trade_invite_no') {
-        await post('/api/v1/exchanges/' + session.session_id + '/cancel', { user_id: Number(interaction.user.id) });
+        await post('/api/v1/exchanges/' + session.session_id + '/cancel', { user_id: interaction.user.id });
         return interaction.editReply({ content: 'Trade invitation declined.', components: [] });
       }
       const names = { p1: interaction.user.username, p2: target.username };
@@ -103,7 +103,7 @@ module.exports = {
             const selected = await reply.awaitMessageComponent({ time: 60000, filter: x => x.user.id === c.user.id });
             const chosen = selected.values.map(Number);
             const updated = c.customId === 'tr_add' ? [...new Set([...offered, ...chosen])] : offered.filter(id => !chosen.includes(Number(id)));
-            await put('/api/v1/exchanges/' + session.session_id + '/offer', { user_id: Number(c.user.id), card_ids: updated, coins: latest[side + '_coins'] || 0 });
+            await put('/api/v1/exchanges/' + session.session_id + '/offer', { user_id: c.user.id, card_ids: updated, coins: latest[side + '_coins'] || 0 });
             await selected.update({ content: 'Offer updated. Both acceptances were reset.', components: [] });
             await build('Offer changed; both players must accept again.');
             await showCardImages();
@@ -115,17 +115,17 @@ module.exports = {
             const amount = Number(submitted.fields.getTextInputValue('amount'));
             if (!Number.isSafeInteger(amount) || amount < 0) return submitted.reply({ content: 'Enter a whole number of 0 or more.', ephemeral: true });
             const latest = await get('/api/v1/exchanges/' + session.session_id);
-            await put('/api/v1/exchanges/' + session.session_id + '/offer', { user_id: Number(c.user.id), card_ids: latest[side + '_cards'], coins: amount });
+            await put('/api/v1/exchanges/' + session.session_id + '/offer', { user_id: c.user.id, card_ids: latest[side + '_cards'], coins: amount });
             await submitted.reply({ content: 'Coin offer updated. Both acceptances were reset.', ephemeral: true });
             await build('Offer changed; both players must accept again.');
           } else if (c.customId === 'tr_accept') {
             await c.deferUpdate();
-            await post('/api/v1/exchanges/' + session.session_id + '/confirm', { user_id: Number(c.user.id) });
+            await post('/api/v1/exchanges/' + session.session_id + '/confirm', { user_id: c.user.id });
             await build('Acceptance recorded.');
             if (state.status === 'completed') collector.stop('completed');
           } else if (c.customId === 'tr_end') {
             await c.deferUpdate();
-            await post('/api/v1/exchanges/' + session.session_id + '/cancel', { user_id: Number(c.user.id) });
+            await post('/api/v1/exchanges/' + session.session_id + '/cancel', { user_id: c.user.id });
             await build('Trade ended.');
             collector.stop('cancelled');
           }
@@ -135,11 +135,11 @@ module.exports = {
         }
       });
       collector.on('end', async (_, reason) => {
-        if (reason === 'time') await post('/api/v1/exchanges/' + session.session_id + '/cancel', { user_id: Number(interaction.user.id) }).catch(() => {});
+        if (reason === 'time') await post('/api/v1/exchanges/' + session.session_id + '/cancel', { user_id: interaction.user.id }).catch(() => {});
         await interaction.editReply({ components: [] }).catch(() => {});
       });
     } catch (error) {
-      if (session?.session_id) await post('/api/v1/exchanges/' + session.session_id + '/cancel', { user_id: Number(interaction.user.id) }).catch(() => {});
+      if (session?.session_id) await post('/api/v1/exchanges/' + session.session_id + '/cancel', { user_id: interaction.user.id }).catch(() => {});
       await interaction.editReply({ content: '**Trade error**\n' + String(error.message || 'Could not start the trade.').slice(0, 1600), components: [] });
     }
   },
