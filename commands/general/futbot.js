@@ -64,13 +64,18 @@ module.exports = {
             const tier = component.values[0];
             const response = await futbotApi.request('/api/v1/packs/odds/' + tier, { method: 'GET' });
             const data = response?.data ?? response;
-            const lines = (data.overalls || []).map(item =>
-              '**' + item.overall + ' OVR** — ' + Number(item.percentage || 0).toFixed(2) + '% (' + item.count + ' players)'
-            );
+            const lines = (data.overalls || []).map(item => {
+              const count = Number(item.count || 0);
+              const players = count === 1 ? '1 player' : count.toLocaleString() + ' players';
+              return '**' + item.overall + ' OVR**  •  **' +
+                Number(item.percentage || 0).toFixed(2) + '%**  •  ' + players;
+            });
             const embed = new EmbedBuilder()
               .setTitle((tier.charAt(0).toUpperCase() + tier.slice(1)) + ' Pack Odds')
               .setColor(0x5865f2)
-              .setDescription(lines.length ? lines.join('\\n') : 'No eligible players were found for this pack.')
+              .setDescription(lines.length
+                ? '**Overall odds**\n\n' + lines.join('\n')
+                : 'No eligible players were found for this pack.')
               .setFooter({ text: 'Based on ' + Number(data.total_players || 0).toLocaleString() + ' eligible players in the current card catalog. Odds may change when the catalog changes.' });
             await component.editReply({ content: null, embeds: [embed], components: [row] });
           } catch (error) {
