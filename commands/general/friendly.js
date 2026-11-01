@@ -87,6 +87,7 @@ async function runLiveMatch(interaction, home, away) {
     minuteEventsLog.push({ team: i, text: name + ' ' + emoji + (extra ? ' ' + extra : '') + ' ' + formatMinute(m) + "'" });
   };
   const giveYellow = (teamIndex, player) => {
+    if (!player || player.position === 'GK') return;
     player.yellow++;
     log(teamIndex, player, EMOJI.yellow);
     if (player.yellow >= 2) {
@@ -277,7 +278,7 @@ async function runLiveMatch(interaction, home, away) {
   }
   function foul() {
     const oi = Math.random() < .5 ? 0 : 1, ai = 1 - oi;
-    const offender = choosePlayer(field(teams[oi]), p => p.defense + p.effective * .2);
+    const offender = choosePlayer(field(teams[oi]).filter(p => p.position !== 'GK'), p => p.defense + p.effective * .2);
     const victim = choosePlayer(field(teams[ai]), p => p.effective);
     if (!offender || !victim) return;
     stats[oi].fouls++;
