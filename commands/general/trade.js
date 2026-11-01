@@ -109,7 +109,7 @@ module.exports = {
         }
       };
       await build();
-      const collector = msg.createMessageComponentCollector({ time: 900000 });
+      const collector = msg.createMessageComponentCollector({ time: 30000 });
       collector.on('collect', async c => {
         if (![interaction.user.id, target.id].includes(c.user.id)) return c.reply({ content: 'This is not your trade.', ephemeral: true });
         const side = c.user.id === interaction.user.id ? 'p1' : 'p2';
@@ -181,7 +181,17 @@ module.exports = {
         }
       });
       collector.on('end', async (_, reason) => {
-        if (reason === 'time') await post('/api/v1/exchanges/' + session.session_id + '/cancel', { user_id: interaction.user.id }).catch(() => {});
+        if (reason === 'time') {
+          const latest = await get('/api/v1/exchanges/' + session.session_id).catch(() => null);
+          if (latest?.status === 'open') {
+            await post('/api/v1/exchanges/' + session.session_id + '/cancel', { user_id: interaction.user.id }).catch(() => {});
+            await interaction.editReply({
+              content: '<@' + interaction.user.id + '> <@' + target.id + '> **Trade ended:** the 30-second time limit was reached.',
+              components: [],
+            }).catch(() => {});
+            return;
+          }
+        }
         await interaction.editReply({ components: [] }).catch(() => {});
       });
     } catch (error) {
