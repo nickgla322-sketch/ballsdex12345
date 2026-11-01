@@ -471,7 +471,7 @@ async function runLiveMatch(interaction, home, away) {
       - p.ownGoals * 6;
 
     if (cleanSheet && isGoalkeeper) points += 4;
-    else if (cleanSheet && isDefender) points += 5;
+    else if (cleanSheet && isDefender) points += 8;
     if (p.goals >= 3) points += 3;
     if (p.assists >= 2) points += 2;
 
