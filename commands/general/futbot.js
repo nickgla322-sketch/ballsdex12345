@@ -17,7 +17,6 @@ module.exports = {
       .addSubcommand(s => s.setName('equip-title').setDescription('Equip an unlocked title').addIntegerOption(o => o.setName('achievement-id').setDescription('Achievement ID').setRequired(true)))
       .addSubcommand(s => s.setName('secret').setDescription('Claim a secret card reward').addStringOption(o => o.setName('code').setDescription('Secret code').setRequired(true).addChoices(...secrets.map(v => ({name:v,value:v}))))))
     .addSubcommandGroup(g => g.setName('cards').setDescription('Search and inspect cards')
-      .addSubcommand(s => s.setName('detail').setDescription('View a card').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)))
       .addSubcommand(s => s.setName('weight').setDescription('Check pack weight').addStringOption(o => o.setName('query').setDescription('Player name or card ID').setRequired(true)))
       .addSubcommand(s => s.setName('copies').setDescription('View your editions of a card').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)).addUserOption(o => o.setName('user').setDescription('Player'))))
     .addSubcommandGroup(g => g.setName('social').setDescription('Friends and requests')
@@ -37,7 +36,6 @@ module.exports = {
     const uid = userIdOption(interaction);
     const user = interaction.options.getUser('user');
     const base = '/api/v1/players/' + uid;
-    const cardId = interaction.options.getInteger('card-id');
 
     if (group === 'player') {
       if (sub === 'profile') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid)), 'Profile');
@@ -49,7 +47,6 @@ module.exports = {
       if (sub === 'secret') return run(interaction, () => post(base + '/secrets/' + interaction.options.getString('code'), {}), 'Secret reward');
     }
     if (group === 'cards') {
-      if (sub === 'detail') return run(interaction, () => futbotApi.request('/api/v1/cards/' + cardId), 'Card detail');
       if (sub === 'weight') return run(interaction, () => futbotApi.request('/api/v1/cards/weight' + queryString({search:interaction.options.getString('query')})), 'Card weight');
       if (sub === 'copies') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/cards/' + cardId + '/copies'), 'Card editions');
     }
