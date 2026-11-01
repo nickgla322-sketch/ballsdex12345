@@ -79,7 +79,7 @@ module.exports = {
               .setDescription(lines.length
                 ? '**' + (isReward ? 'Chance per card' : 'Overall odds') + '**\n\n' + lines.join('\n')
                 : 'No eligible players were found for this pack.')
-              .setFooter({ text: ((isReward ? 'Each card uses these base odds. /daily selects 3 cards without repeats, so later draws can shift slightly. ' : 'Based on ') + Number(data.total_players || 0).toLocaleString() + ' eligible players in the current card catalog. Odds may change when the catalog changes.) });
+              .setFooter({ text: (isReward ? 'Each card uses these base odds. /daily selects 3 cards without repeats, so later draws can shift slightly. ' : 'Based on ') + Number(data.total_players || 0).toLocaleString() + ' eligible players in the current card catalog. Odds may change when the catalog changes.' });
             await component.editReply({ content: null, embeds: [embed], components: [row] });
           } catch (error) {
             await component.followUp({ content: 'Could not load pack odds: ' + String(error.message || 'Unknown API error').slice(0, 1200), flags: MessageFlags.Ephemeral });
