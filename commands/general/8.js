@@ -10,9 +10,10 @@ module.exports = {
     .addSubcommand(s => s.setName('add').setDescription('Add an owned player to a lineup slot')
       .addStringOption(o => o.setName('player').setDescription('Player name or part of their name').setRequired(true))
       .addIntegerOption(o => o.setName('slot').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
-    .addSubcommand(s => s.setName('remove').setDescription('Remove a player from a lineup slot')
-      .addIntegerOption(o => o.setName('slot').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
-    .addSubcommand(s => s.setName('remove-all').setDescription('Remove every player from your lineup'))
+    .addSubcommandGroup(g => g.setName('remove').setDescription('Remove players from your lineup')
+      .addSubcommand(s => s.setName('slot').setDescription('Remove a player from one lineup slot')
+        .addIntegerOption(o => o.setName('number').setDescription('Lineup slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
+      .addSubcommand(s => s.setName('all').setDescription('Remove every player from your lineup')))
     .addSubcommand(s => s.setName('swap').setDescription('Swap two players between lineup slots')
       .addIntegerOption(o => o.setName('slot1').setDescription('First slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8))
       .addIntegerOption(o => o.setName('slot2').setDescription('Second slot (1-8)').setRequired(true).setMinValue(1).setMaxValue(8)))
@@ -21,6 +22,7 @@ module.exports = {
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     try {
+      const subcommandGroup = interaction.options.getSubcommandGroup(false);
       const subcommand = interaction.options.getSubcommand();
       const basePath = '/api/v1/players/' + interaction.user.id + '/lineup';
       if (subcommand === 'formation') {
@@ -124,8 +126,8 @@ module.exports = {
         });
         return;
       }
-      if (subcommand === 'remove') {
-        const slot = interaction.options.getInteger('slot', true);
+      if (subcommandGroup === 'remove' && subcommand === 'slot') {
+        const slot = interaction.options.getInteger('number', true);
         const removed = await futbotApi.request(basePath + '/remove', {
           method: 'POST',
           body: JSON.stringify({ slot }),
@@ -138,7 +140,7 @@ module.exports = {
           .addFields({ name: 'Lineup', value: '**' + (lineup.filled ?? '-') + '/8** players · Formation **' + (lineup.formation || '2-2-3') + '**' });
         return interaction.editReply({ embeds: [embed], content: '' });
       }
-      if (subcommand === 'remove-all') {
+      if (subcommandGroup === 'remove' && subcommand === 'all') {
         const cleared = await futbotApi.request(basePath + '/clear', {
           method: 'POST',
           body: JSON.stringify({}),
