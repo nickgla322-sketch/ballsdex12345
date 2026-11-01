@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { futbotApi, userIdOption, parseIdList, queryString, run, post } = require('../../utils/futbotDiscord');
 
 const stats = ['battles_won','battles_played','battles_lost','battles_drawn','rounds_won','rounds_played','rounds_lost','rounds_drawn','coins','cards_dropped','cards_sold'];
@@ -17,7 +17,7 @@ module.exports = {
       .addSubcommand(s => s.setName('equip-title').setDescription('Equip an unlocked title').addIntegerOption(o => o.setName('achievement-id').setDescription('Achievement ID').setRequired(true)))
       .addSubcommand(s => s.setName('secret').setDescription('Claim a secret card reward').addStringOption(o => o.setName('code').setDescription('Secret code').setRequired(true).addChoices(...secrets.map(v => ({name:v,value:v}))))))
     .addSubcommandGroup(g => g.setName('cards').setDescription('Search and inspect cards')
-      .addSubcommand(s => s.setName('weight').setDescription('Check pack weight').addStringOption(o => o.setName('query').setDescription('Player name or card ID').setRequired(true)))
+      .addSubcommand(s => s.setName('pack').setDescription('View player pack odds').addSubcommand(pack => pack.setName('weight').setDescription('View overall odds for Bronze, Silver, or Gold packs')))
       .addSubcommand(s => s.setName('copies').setDescription('View your editions of a card').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)).addUserOption(o => o.setName('user').setDescription('Player'))))
     .addSubcommandGroup(g => g.setName('social').setDescription('Friends and requests')
       .addSubcommand(s => s.setName('friends').setDescription('View your friends'))
@@ -47,7 +47,50 @@ module.exports = {
       if (sub === 'secret') return run(interaction, () => post(base + '/secrets/' + interaction.options.getString('code'), {}), 'Secret reward');
     }
     if (group === 'cards') {
-      if (sub === 'weight') return run(interaction, () => futbotApi.request('/api/v1/cards/weight' + queryString({search:interaction.options.getString('query')})), 'Card weight');
+      if (sub === 'pack') {
+        const menu = new StringSelectMenuBuilder()
+          .setCustomId('futbot_pack_weight:' + interaction.user.id)
+          .setPlaceholder('Choose a pack to view its odds')
+          .addOptions(
+            { label: 'Bronze Pack', value: 'bronze', description: '45-64 overall players' },
+            { label: 'Silver Pack', value: 'silver', description: '65-74 overall players' },
+            { label: 'Gold Pack', value: 'gold', description: '75-99 overall players' },
+          );
+        const row = new ActionRowBuilder().addComponents(menu);
+        const message = await interaction.reply({
+          content: 'Choose a pack to see the chance of receiving each player overall.',
+          components: [row],
+          flags: MessageFlags.Ephemeral,
+          fetchReply: true,
+        });
+        const collector = message.createMessageComponentCollector({
+          time: 120000,
+          filter: component => component.user.id === interaction.user.id && component.customId === 'futbot_pack_weight:' + interaction.user.id,
+        });
+        collector.on('collect', async component => {
+          await component.deferUpdate();
+          try {
+            const tier = component.values[0];
+            const response = await futbotApi.request('/api/v1/packs/odds/' + tier, { method: 'GET' });
+            const data = response?.data ?? response;
+            const lines = (data.overalls || []).map(item =>
+              '**' + item.overall + ' OVR** — ' + Number(item.percentage || 0).toFixed(2) + '% (' + item.count + ' players)'
+            );
+            const embed = new EmbedBuilder()
+              .setTitle((tier.charAt(0).toUpperCase() + tier.slice(1)) + ' Pack Odds')
+              .setColor(0x5865f2)
+              .setDescription(lines.length ? lines.join('\\n') : 'No eligible players were found for this pack.')
+              .setFooter({ text: 'Based on ' + Number(data.total_players || 0).toLocaleString() + ' eligible players in the current card catalog. Odds may change when the catalog changes.' });
+            await component.editReply({ content: null, embeds: [embed], components: [row] });
+          } catch (error) {
+            await component.followUp({ content: 'Could not load pack odds: ' + String(error.message || 'Unknown API error').slice(0, 1200), flags: MessageFlags.Ephemeral });
+          }
+        });
+        collector.on('end', async () => {
+          try { await interaction.editReply({ components: [new ActionRowBuilder().addComponents(menu.setDisabled(true))] }); } catch {}
+        });
+        return;
+      }
       if (sub === 'copies') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/cards/' + cardId + '/copies'), 'Card editions');
     }
     if (group === 'social') {
