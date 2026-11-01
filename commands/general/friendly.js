@@ -79,7 +79,7 @@ async function runLiveMatch(interaction, home, away) {
   const teamHistory = [[], []];
   const secondHalfHistory = [[], []];
   let currentHalf = 0;
-  const kickoffText = '**━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ KICK-OFF ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━**';
+  const kickoffText = '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀**KICK-OFF**';
   let halfTimeText = null;
   let systemHistory = [];
   let minuteEventsLog = [];
@@ -163,16 +163,16 @@ async function runLiveMatch(interaction, home, away) {
   const makeEmbed = () => {
     const fields = [
       { name: '\u200B', value: kickoffText, inline: false },
-      { name: home.name, value: teamHistory[0].join('\n\n').slice(-1024) || 'No events yet.', inline: true },
+      { name: home.name, value: '\n' + (teamHistory[0].join('\\n\\n').slice(-1024) || 'No events yet.'), inline: true },
       { name: '\u200B', value: '\u200B', inline: true },
-      { name: away.name, value: teamHistory[1].join('\n\n').slice(-1024) || 'No events yet.', inline: true },
+      { name: away.name, value: '\n' + (teamHistory[1].join('\\n\\n').slice(-1024) || 'No events yet.'), inline: true },
     ];
     if (halfTimeText) {
       fields.push({ name: '\u200B', value: halfTimeText, inline: false });
       fields.push(
-        { name: home.name, value: secondHalfHistory[0].join('\n\n').slice(-1024) || 'No events yet.', inline: true },
+        { name: home.name, value: '\n' + (secondHalfHistory[0].join('\\n\\n').slice(-1024) || 'No events yet.'), inline: true },
         { name: '\u200B', value: '\u200B', inline: true },
-        { name: away.name, value: secondHalfHistory[1].join('\n\n').slice(-1024) || 'No events yet.', inline: true },
+        { name: away.name, value: '\n' + (secondHalfHistory[1].join('\\n\\n').slice(-1024) || 'No events yet.'), inline: true },
       );
     }
     fields.push(...systemHistory.map(text => ({ name: '\u200B', value: text, inline: false })));
@@ -184,7 +184,10 @@ async function runLiveMatch(interaction, home, away) {
   };
   const publish = async () => {
     for (const event of minuteEventsLog) {
-      if (event.team === null) systemHistory.push(event.text);
+      if (event.team === null) {
+        if (event.text.includes('HALF-TIME')) halfTimeText = '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀**HALF-TIME**';
+        else systemHistory.push(event.text);
+      }
       else {
         const history = currentHalf === 0 ? teamHistory : secondHalfHistory;
         if (event.text.startsWith('　• ') && history[event.team].length) history[event.team][history[event.team].length - 1] += '\n' + event.text;
@@ -347,7 +350,8 @@ async function runLiveMatch(interaction, home, away) {
     await publish();
   }
   inFirstHalfStoppage = false;
-  minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n**HALF-TIME**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
+  minuteEventsLog = [{ team: null, text: '**HALF-TIME**' }];
+  currentHalf = 1;
   await publish();
   minute = 45;
   await playPeriod(90);
