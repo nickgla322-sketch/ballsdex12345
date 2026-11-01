@@ -11,7 +11,7 @@ module.exports = {
     const sub=interaction.options.getSubcommand();
     const embed=new EmbedBuilder().setColor(0x3498db).setFooter({text:'FutBot • '+VERSION});
     if(sub==='help') {
-      embed.setTitle('⚽ FutBot Help')
+      embed.setTitle('⚽ SSP Help')
         .setDescription('Your league player collection, club, lineup, packs, and trading commands.')
         .addFields(
           {
