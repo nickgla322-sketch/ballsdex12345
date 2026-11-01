@@ -114,11 +114,11 @@ async function runLiveMatch(interaction, home, away) {
     if (!player.sentOff) return impact;
     const position = String(player.position || '').toUpperCase();
     if (['ST', 'CF', 'LW', 'RW'].includes(position)) {
-      impact.attack += .13;
+      impact.attack += .25;
       impact.defense += .01;
       impact.overall += 2;
     } else if (['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(position)) {
-      impact.attack += .07;
+      impact.attack += .10;
       impact.defense += .07;
       impact.overall += 3;
     } else if (position === 'GK') {
@@ -223,9 +223,9 @@ async function runLiveMatch(interaction, home, away) {
     }
     // Give stronger teams a clear edge while keeping upsets possible.
     const formBoost = (matchForm[ai] - matchForm[1 - ai]) * .25;
-    const attackingRedCardImpact = redCardImpact(ai);
     const defendingRedCardImpact = redCardImpact(1 - ai);
-    const chance = Math.max(.06, Math.min(.50, .23 + edge * .003 + (p.shooting - g.goalkeeping) * .0015 + formBoost - attackingRedCardImpact.attack * .15 + defendingRedCardImpact.defense * .45));
+    // An attacking red card reduces the number of shots, not the quality of shots that still happen.
+    const chance = Math.max(.06, Math.min(.50, .23 + edge * .003 + (p.shooting - g.goalkeeping) * .0015 + formBoost + defendingRedCardImpact.defense * .45));
     if (Math.random() < chance) {
       stats[ai].sot++;
       scoreGoal(ai, p);
