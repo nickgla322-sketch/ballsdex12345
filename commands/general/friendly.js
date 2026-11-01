@@ -30,7 +30,12 @@ module.exports = {
       const summary = new EmbedBuilder().setColor(result.winner === null ? 0x95a5a6 : 0xf1c40f).setTitle('🏁 FINAL RESULT').setDescription('**' + home.name + ' ' + result.score[0] + '–' + result.score[1] + ' ' + away.name + '**' + (result.pens ? '\nPenalty shootout: **' + result.pens[0] + '–' + result.pens[1] + '**' : '') + '\n\n' + winner).addFields(
         { name: home.name + ' · Statistics', value: '**Goals:** ' + result.stats[0].goals + '\n**Shots:** ' + result.stats[0].shots + '\n**Shots on target:** ' + result.stats[0].sot + '\n**Possession:** ' + result.stats[0].possession + '%\n**Saves:** ' + result.stats[0].saves + '\n**Corners:** ' + result.stats[0].corners + '\n**Fouls:** ' + result.stats[0].fouls, inline: true },
         { name: away.name + ' · Statistics', value: '**Goals:** ' + result.stats[1].goals + '\n**Shots:** ' + result.stats[1].shots + '\n**Shots on target:** ' + result.stats[1].sot + '\n**Possession:** ' + result.stats[1].possession + '%\n**Saves:** ' + result.stats[1].saves + '\n**Corners:** ' + result.stats[1].corners + '\n**Fouls:** ' + result.stats[1].fouls, inline: true }
-      ).addFields({ name: home.name, value: home.overall + ' OVR · ' + active(home).length + '/8 players remaining', inline: true }, { name: away.name, value: away.overall + ' OVR · ' + active(away).length + '/8 players remaining', inline: true });
+      ).addFields(
+        { name: home.name + ' · Player Ratings', value: result.ratings[0], inline: true },
+        { name: away.name + ' · Player Ratings', value: result.ratings[1], inline: true },
+        { name: home.name, value: home.overall + ' OVR · ' + active(home).length + '/8 players remaining', inline: true },
+        { name: away.name, value: away.overall + ' OVR · ' + active(away).length + '/8 players remaining', inline: true }
+      );
       await interaction.followUp({ embeds: [summary] });
     } catch (error) { console.error('[friendly]', error); await interaction.followUp({ content: '**Friendly error:** ' + String(error.message || 'Could not start the match.').slice(0, 1500), ephemeral: true }); }
   },
@@ -54,6 +59,7 @@ function playerLabel(player, team) { return '**' + player.name + '** (<@' + team
 async function runLiveMatch(interaction, home, away) {
   const teams = [home, away], score = [0, 0], pending = [];
   const stats = teams.map(() => ({ shots: 0, sot: 0, saves: 0, corners: 0, fouls: 0, possession: 0 }));
+  const playerStats = teams.map(t => new Map(t.players.map(p => [p.id, { goals: 0, assists: 0, saves: 0, cards: 0, ownGoals: 0, missedPenalties: 0, shots: 0 }])));
   const EMOJI = {
     red: '<:redcard:1361074355538497556>',
     yellow: '<:yellowcard:1361074497007915018>',
@@ -87,6 +93,7 @@ async function runLiveMatch(interaction, home, away) {
   const addPossession = i => { stats[i].possession++; };
   const scoreGoal = (i, scorer, kind = 'normal') => {
     score[i]++;
+    playerStats[i].get(scorer.id).goals++;
     if (kind === 'penalty') {
       log(i, scorer, EMOJI.penaltyGoal);
       return;
@@ -95,20 +102,24 @@ async function runLiveMatch(interaction, home, away) {
     const teammates = field(teams[i]).filter(p => p.id !== scorer.id);
     if (teammates.length && Math.random() < .70) {
       const assister = choosePlayer(teammates, p => p.dribbling + p.effective * .25);
-      if (assister) minuteEventsLog.push({ team: i, text: '　• ' + assister.name + ' ' + EMOJI.assist });
+      if (assister) {
+        playerStats[i].get(assister.id).assists++;
+        minuteEventsLog.push({ team: i, text: '　• ' + assister.name + ' ' + EMOJI.assist });
+      }
     }
   };
   const makeEmbed = () => new EmbedBuilder().setColor(0x3498db)
     .setTitle('⚽ FRIENDLY MATCH · ' + minute + "'")
     .setDescription('**⏱️ ' + minute + "'**\n**" + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**' + (systemHistory.length ? '\n\n' + systemHistory.join('\n') : ''))
     .addFields(
-      { name: '<@' + home.id + '>', value: teamHistory[0].join('\n').slice(-1024) || 'No events yet.', inline: true },
-      { name: '<@' + away.id + '>', value: teamHistory[1].join('\n').slice(-1024) || 'No events yet.', inline: true }
+      { name: home.name, value: teamHistory[0].join('\n\n').slice(-1024) || 'No events yet.', inline: true },
+      { name: away.name, value: teamHistory[1].join('\n\n').slice(-1024) || 'No events yet.', inline: true }
     )
     .setFooter({ text: 'Match events' });
   const publish = async () => {
     for (const event of minuteEventsLog) {
       if (event.team === null) systemHistory.push(event.text);
+      else if (event.text.startsWith('　• ') && teamHistory[event.team].length) teamHistory[event.team][teamHistory[event.team].length - 1] += '\n' + event.text;
       else teamHistory[event.team].push(event.text);
     }
     const totalLength = teamHistory[0].join('\n').length + teamHistory[1].join('\n').length + systemHistory.join('\n').length;
@@ -129,6 +140,7 @@ async function runLiveMatch(interaction, home, away) {
     if (!p) return;
     stats[ai].shots++;
     const g = getKeeper(defending);
+    playerStats[ai].get(p.id).shots++;
     const edge = at.overall - defending.overall;
     // Rare own goals can happen when a defender gets involved in a dangerous attack.
     if (Math.random() < .006) {
@@ -136,6 +148,7 @@ async function runLiveMatch(interaction, home, away) {
       if (defender) {
         stats[ai].sot++;
         score[ai]++;
+        playerStats[1 - ai].get(defender.id).ownGoals++;
         minuteEventsLog.push({ team: 1 - ai, text: defender.name + ' ' + EMOJI.ownGoal + ' ' + minute + "'" });
         return;
       }
@@ -147,6 +160,7 @@ async function runLiveMatch(interaction, home, away) {
     } else if (Math.random() < .72) {
       stats[ai].sot++;
       stats[1 - ai].saves++;
+      if (playerStats[1 - ai].has(g.id)) playerStats[1 - ai].get(g.id).saves++;
       log(1 - ai, g, EMOJI.save, minute, '(' + p.name + ')');
       if (Math.random() < .16) pending.push(() => corner(ai));
     }
@@ -175,6 +189,7 @@ async function runLiveMatch(interaction, home, away) {
         stats[ai].shots++; stats[ai].sot++; scoreGoal(ai, kicker, 'penalty');
       } else {
         stats[ai].shots++; stats[1 - ai].saves++;
+        playerStats[ai].get(kicker.id).missedPenalties++;
         log(ai, kicker, EMOJI.missedPenalty);
       }
     });
@@ -187,11 +202,12 @@ async function runLiveMatch(interaction, home, away) {
     stats[oi].fouls++;
     if (Math.random() < .025) {
       offender.sentOff = true;
+      playerStats[oi].get(offender.id).cards += 2;
       log(oi, offender, EMOJI.red);
     } else if (Math.random() < .20) {
       offender.yellow++;
-      if (offender.yellow >= 2) { offender.sentOff = true; log(oi, offender, EMOJI.red); }
-      else log(oi, offender, EMOJI.yellow);
+      if (offender.yellow >= 2) { offender.sentOff = true; playerStats[oi].get(offender.id).cards += 2; log(oi, offender, EMOJI.red); }
+      else { playerStats[oi].get(offender.id).cards++; log(oi, offender, EMOJI.yellow); }
     }
     pending.push(() => { if (Math.random() < .045) penalty(ai); else freeKick(ai, victim); });
   }
@@ -259,5 +275,13 @@ async function runLiveMatch(interaction, home, away) {
     goals: score[i],
     possession: percentages[i],
   }));
-  return { score, pens, winner, stats: resultStats };
+  const ratings = teams.map((team, i) => team.players.map(p => {
+    const ps = playerStats[i].get(p.id);
+    let rating = 6 + ps.goals * 1.2 + ps.assists * 0.7 + ps.saves * 0.45 - ps.cards * 0.65 - ps.ownGoals * 1.2 - ps.missedPenalties * 0.7;
+    if (p.position === 'GK' && ps.saves === 0 && score[1 - i] > 0) rating -= 0.25;
+    if (p.sentOff) rating -= 0.8;
+    rating = Math.max(3, Math.min(10, rating));
+    return '**' + p.name + '** — ' + rating.toFixed(1) + '/10';
+  }).join('\n'));
+  return { score, pens, winner, stats: resultStats, ratings };
 }
