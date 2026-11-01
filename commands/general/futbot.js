@@ -11,11 +11,8 @@ module.exports = {
     .addSubcommandGroup(g => g.setName('player').setDescription('Profiles and rewards')
       .addSubcommand(s => s.setName('profile').setDescription('View a player profile').addUserOption(o => o.setName('user').setDescription('Player')))
       .addSubcommand(s => s.setName('stats').setDescription('View player statistics').addUserOption(o => o.setName('user').setDescription('Player')))
-      .addSubcommand(s => s.setName('inventory').setDescription('View a player inventory').addUserOption(o => o.setName('user').setDescription('Player')))
       .addSubcommand(s => s.setName('starter').setDescription('Claim your one-time starter pack'))
       .addSubcommand(s => s.setName('secret').setDescription('Claim a secret card reward').addStringOption(o => o.setName('code').setDescription('Secret code').setRequired(true).addChoices(...secrets.map(v => ({name:v,value:v}))))))
-    .addSubcommandGroup(g => g.setName('card').setDescription('Search and inspect cards')
-      .addSubcommand(s => s.setName('copies').setDescription('View your editions of a player card').addStringOption(o => o.setName('player').setDescription('Player name').setRequired(true)).addUserOption(o => o.setName('user').setDescription('Player'))))
     .addSubcommandGroup(g => g.setName('pack').setDescription('Player packs and odds')
       .addSubcommand(s => s.setName('weight').setDescription('View overall odds for Bronze, Silver, or Gold packs')))
     .addSubcommandGroup(g => g.setName('economy').setDescription('Selling cards and rankings')
@@ -34,7 +31,6 @@ module.exports = {
     if (group === 'player') {
       if (sub === 'profile') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid)), 'Profile');
       if (sub === 'stats') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/stats'), 'Stats');
-      if (sub === 'inventory') return run(interaction, () => futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/inventory'), 'Inventory');
       if (sub === 'starter') return run(interaction, () => post(base + '/starter-pack', {}), 'Starter pack');
       if (sub === 'secret') return run(interaction, () => post(base + '/secrets/' + interaction.options.getString('code'), {}), 'Secret reward');
     }
@@ -89,15 +85,7 @@ module.exports = {
         });
         return;
     }
-    if (group === 'card') {
-      if (sub === 'copies') return run(interaction, async () => {
-        const name = interaction.options.getString('player');
-        const lookupResponse = await futbotApi.request('/api/v1/cards/lookup' + queryString({ name }));
-        const card = lookupResponse?.data ?? lookupResponse;
-        if (!card?.card_id) throw new Error('Could not find that player. Check the spelling and try again.');
-        return futbotApi.request('/api/v1/players/' + (user?.id || uid) + '/cards/' + card.card_id + '/copies');
-      }, 'Card editions');
-    }
+
     if (group === 'economy') {
       if (sub === 'leaderboard') return run(interaction, () => futbotApi.request('/api/v1/leaderboards/' + interaction.options.getString('stat') + queryString({limit:interaction.options.getInteger('limit') || 10})), 'Leaderboard');
     }
