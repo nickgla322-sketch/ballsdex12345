@@ -390,30 +390,52 @@ async function runLiveMatch(interaction, home, away) {
   }
   const winner = pens ? (pens[0] > pens[1] ? 0 : 1) : (score[0] === score[1] ? null : (score[0] > score[1] ? 0 : 1));
   const performances = [...playerPerformance.values()];
-  const attackingRanked = performances.map(p => ({ ...p, contributions: p.goals + p.assists }))
-    .sort((a, b) => b.contributions - a.contributions || b.goals - a.goals);
-  const bestAttack = attackingRanked[0];
-  let motm;
-  if (bestAttack && bestAttack.contributions >= 2) {
-    motm = { player: bestAttack.player, team: teams[bestAttack.teamIndex], reason: bestAttack.goals + ' goals, ' + bestAttack.assists + ' assists' };
-  } else {
-    // Only award a defensive underdog when the performance is genuinely standout.
-    const defensiveCandidates = performances.filter(p => {
-      const conceded = score[1 - p.teamIndex];
-      return (p.player.position === 'GK' && p.saves >= 3) ||
-        (!['GK', 'ST', 'CF', 'LW', 'RW', 'CAM'].includes(p.player.position) && conceded <= 1 && p.player.defense >= 65);
-    }).map(p => ({ ...p, defensiveScore: p.player.position === 'GK' ? p.saves * 2 : p.player.defense / 10 + (score[1 - p.teamIndex] === 0 ? 3 : 0) }))
-      .sort((a, b) => b.defensiveScore - a.defensiveScore);
-    const standout = defensiveCandidates[0];
-    if (standout) {
-      motm = { player: standout.player, team: teams[standout.teamIndex], reason: standout.player.position === 'GK' ? standout.saves + ' saves' : 'Outstanding defensive performance' };
-    } else if (bestAttack) {
-      motm = { player: bestAttack.player, team: teams[bestAttack.teamIndex], reason: bestAttack.goals + ' goals, ' + bestAttack.assists + ' assists' };
-    } else {
-      const fallback = teams[0].players[0];
-      motm = { player: fallback, team: teams[0], reason: 'Strong all-round performance' };
+  const motmCandidates = performances.map(p => {
+    const isGoalkeeper = p.player.position === 'GK';
+    const isDefender = ['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p.player.position);
+    const conceded = score[1 - p.teamIndex];
+    const contributions = p.goals + p.assists;
+
+    // Goals and assists should usually outweigh defensive ratings.
+    let weight = 1 + p.goals * 6 + p.assists * 5;
+
+    // Defenders can still win, especially in a clean sheet, but OVR alone
+    // does not decide the award.
+    if (isGoalkeeper && p.saves > 0) {
+      weight += p.saves * 1.5;
+      if (conceded === 0) weight += 2;
+    } else if (isDefender && conceded <= 1) {
+      weight += 2 + Math.max(0, p.player.defense - 60) / 30;
+      if (conceded === 0) weight += 2;
+    }
+
+    return { ...p, contributions, weight };
+  });
+
+  // Weighted selection keeps attacking contributions favored while allowing
+  // standout defensive performances to win occasionally.
+  const totalWeight = motmCandidates.reduce((sum, p) => sum + p.weight, 0);
+  let roll = Math.random() * totalWeight;
+  let standout = motmCandidates[motmCandidates.length - 1];
+  for (const candidate of motmCandidates) {
+    roll -= candidate.weight;
+    if (roll <= 0) {
+      standout = candidate;
+      break;
     }
   }
+
+  const motm = {
+    player: standout.player,
+    team: teams[standout.teamIndex],
+    reason: standout.contributions > 0
+      ? standout.goals + ' goals, ' + standout.assists + ' assists'
+      : standout.player.position === 'GK'
+        ? standout.saves + ' saves'
+        : ['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(standout.player.position)
+          ? 'Outstanding defensive performance'
+          : 'Strong all-round performance'
+  };
   const totalPossession = stats[0].possession + stats[1].possession;
   const percentages = stats.map(s => totalPossession ? Math.round(s.possession / totalPossession * 100) : 50);
   const resultStats = stats.map((s, i) => ({
