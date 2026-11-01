@@ -77,6 +77,10 @@ async function runLiveMatch(interaction, home, away) {
   let pens = null, minute = 0, currentMessage = null;
   let inExtraTime = false, inFirstHalfStoppage = false;
   const teamHistory = [[], []];
+  const secondHalfHistory = [[], []];
+  let currentHalf = 0;
+  const kickoffText = '**━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ KICK-OFF ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━**';
+  let halfTimeText = null;
   let systemHistory = [];
   let minuteEventsLog = [];
   const formatMinute = m => inFirstHalfStoppage && m > 45 ? '45+' + (m - 45) : (!inExtraTime && m > 90 && m <= 99 ? '90+' + (m - 90) : String(m));
@@ -156,25 +160,43 @@ async function runLiveMatch(interaction, home, away) {
       }
     }
   };
-  const makeEmbed = () => new EmbedBuilder().setColor(0x3498db)
-    .setTitle('⚽ FRIENDLY MATCH · ' + formatMinute(minute) + "'")
-    .setDescription('**⏱️ ' + formatMinute(minute) + "'**\n**" + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**')
-    .addFields(
+  const makeEmbed = () => {
+    const fields = [
+      { name: '\u200B', value: kickoffText, inline: false },
       { name: home.name, value: teamHistory[0].join('\n\n').slice(-1024) || 'No events yet.', inline: true },
+      { name: '\u200B', value: '\u200B', inline: true },
       { name: away.name, value: teamHistory[1].join('\n\n').slice(-1024) || 'No events yet.', inline: true },
-      ...systemHistory.map(text => ({ name: '\u200B', value: text, inline: false }))
-    )
-    .setFooter({ text: 'Match events' });
+    ];
+    if (halfTimeText) {
+      fields.push({ name: '\u200B', value: halfTimeText, inline: false });
+      fields.push(
+        { name: home.name, value: secondHalfHistory[0].join('\n\n').slice(-1024) || 'No events yet.', inline: true },
+        { name: '\u200B', value: '\u200B', inline: true },
+        { name: away.name, value: secondHalfHistory[1].join('\n\n').slice(-1024) || 'No events yet.', inline: true },
+      );
+    }
+    fields.push(...systemHistory.map(text => ({ name: '\u200B', value: text, inline: false })));
+    return new EmbedBuilder().setColor(0x3498db)
+      .setTitle('⚽ FRIENDLY MATCH · ' + formatMinute(minute) + "'")
+      .setDescription('**⏱️ ' + formatMinute(minute) + "'**\n**" + home.name + '** ' + score[0] + '–' + score[1] + ' **' + away.name + '**')
+      .addFields(fields)
+      .setFooter({ text: 'Match events' });
+  };
   const publish = async () => {
     for (const event of minuteEventsLog) {
       if (event.team === null) systemHistory.push(event.text);
-      else if (event.text.startsWith('　• ') && teamHistory[event.team].length) teamHistory[event.team][teamHistory[event.team].length - 1] += '\n' + event.text;
-      else teamHistory[event.team].push(event.text);
+      else {
+        const history = currentHalf === 0 ? teamHistory : secondHalfHistory;
+        if (event.text.startsWith('　• ') && history[event.team].length) history[event.team][history[event.team].length - 1] += '\n' + event.text;
+        else history[event.team].push(event.text);
+      }
     }
-    const totalLength = teamHistory[0].join('\n').length + teamHistory[1].join('\n').length + systemHistory.join('\n').length;
+    const totalLength = [...teamHistory, ...secondHalfHistory].flat().join('\n').length + systemHistory.join('\n').length;
     if (!currentMessage || totalLength > 6500) {
       teamHistory[0] = teamHistory[0].slice(-18);
       teamHistory[1] = teamHistory[1].slice(-18);
+      secondHalfHistory[0] = secondHalfHistory[0].slice(-18);
+      secondHalfHistory[1] = secondHalfHistory[1].slice(-18);
       systemHistory = systemHistory.slice(-4);
       currentMessage = await interaction.followUp({ embeds: [makeEmbed()], fetchReply: true });
     } else {
@@ -313,7 +335,7 @@ async function runLiveMatch(interaction, home, away) {
   };
 
   minute = 0;
-  minuteEventsLog = [{ team: null, text: '**KICK-OFF**' }];
+  minuteEventsLog = [];
   await publish();
   await playPeriod(45);
   const firstHalfStoppage = 1 + Math.floor(Math.random() * 3);
