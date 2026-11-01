@@ -48,14 +48,7 @@ function buildButtons(page, totalPages, disabled = false) {
 }
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('club')
-    .setDescription('View all the players you own')
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('search')
-        .setDescription('Show player names, positions, overalls, and lineup status')
-    ),
+  data: null,
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
