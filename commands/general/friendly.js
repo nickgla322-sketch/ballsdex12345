@@ -116,26 +116,28 @@ async function runLiveMatch(interaction, home, away) {
     if (!player.sentOff) return impact;
     const position = String(player.position || '').toUpperCase();
     if (['ST', 'CF', 'LW', 'RW'].includes(position)) {
-      impact.ownShots += .25;
-      impact.opponentShots += .04;
-      impact.opponentScoring += 0;
-      impact.overall += 2;
-    } else if (['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(position)) {
-      impact.ownShots += .15;
-      impact.opponentShots += .13;
-      impact.opponentScoring += .06;
-      impact.overall += 3;
-    } else if (position === 'GK') {
-      impact.ownShots += .01;
-      impact.opponentShots += .10;
-      impact.opponentScoring += .22;
+      // Losing a forward noticeably weakens the team's ability to create attacks.
+      impact.ownShots += .32;
+      impact.opponentShots += .08;
+      impact.opponentScoring += .02;
       impact.overall += 5;
+    } else if (['CAM', 'CM', 'CDM', 'LM', 'RM'].includes(position)) {
+      // A missing midfielder hurts both ball progression and defensive cover.
+      impact.ownShots += .25;
+      impact.opponentShots += .20;
+      impact.opponentScoring += .08;
+      impact.overall += 7;
+    } else if (position === 'GK') {
+      impact.ownShots += .10;
+      impact.opponentShots += .32;
+      impact.opponentScoring += .18;
+      impact.overall += 10;
     } else {
-      // Fullbacks, centre-backs and other defensive positions.
-      impact.ownShots += .05;
-      impact.opponentShots += .22;
-      impact.opponentScoring += .12;
-      impact.overall += 4;
+      // Losing a defender creates a much larger opening for the opposition.
+      impact.ownShots += .12;
+      impact.opponentShots += .38;
+      impact.opponentScoring += .15;
+      impact.overall += 9;
     }
     return impact;
   }, { ownShots: 0, opponentShots: 0, opponentScoring: 0, overall: 0 });
