@@ -24,7 +24,7 @@ async function fetchApiImage(path, method = 'GET', body = null) {
 module.exports = {
   data: new SlashCommandBuilder().setName('futbotimage').setDescription('View card artwork and minted card editions')
     .addSubcommand(s => s.setName('card').setDescription('View a card image').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)))
-    .addSubcommand(s => s.setName('minted').setDescription('Generate your personalized card edition image').addIntegerOption(o => o.setName('card-id').setDescription('Card ID').setRequired(true)).addIntegerOption(o => o.setName('edition').setDescription('Edition number you own').setRequired(true).setMinValue(1))),
+
   async execute(interaction) {
     await interaction.deferReply({ephemeral:true});
     try {
