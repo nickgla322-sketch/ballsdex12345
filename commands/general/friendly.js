@@ -24,13 +24,7 @@ module.exports = {
       validate(home); validate(away);
       const intro = new EmbedBuilder().setColor(0x3498db).setTitle('⚽ FRIENDLY MATCH').setDescription('**' + home.name + '** vs **' + away.name + '**').addFields({ name: home.name + ' · ' + home.formation, value: lineupText(home), inline: true }, { name: away.name + ' · ' + away.formation, value: lineupText(away), inline: true }, { name: 'Team Overalls', value: '**' + home.name + ':** ' + home.overall + ' OVR\n**' + away.name + ':** ' + away.overall + ' OVR' }).setFooter({ text: '8 players per side • Position penalties included' });
       await interaction.followUp({ embeds: [intro] });
-      const result = playMatch(home, away);
-      const events = result.events;
-      for (let i = 0; i < events.length; i += 10) {
-        const page = events.slice(i, i + 10).map(e => '**' + e.minute + "'** " + e.text).join('\n\n');
-        const embed = new EmbedBuilder().setColor(0x3498db).setTitle('📋 MATCH COMMENTARY' + (i ? ' · PART ' + (i / 10 + 1) : '')).setDescription(page.slice(0, 4000)).setFooter({ text: home.name + ' ' + result.score[0] + '–' + result.score[1] + ' ' + away.name });
-        await interaction.followUp({ embeds: [embed] });
-      }
+      const result = await runLiveMatch(interaction, home, away);
       const winner = result.winner === null ? 'The friendly ends in a draw.' : '🏆 **' + (result.winner === 0 ? home.name : away.name) + '** win the friendly!';
       const summary = new EmbedBuilder().setColor(result.winner === null ? 0x95a5a6 : 0xf1c40f).setTitle('🏁 FINAL RESULT').setDescription('**' + home.name + ' ' + result.score[0] + '–' + result.score[1] + ' ' + away.name + '**' + (result.pens ? '\nPenalty shootout: **' + result.pens[0] + '–' + result.pens[1] + '**' : '') + '\n\n' + winner).addFields({ name: home.name, value: home.overall + ' OVR · ' + active(home).length + '/8 players remaining', inline: true }, { name: away.name, value: away.overall + ' OVR · ' + active(away).length + '/8 players remaining', inline: true });
       await interaction.followUp({ embeds: [summary] });
@@ -51,33 +45,129 @@ function active(t) { return t.players.filter(p => !p.sentOff); }
 function avg(t, key) { const a=active(t); return a.length ? a.reduce((s,p)=>s+p[key],0)/a.length : 0; }
 function choose(list, score) { if (!list.length) return null; const weights=list.map(p=>Math.max(1,score(p))); let n=Math.random()*weights.reduce((a,b)=>a+b,0); for(let i=0;i<list.length;i++){ n-=weights[i]; if(n<=0)return list[i]; } return list[list.length-1]; }
 function keeper(t) { return t.players.find(p=>p.position==='GK'&&!p.sentOff) || { name:'Emergency goalkeeper', goalkeeping:18 }; }
-function playMatch(home, away) {
-  const teams=[home,away], score=[0,0], events=[]; let minute=0;
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+function playerLabel(player, team) { return '**' + player.name + '** (<@' + team.id + '>)'; }
+async function runLiveMatch(interaction, home, away) {
+  const teams=[home,away], score=[0,0];
+  let pens=null, minute=0;
+  const events=[];
   const log=(m,s)=>events.push({minute:m,text:s});
+  const label=(i,p)=>playerLabel(p,teams[i]);
+  const active=t=>t.players.filter(p=>!p.sentOff);
+  const field=t=>active(t).filter(p=>p.position!=='GK');
+  const choose=(list,fn)=>{if(!list.length)return null;const w=list.map(p=>Math.max(1,fn(p)));let n=Math.random()*w.reduce((a,b)=>a+b,0);for(let i=0;i<list.length;i++){n-=w[i];if(n<=0)return list[i];}return list[list.length-1];};
+  const keeper=t=>t.players.find(p=>p.position==='GK'&&!p.sentOff)||{name:'Emergency goalkeeper',goalkeeping:18};
+  const attackPool=t=>active(t).filter(p=>['ST','CF','LW','RW','CAM'].includes(p.position));
+  const embed=()=>new EmbedBuilder().setColor(0x3498db).setTitle('⏱️ LIVE FRIENDLY MATCH')
+    .setDescription('**'+home.name+'** '+score[0]+'–'+score[1]+' **'+away.name+'**\n\n🕒 **'+String(minute).padStart(2,'0')+':00**\n\n'+(events.slice(-6).map(e=>'**'+e.minute+"’** "+e.text).join('\n\n')||'The teams are settling in...'))
+    .addFields({name:home.name,value:home.overall+' OVR',inline:true},{name:away.name,value:away.overall+' OVR',inline:true})
+    .setFooter({text:'Live clock • 1 second per in-game minute'});
+  const live=await interaction.followUp({embeds:[embed()],fetchReply:true});
+  function corner(ai,m,reason) {
+    const t=teams[ai],taker=choose(field(t),p=>p.passing+p.effective*.2);
+    if(!taker)return;
+    log(m,'🚩 **CORNER KICK — '+t.name+'**\n'+label(ai,taker)+' is taking the corner ('+reason+').');
+    const target=choose(attackPool(t).filter(p=>p.id!==taker.id),p=>p.effective+p.shooting*.3);
+    if(!target)return;
+    if(Math.random()<.2){score[ai]++;log(m,'⚽ '+label(ai,target)+' rises above the defence and heads it in! **GOAL for '+t.name+'!**');}
+    else if(Math.random()<.5)log(m,label(ai,target)+' gets a head to the delivery, but sends it just wide.');
+    else log(m,'The corner is cleared by **'+teams[1-ai].name+'**. '+label(ai,taker)+'’s delivery is dealt with.');
+  }
   function shoot(ai,m) {
-    const at=teams[ai], dt=teams[1-ai], pool=active(at).filter(p=>['ST','CF','LW','RW','CAM'].includes(p.position));
-    const shooter=choose(pool.length?pool:active(at).filter(p=>p.position!=='GK'),p=>p.shooting+p.dribbling*.3+p.effective*.2);
-    if(!shooter)return; const gk=keeper(dt), marker=choose(active(dt).filter(p=>p.position!=='GK'),p=>p.defense+p.effective*.2);
-    const atk=shooter.shooting*.5+shooter.dribbling*.15+shooter.effective*.35, def=(marker?marker.defense*.55+marker.effective*.25:20)+gk.goalkeeping*.2;
-    if(Math.random()>Math.max(.07,Math.min(.48,.22+(atk-def)/260))) { if(Math.random()<.22)log(m,'🧤 **'+gk.name+'** saves a shot from **'+shooter.name+'**.'); return; }
-    if(Math.random()*100+atk*.22>Math.random()*100+gk.goalkeeping*.48+20){score[ai]++;log(m,'⚽ **GOAL! '+shooter.name+'** scores for **'+at.name+'**!');} else log(m,'🧤 **'+gk.name+'** makes a huge save against **'+shooter.name+'**!');
+    const at=teams[ai],dt=teams[1-ai],pool=attackPool(at),p=choose(pool.length?pool:field(at),x=>x.shooting+x.dribbling*.3+x.effective*.2);
+    if(!p)return;
+    const g=keeper(dt),marker=choose(field(dt),x=>x.defense+x.effective*.2);
+    const atk=p.shooting*.52+p.dribbling*.14+p.effective*.34,def=(marker?marker.defense*.5+marker.effective*.2:18)+g.goalkeeping*.3;
+    if(Math.random()>Math.max(.10,Math.min(.72,.38+(atk-def)/260))) {
+      const lines=[
+        label(ai,p)+' shoots, but '+label(1-ai,g)+' gets down quickly and makes the save!',
+        label(ai,p)+' fires towards goal — '+label(1-ai,g)+' is there to catch it!',
+        label(ai,p)+' tries from the edge of the box, and '+label(1-ai,g)+' pushes it away!',
+        label(ai,p)+' gets a shot away. '+label(1-ai,g)+' reacts brilliantly to keep it out!',
+        label(ai,p)+' strikes it cleanly, but '+label(1-ai,g)+' palms the effort wide!'
+      ];
+      log(m,'🧤 '+lines[Math.floor(Math.random()*lines.length)]);
+      if(Math.random()<.32)corner(ai,m,'goalkeeper save');
+      return;
+    }
+    if(Math.random()*100+atk*.22>Math.random()*100+g.goalkeeping*.48+20){
+      score[ai]++;
+      const lines=['⚽ **GOAL!** '+label(ai,p)+' finds the net for **'+at.name+'**!','⚽ **GOAL!** What a finish! '+label(ai,p)+' scores for **'+at.name+'**!','⚽ **GOAL!** '+label(ai,p)+' places it beyond the goalkeeper. **'+at.name+'** score!'];
+      log(m,lines[Math.floor(Math.random()*lines.length)]);
+    } else {
+      const lines=['🧤 '+label(1-ai,g)+' makes a fantastic diving save to deny '+label(ai,p)+'!','🧤 '+label(ai,p)+' gets power behind the shot, but '+label(1-ai,g)+' blocks it!','🧤 '+label(1-ai,g)+' stands tall and keeps out '+label(ai,p)+'’s effort!'];
+      log(m,lines[Math.floor(Math.random()*lines.length)]);
+      if(Math.random()<.3)corner(ai,m,'deflected shot');
+    }
   }
-  function penalty(ai,m,why) { const t=teams[ai], d=teams[1-ai], kicker=choose(active(t).filter(p=>p.position!=='GK'),p=>p.shooting+p.effective*.2), gk=keeper(d); if(!kicker)return; const chance=Math.max(.58,Math.min(.88,.76+(kicker.shooting-gk.goalkeeping)/500)); if(Math.random()<chance){score[ai]++;log(m,'⚽ **'+kicker.name+'** converts the penalty!');}else log(m,'🧤 **'+gk.name+' SAVES IT!** '+kicker.name+"'s penalty is stopped."); }
-  function foul(m) { const oi=Math.random()<.5?0:1, ti=1-oi, offender=choose(active(teams[oi]).filter(p=>p.position!=='GK'),p=>p.defense+p.effective*.2), victim=choose(active(teams[ti]).filter(p=>p.position!=='GK'),p=>p.effective); if(!offender||!victim)return; log(m,'⚠️ **'+offender.name+'** fouls **'+victim.name+'**. Free kick to **'+teams[ti].name+'**.');
-    if(Math.random()<.012){offender.sentOff=true;log(m,'🟥 **STRAIGHT RED! '+offender.name+'** is sent off.');} else if(Math.random()<.12){offender.yellow++;if(offender.yellow===2){offender.sentOff=true;log(m,'🟨🟥 **SECOND YELLOW — RED! '+offender.name+'** is sent off.');}else log(m,'🟨 Yellow card for **'+offender.name+'**.');}
-    if(Math.random()<.045){log(m,'🚩 **PENALTY!** '+teams[ti].name+' win a penalty.');penalty(ti,m,'foul');} else if(Math.random()<.2)shoot(ti,m);
+  function freeKick(ai,m,victim) {
+    const t=teams[ai],taker=choose(field(t),p=>p.shooting*.65+p.passing*.35+p.effective*.2);
+    if(!taker)return;
+    log(m,'🎯 **FREE KICK — '+t.name+'**\n'+label(ai,taker)+' is taking it after the foul on '+label(ai,victim)+'.');
+    if(Math.random()<.34)shoot(ai,m);
+    else log(m,label(ai,taker)+' curls the free kick into the area, but **'+teams[1-ai].name+'** head it clear.');
   }
-  function period(start,end) { minute=start; while(minute<end){minute=Math.min(end,minute+3+Math.floor(Math.random()*4));if(Math.random()<.18)foul(minute);if(Math.random()<.78)shoot(Math.random()<.5?0:1,minute);} }
-  log(0,'🔔 Kick-off! The friendly is underway.'); period(0,45); log(45,'⏸️ **Half-time** — '+home.name+' '+score[0]+'–'+score[1]+' '+away.name+'.');
-  period(45,90); log(90,'⏱️ **Full-time** — '+home.name+' '+score[0]+'–'+score[1]+' '+away.name+'.');
-  if(score[0]===score[1]){log(90,'⏳ The score is level. Two 15-minute periods of extra time!');period(90,105);log(105,'⏸️ Extra-time break.');period(105,120);log(120,'⏱️ **End of extra time** — '+home.name+' '+score[0]+'–'+score[1]+' '+away.name+'.');}
-  let pens=null;
-  if(score[0]===score[1]){log(120,'🎯 Still level! Here comes the penalty shootout.');pens=[0,0];
-    for(let r=0;r<5;r++){for(let i=0;i<2;i++)kick(i);const left=4-r;if(pens[0]>pens[1]+left||pens[1]>pens[0]+left)break;}
-    while(pens[0]===pens[1]){kick(0);kick(1);}
+  function penalty(ai,m) {
+    const t=teams[ai],g=keeper(teams[1-ai]),k=choose(field(t),p=>p.shooting+p.effective*.2);
+    if(!k)return;
+    log(m,'🚨 **PENALTY TO '+t.name+'!**\n'+label(ai,k)+' places the ball on the spot. '+label(1-ai,g)+' is ready in goal...');
+    if(Math.random()<Math.max(.56,Math.min(.88,.76+(k.shooting-g.goalkeeping)/500))){score[ai]++;log(m,'⚽ **GOAL!** '+label(ai,k)+' sends the penalty home!');}
+    else log(m,'🧤 '+label(1-ai,g)+' guesses correctly and saves '+label(ai,k)+'’s penalty!');
   }
-  function kick(i){const t=teams[i],g=keeper(teams[1-i]),p=choose(active(t).filter(x=>x.position!=='GK'),x=>x.shooting+x.effective*.2);if(!p)return;const goal=Math.random()<Math.max(.58,Math.min(.86,.74+(p.shooting-g.goalkeeping)/500));if(goal)pens[i]++;log(120,(goal?'⚽ ':'🧤 ')+'**'+t.name+'** — '+p.name+': **'+(goal?'SCORES':'SAVED by '+g.name)+'** ('+pens[0]+'–'+pens[1]+').');}
+  function foul(m) {
+    const oi=Math.random()<.5?0:1,ai=1-oi,off=choose(field(teams[oi]),p=>p.defense+p.effective*.2),victim=choose(field(teams[ai]),p=>p.effective);
+    if(!off||!victim)return;
+    const lines=[label(oi,off)+' clips '+label(ai,victim)+' from behind. The referee blows for a foul.',label(oi,off)+' brings down '+label(ai,victim)+'. Free kick to **'+teams[ai].name+'**.',label(oi,off)+' mistimes the challenge on '+label(ai,victim)+'. The referee stops play.'];
+    log(m,'⚠️ '+lines[Math.floor(Math.random()*lines.length)]);
+    if(Math.random()<.035){off.sentOff=true;log(m,'🟥 **STRAIGHT RED CARD!** '+label(oi,off)+' is sent off. **'+teams[oi].name+'** are down to '+active(teams[oi]).length+' players.');}
+    else if(Math.random()<.24){off.yellow++;if(off.yellow>=2){off.sentOff=true;log(m,'🟨🟥 **SECOND YELLOW, THEN RED!** '+label(oi,off)+' is sent off.');}else log(m,'🟨 **YELLOW CARD!** The referee books '+label(oi,off)+' for the challenge.');}
+    if(Math.random()<.065)penalty(ai,m);else freeKick(ai,m,victim);
+  }
+  function minuteEvents(m) {
+    const r=Math.random();
+    if(r<.105)foul(m);
+    else if(r<.18)corner(Math.random()<.5?0:1,m,'attacking pressure');
+    else if(r<.43)shoot(Math.random()<.5?0:1,m);
+    else if(r<.49){const i=Math.random()<.5?0:1,p=choose(field(teams[i]),x=>x.passing+x.effective*.2);if(p)log(m,'🔄 **'+teams[i].name+'** build patiently through '+label(i,p)+'.');}
+  }
+  log(0,'🔔 **KICK-OFF!** '+home.name+' get the match underway against '+away.name+'.');
+  const playPeriod=async(start,end)=>{
+    for(let m=start+1;m<=end;m++){
+      minute=m;minuteEvents(m);
+      // Refresh every five game minutes to respect Discord's message-edit rate limit.
+      if(m%5===0||m===end)await live.edit({embeds:[embed()]});
+      await sleep(1000);
+    }
+  };
+  await playPeriod(0,45);
+  log(45,'⏸️ **HALF-TIME!** '+home.name+' '+score[0]+'–'+score[1]+' '+away.name+'.');
+  minute=45;await live.edit({embeds:[embed()]});await sleep(2000);
+  await playPeriod(45,90);
+  log(90,'⏱️ **FULL-TIME!** '+home.name+' '+score[0]+'–'+score[1]+' '+away.name+'.');
+  if(score[0]===score[1]){
+    log(90,'⏳ The match is level. Two 15-minute periods of extra time!');
+    await live.edit({embeds:[embed()]});
+    await playPeriod(90,105);
+    log(105,'⏸️ **EXTRA-TIME BREAK.**');minute=105;await live.edit({embeds:[embed()]});await sleep(2000);
+    await playPeriod(105,120);log(120,'⏱️ **END OF EXTRA TIME!**');
+  }
+  if(score[0]===score[1]){
+    log(120,'🎯 Still level! It is time for a penalty shootout.');pens=[0,0];
+    const kick=async i=>{
+      const t=teams[i],g=keeper(teams[1-i]),p=choose(field(t),x=>x.shooting+x.effective*.2);
+      if(!p)return;
+      log(120,'🎯 **PENALTY SHOOTOUT — '+t.name+'**\n'+label(i,p)+' steps up...');
+      await live.edit({embeds:[embed()]});await sleep(2000);
+      const goal=Math.random()<Math.max(.56,Math.min(.86,.74+(p.shooting-g.goalkeeping)/500));
+      if(goal)pens[i]++;
+      log(120,(goal?'⚽ **SCORES!** ':'🧤 **SAVED!** ')+label(i,p)+(goal?' finds the net.':' is denied by '+label(1-i,g)+'.')+' Shootout: **'+pens[0]+'–'+pens[1]+'**.');
+      await live.edit({embeds:[embed()]});await sleep(2000);
+    };
+    for(let r=0;r<5;r++){for(let i=0;i<2;i++)await kick(i);const left=4-r;if(pens[0]>pens[1]+left||pens[1]>pens[0]+left)break;}
+    while(pens[0]===pens[1]){await kick(0);await kick(1);}
+  }
   const winner=pens?(pens[0]>pens[1]?0:1):(score[0]===score[1]?null:(score[0]>score[1]?0:1));
-  log(120,winner===null?'🤝 **The friendly ends in a draw!**':'🏆 **'+teams[winner].name+' win the friendly!**');
-  return {score,pens,winner,events};
+  log(minute,winner===null?'🤝 **The friendly ends in a draw!**':'🏆 **'+teams[winner].name+' win the friendly!**');
+  await live.edit({embeds:[embed().setTitle('🏁 MATCH FINISHED')]});
+  return {score,pens,winner};
 }
