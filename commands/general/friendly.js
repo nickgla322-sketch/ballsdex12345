@@ -337,20 +337,20 @@ async function runLiveMatch(interaction, home, away) {
     await publish();
   }
   if (score[0] !== score[1]) {
-    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━ **FULL-TIME** ━━━━━━━━━━' }];
+    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ **FULL-TIME** ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
     await publish();
   } else {
-    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━ **EXTRA TIME** ━━━━━━━━━━' }];
+    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ **EXTRA TIME** ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
     await publish();
     inExtraTime = true;
     minute = 90;
     await playPeriod(105);
-    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━ **EXTRA-TIME HALF-TIME** ━━━━━━━━━━' }];
+    minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ **EXTRA-TIME HALF-TIME** ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
     await publish();
     await playPeriod(120);
     inExtraTime = false;
     if (score[0] === score[1]) {
-      minuteEventsLog = [{ team: null, text: '━━━━━━━━━━ **PENALTY SHOOTOUT** ━━━━━━━━━━' }];
+      minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ **PENALTY SHOOTOUT** ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
       await publish();
       pens = [0, 0];
       const penaltyOrder = t => {
@@ -398,7 +398,7 @@ async function runLiveMatch(interaction, home, away) {
         if (suddenDeathIndex % 2 === 0 && pens[0] !== pens[1]) break;
       }
     } else {
-      minuteEventsLog = [{ team: null, text: '━━━━━━━━━━ **FULL-TIME** ━━━━━━━━━━' }];
+      minuteEventsLog = [{ team: null, text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ **FULL-TIME** ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' }];
       await publish();
     }
   }
