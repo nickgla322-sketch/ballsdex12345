@@ -124,31 +124,7 @@ async function buildPage(state) {
 }
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('player')
-    .setDescription('Browse the FutBot player card catalog')
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('search')
-        .setDescription('Browse cards by category and position')
-        .addStringOption(option =>
-          option
-            .setName('category')
-            .setDescription('Card category')
-            .addChoices(
-              { name: 'Bronze', value: 'bronze' },
-              { name: 'Silver', value: 'silver' },
-              { name: 'Gold', value: 'gold' },
-              { name: 'Special', value: 'special' },
-            )
-        )
-        .addStringOption(option =>
-          option
-            .setName('position')
-            .setDescription('Filter by player position')
-            .addChoices(...POSITIONS.map(position => ({ name: position, value: position })))
-        )
-    ),
+  data: null,
 
   async execute(interaction) {
     const state = {
