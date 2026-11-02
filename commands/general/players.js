@@ -51,7 +51,7 @@ module.exports = {
   data: null,
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply();
     try {
       const userId = interaction.user.id;
       const [inventoryResponse, lineupResponse] = await Promise.all([
