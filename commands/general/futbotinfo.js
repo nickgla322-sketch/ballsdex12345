@@ -20,7 +20,7 @@ module.exports = {
           },
           {
             name:'Players and lineup',
-            value:'/ssp player search - Browse the player card catalog\n/ssp club search - View the players you own\n/ssp 8 show - View your Starting 8\n/ssp 8 add - Add a player to your lineup\n/ssp 8 remove or /ssp 8 clear - Remove lineup players\n/ssp 8 swap - Swap lineup slots\n/ssp 8 formation - Change your formation',
+            value:'/ssp card search - Browse the player card catalog\n/ssp club search - View the players you own\n/ssp 8 show - View your Starting 8\n/ssp 8 add - Add a player to your lineup\n/ssp 8 remove or /ssp 8 clear - Remove lineup players\n/ssp 8 swap - Swap lineup slots\n/ssp 8 formation - Change your formation',
           },
           {
             name:'Packs and coins',
@@ -29,10 +29,6 @@ module.exports = {
           {
             name:'Trading and matches',
             value:'/ssp trade - Start a player and coin trade with someone\n/ssp friendly - Challenge someone to a friendly match',
-          },
-          {
-            name:'League commands',
-            value:'/division - Browse divisions and teams\n/teaminfo - View team information',
           },
           {
             name:'Other',
