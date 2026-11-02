@@ -17,16 +17,24 @@ function cardPayload(interaction) {
   const fields = {
     card_id: interaction.options.getInteger('card-id'),
     name: interaction.options.getString('name'),
-    attack: interaction.options.getInteger('attack'),
-    defense: interaction.options.getInteger('defense'),
-    speed: interaction.options.getInteger('speed'),
     overall: interaction.options.getInteger('overall'),
     card_rarity: interaction.options.getString('rarity'),
     card_type: interaction.options.getString('type'),
+    position: interaction.options.getString('position'),
+    shooting: interaction.options.getInteger('shooting'),
+    passing: interaction.options.getInteger('passing'),
+    dribbling: interaction.options.getInteger('dribbling'),
+    defending: interaction.options.getInteger('defending'),
+    game_iq: interaction.options.getInteger('game-iq'),
+    aerial: interaction.options.getInteger('aerial'),
+    diving: interaction.options.getInteger('diving'),
+    handling: interaction.options.getInteger('handling'),
+    kicking: interaction.options.getInteger('kicking'),
+    reflexes: interaction.options.getInteger('reflexes'),
+    positioning: interaction.options.getInteger('positioning'),
     player_id: interaction.options.getString('player-id'),
     height: interaction.options.getString('height'),
     club: interaction.options.getString('club'),
-    position: interaction.options.getString('position'),
     league: interaction.options.getString('league'),
     nation: interaction.options.getString('nation'),
   };
@@ -38,23 +46,31 @@ function addCardFields(sub, required, includeRequiredImage = false) {
   sub
     .addIntegerOption(o => o.setName('card-id').setDescription('Unique card ID').setRequired(true).setMinValue(1))
     .addStringOption(o => o.setName('name').setDescription('Player/card name').setRequired(required).setMaxLength(100))
-    .addIntegerOption(o => o.setName('attack').setDescription('Attack stat (0-99)').setRequired(required).setMinValue(0).setMaxValue(99))
-    .addIntegerOption(o => o.setName('defense').setDescription('Defense stat (0-99)').setRequired(required).setMinValue(0).setMaxValue(99))
-    .addIntegerOption(o => o.setName('speed').setDescription('Speed stat (0-99)').setRequired(required).setMinValue(0).setMaxValue(99))
-    .addIntegerOption(o => o.setName('overall').setDescription('Overall rating (0-99)').setRequired(required).setMinValue(0).setMaxValue(99))
+    .addIntegerOption(o => o.setName('overall').setDescription('Overall rating (calculated from stats)').setRequired(required).setMinValue(0).setMaxValue(99))
     .addStringOption(o => o.setName('rarity').setDescription('Card rarity').setRequired(required).setMaxLength(40))
-    .addStringOption(o => o.setName('type').setDescription('Card type, e.g. Standard, Icon, Hero').setRequired(required).setMaxLength(40));
+    .addStringOption(o => o.setName('type').setDescription('Card type, e.g. Standard, Icon, Hero').setRequired(required).setMaxLength(40))
+    .addStringOption(o => o.setName('position').setDescription('Player position (GK uses goalkeeper stats)').setRequired(required).setMaxLength(40));
 
-  // Discord requires every required option to appear before optional options.
   if (includeRequiredImage) {
     sub.addAttachmentOption(o => o.setName('image').setDescription('Card image (PNG, JPG, WEBP, or GIF)').setRequired(true));
+  }
+
+  const statOptions = [
+    ['shooting', 'Outfield stat'], ['passing', 'Outfield stat'],
+    ['dribbling', 'Outfield stat'], ['defending', 'Outfield stat'],
+    ['game-iq', 'Game IQ'], ['aerial', 'Outfield stat'],
+    ['diving', 'GK stat'], ['handling', 'GK stat'],
+    ['kicking', 'GK stat'], ['reflexes', 'GK stat'],
+    ['positioning', 'GK stat'],
+  ];
+  for (const [name, description] of statOptions) {
+    sub.addIntegerOption(o => o.setName(name).setDescription(description + ' (0-99)').setMinValue(0).setMaxValue(99));
   }
 
   sub
     .addStringOption(o => o.setName('player-id').setDescription('Optional player identifier').setMaxLength(100))
     .addStringOption(o => o.setName('height').setDescription('Player height').setMaxLength(30))
     .addStringOption(o => o.setName('club').setDescription('Club').setMaxLength(100))
-    .addStringOption(o => o.setName('position').setDescription('Position').setMaxLength(40))
     .addStringOption(o => o.setName('league').setDescription('League').setMaxLength(100))
     .addStringOption(o => o.setName('nation').setDescription('Nation').setMaxLength(100));
 
