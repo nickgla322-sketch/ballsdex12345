@@ -187,7 +187,7 @@ module.exports = {
             }
           );
 
-          if (updateResult.modifiedCount !== 1) {
+          if (updateResult.matchedCount !== 1) {
             collector.stop('error');
             return interaction.editReply({
               content:
