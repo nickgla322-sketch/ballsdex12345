@@ -164,7 +164,7 @@ module.exports = {
           if (!component.replied && !component.deferred) {
             await component.reply({
               content: 'Could not load that page: ' + String(error.message || 'Unknown API error').slice(0, 1200),
-              ephemeral: true,
+              ephemeral: false,
             }).catch(() => {});
           }
         }
