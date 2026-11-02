@@ -52,7 +52,6 @@ module.exports = {
    .addSubcommand(s=>s.setName('create-card').setDescription('Create a catalog card')
     .addIntegerOption(o=>o.setName('card-id').setDescription('Unique card ID').setRequired(true).setMinValue(1))
     .addStringOption(o=>o.setName('name').setDescription('Player/card name').setRequired(true).setMaxLength(100))
-    .addIntegerOption(o=>o.setName('overall').setDescription('Overall rating (calculated from stats)').setRequired(true).setMinValue(0).setMaxValue(99))
     .addStringOption(o=>o.setName('rarity').setDescription('Card rarity').setRequired(true).setMaxLength(40))
     .addStringOption(o=>o.setName('type').setDescription('Card type').setRequired(true).setMaxLength(40))
     .addStringOption(o=>o.setName('position').setDescription('Player position (GK uses goalkeeper stats)').setRequired(true).setMaxLength(40))
