@@ -72,6 +72,25 @@ module.exports = {
     }
 
     if (group === 'economy') {
+      if (sub === 'balance') {
+        await interaction.deferReply();
+        try {
+          const response = await futbotApi.request(base, { method: 'GET' });
+          const data = response?.data ?? response;
+          const coins = Number(data.coins ?? 0);
+          const embed = new EmbedBuilder()
+            .setTitle('Your SSP Balance')
+            .setColor(0x5865f2)
+            .addFields({ name: 'Coins', value: coins.toLocaleString() + ' coins', inline: true })
+            .setTimestamp();
+          return interaction.editReply({ embeds: [embed] });
+        } catch (error) {
+          return interaction.editReply({
+            content: '**Balance error**\\n' + String(error.message || 'Could not load your balance.').slice(0, 1500),
+            embeds: [],
+          });
+        }
+      }
       if (sub === 'leaderboard') return run(interaction, () => futbotApi.request('/api/v1/leaderboards/' + interaction.options.getString('stat') + queryString({limit:interaction.options.getInteger('limit') || 10})), 'Leaderboard');
     }
   },
