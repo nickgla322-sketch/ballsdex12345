@@ -33,7 +33,7 @@ module.exports = {
         const message = await interaction.reply({
           content: 'Choose a pack to see the chance of receiving each player overall.',
           components: [row],
-          flags: MessageFlags.Ephemeral,
+          flags: 0,
           fetchReply: true,
         });
         const collector = message.createMessageComponentCollector({
@@ -62,7 +62,7 @@ module.exports = {
               .setFooter({ text: (isReward ? 'Each card uses these base odds. /daily selects 3 cards without repeats, so later draws can shift slightly. ' : 'Based on ') + Number(data.total_players || 0).toLocaleString() + ' eligible players in the current card catalog. Odds may change when the catalog changes.' });
             await component.editReply({ content: null, embeds: [embed], components: [row] });
           } catch (error) {
-            await component.followUp({ content: 'Could not load pack odds: ' + String(error.message || 'Unknown API error').slice(0, 1200), flags: MessageFlags.Ephemeral });
+            await component.followUp({ content: 'Could not load pack odds: ' + String(error.message || 'Unknown API error').slice(0, 1200), flags: 0 });
           }
         });
         collector.on('end', async () => {
