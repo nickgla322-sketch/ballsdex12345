@@ -70,7 +70,6 @@ module.exports = {
     .addStringOption(o=>o.setName('player-id').setDescription('Player identifier').setMaxLength(100))
     .addStringOption(o=>o.setName('height').setDescription('Player height').setMaxLength(30))
     .addStringOption(o=>o.setName('club').setDescription('Club').setMaxLength(100))
-    .addStringOption(o=>o.setName('position').setDescription('Position').setMaxLength(40))
     .addStringOption(o=>o.setName('league').setDescription('League').setMaxLength(100))
     .addStringOption(o=>o.setName('nation').setDescription('Nation').setMaxLength(100)))
    .addSubcommand(s=>s.setName('replace-card').setDescription('Replace catalog card details or image')
