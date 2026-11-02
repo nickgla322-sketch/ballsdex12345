@@ -84,6 +84,7 @@ module.exports = {
    .addSubcommand(s=>s.setName('remove-card').setDescription('Permanently remove a catalog card').addIntegerOption(o=>o.setName('card-id').setDescription('Catalog card ID').setRequired(true).setMinValue(1)))
    .addSubcommand(s=>s.setName('import-json').setDescription('Import 1-50 cards from a JSON file').addAttachmentOption(o=>o.setName('file').setDescription('JSON card file').setRequired(true)))
    .addSubcommand(s=>s.setName('wipe-cards').setDescription('Delete every player card from the catalog').addStringOption(o=>o.setName('confirmation').setDescription('Type WIPE ALL CARDS exactly').setRequired(true).setMaxLength(30))))
+  .addSubcommand(s=>s.setName('balance').setDescription('Check your coin balance'))
   .addSubcommand(s=>s.setName('help').setDescription('Show SSP commands'))
   .addSubcommand(s=>s.setName('packs').setDescription('Browse and buy player packs'))
   .addSubcommand(s=>s.setName('friendly').setDescription('Challenge someone').addUserOption(o=>o.setName('opponent').setDescription('Opponent').setRequired(true)))
@@ -99,6 +100,7 @@ module.exports = {
   if(g==='card'&&s==='search') return cards.execute(i,client);
   if(g==='club') return club.execute(i,client);
   if(g==='pack'||g==='economy') return futbot.execute(proxy(i,g,s));
+  if(!g && s==='balance') return futbot.execute(proxy(i,'economy','balance'));
   if(g==='admin') {
    if(!i.memberPermissions?.has(PermissionFlagsBits.Administrator)) return i.reply({content:'You need Administrator permissions to use SSP admin commands.',ephemeral:false});
    return admin.execute(proxy(i,null,s));
