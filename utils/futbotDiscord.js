@@ -123,7 +123,7 @@ function cardEmbed(card, file) {
 }
 
 async function run(interaction, operation, label = 'FutBot') {
-  if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ ephemeral: true });
+  if (!interaction.deferred && !interaction.replied) await interaction.deferReply();
   try {
     const response = await operation();
     const data = response?.data ?? response;
@@ -170,7 +170,7 @@ async function run(interaction, operation, label = 'FutBot') {
 }
 
 async function runRewardClaim(interaction, operation, label = 'Player reward') {
-  if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ ephemeral: true });
+  if (!interaction.deferred && !interaction.replied) await interaction.deferReply();
   try {
     const response = await operation();
     const data = response?.data ?? response;
@@ -203,7 +203,7 @@ async function runRewardClaim(interaction, operation, label = 'Player reward') {
         embeds: [embed],
         files: file ? [file] : [],
         components: [row],
-        ephemeral: true,
+        ephemeral: false,
       });
     }
   } catch (error) {
@@ -219,7 +219,7 @@ async function runRewardClaim(interaction, operation, label = 'Player reward') {
 async function handleQuickSell(interaction) {
   const [, rawCardId, ownerId] = interaction.customId.split(':');
   if (interaction.user.id !== ownerId) {
-    return interaction.reply({ content: 'This quicksell button belongs to another player.', ephemeral: true });
+    return interaction.reply({ content: 'This quicksell button belongs to another player.', ephemeral: false });
   }
 
   const originalValue = interaction.message.embeds?.[0]?.fields?.find(field => field.name === 'Player value')?.value || 'Unknown';
@@ -246,14 +246,14 @@ async function handleQuickSell(interaction) {
   } catch (error) {
     return interaction.followUp({
       content: '**QuickSell error**\\n' + String(error.message || 'Unknown API error').slice(0, 1500),
-      ephemeral: true,
+      ephemeral: false,
     });
   }
 }
 
 
 async function runPlayerBuy(interaction, playerName) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply();
   try {
     const response = await futbotApi.request('/api/v1/cards/lookup' + queryString({ name: playerName }));
     const card = response?.data ?? response;
@@ -276,7 +276,7 @@ async function runPlayerBuy(interaction, playerName) {
 }
 
 async function runPlayerSell(interaction, playerName) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply();
   try {
     const response = await futbotApi.request(
       '/api/v1/players/' + interaction.user.id + '/cards/lookup' + queryString({ name: playerName })
@@ -311,7 +311,7 @@ async function runPlayerSell(interaction, playerName) {
 async function handlePlayerBuy(interaction) {
   const [, rawCardId, ownerId] = interaction.customId.split(':');
   if (interaction.user.id !== ownerId) {
-    return interaction.reply({ content: 'This buy button belongs to another player.', ephemeral: true });
+    return interaction.reply({ content: 'This buy button belongs to another player.', ephemeral: false });
   }
   await interaction.deferUpdate();
   try {
@@ -333,14 +333,14 @@ async function handlePlayerBuy(interaction) {
       components,
     });
   } catch (error) {
-    return interaction.followUp({ content: '**Buy error**\n' + String(error.message || 'Could not buy this player.').slice(0, 1500), ephemeral: true });
+    return interaction.followUp({ content: '**Buy error**\n' + String(error.message || 'Could not buy this player.').slice(0, 1500), ephemeral: false });
   }
 }
 
 async function handlePlayerSell(interaction) {
   const [, rawCardId, ownerId] = interaction.customId.split(':');
   if (interaction.user.id !== ownerId) {
-    return interaction.reply({ content: 'This sell button belongs to another player.', ephemeral: true });
+    return interaction.reply({ content: 'This sell button belongs to another player.', ephemeral: false });
   }
   const originalValue = interaction.message.embeds?.[0]?.fields?.find(field => field.name === 'Original player value')?.value || 'Unknown';
   await interaction.deferUpdate();
@@ -363,14 +363,14 @@ async function handlePlayerSell(interaction) {
       components,
     });
   } catch (error) {
-    return interaction.followUp({ content: '**Sell error**\n' + String(error.message || 'Could not sell this player.').slice(0, 1500), ephemeral: true });
+    return interaction.followUp({ content: '**Sell error**\n' + String(error.message || 'Could not sell this player.').slice(0, 1500), ephemeral: false });
   }
 }
 
 async function handlePlayerSellCancel(interaction) {
   const [, ownerId] = interaction.customId.split(':');
   if (interaction.user.id !== ownerId) {
-    return interaction.reply({ content: 'This sell confirmation belongs to another player.', ephemeral: true });
+    return interaction.reply({ content: 'This sell confirmation belongs to another player.', ephemeral: false });
   }
   await interaction.deferUpdate();
   const { ActionRowBuilder, ButtonBuilder } = require('discord.js');
@@ -383,7 +383,7 @@ async function handlePlayerSellCancel(interaction) {
 }
 
 async function runDailyClaim(interaction, operation) {
-  if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ ephemeral: true });
+  if (!interaction.deferred && !interaction.replied) await interaction.deferReply();
   try {
     const response = await operation();
     const data = response?.data ?? response;
@@ -429,7 +429,7 @@ async function runDailyClaim(interaction, operation) {
 async function handleDailyCollect(interaction) {
   const [, cardId, ownerId] = interaction.customId.split(':');
   if (interaction.user.id !== ownerId) {
-    return interaction.reply({ content: 'This daily reward belongs to another player.', ephemeral: true });
+    return interaction.reply({ content: 'This daily reward belongs to another player.', ephemeral: false });
   }
   await interaction.deferUpdate();
   try {
