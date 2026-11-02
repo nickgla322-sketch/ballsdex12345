@@ -36,11 +36,12 @@ module.exports = {
    .addSubcommand(s=>s.setName('clear').setDescription('Clear your Starting 8'))
    .addSubcommand(s=>s.setName('swap').setDescription('Swap two lineup slots').addIntegerOption(o=>o.setName('slot1').setDescription('First slot').setRequired(true).setMinValue(1).setMaxValue(8)).addIntegerOption(o=>o.setName('slot2').setDescription('Second slot').setRequired(true).setMinValue(1).setMaxValue(8)))
    .addSubcommand(s=>s.setName('formation').setDescription('Change your formation')))
-  .addSubcommandGroup(g=>g.setName('player').setDescription('Player cards and profile')
-   .addSubcommand(s=>s.setName('search').setDescription('Browse player cards').addStringOption(o=>o.setName('category').setDescription('Card category').addChoices({name:'Bronze',value:'bronze'},{name:'Silver',value:'silver'},{name:'Gold',value:'gold'},{name:'Special',value:'special'})).addStringOption(o=>o.setName('position').setDescription('Position').addChoices(...positions.map(x=>({name:x,value:x})))))
+  .addSubcommandGroup(g=>g.setName('player').setDescription('Player profiles')
    .addSubcommand(s=>s.setName('profile').setDescription('View a player profile').addUserOption(o=>o.setName('user').setDescription('Player')))
    .addSubcommand(s=>s.setName('starter').setDescription('Claim your starter pack'))
    .addSubcommand(s=>s.setName('secret').setDescription('Redeem a secret code').addStringOption(o=>o.setName('code').setDescription('Secret code').setRequired(true).addChoices(...secrets.map(x=>({name:x,value:x}))))))
+  .addSubcommandGroup(g=>g.setName('card').setDescription('Browse player cards')
+   .addSubcommand(s=>s.setName('search').setDescription('Browse player cards').addStringOption(o=>o.setName('category').setDescription('Card category').addChoices({name:'Bronze',value:'bronze'},{name:'Silver',value:'silver'},{name:'Gold',value:'gold'},{name:'Special',value:'special'})).addStringOption(o=>o.setName('position').setDescription('Position').addChoices(...positions.map(x=>({name:x,value:x}))))))
   .addSubcommandGroup(g=>g.setName('club').setDescription('Your player collection').addSubcommand(s=>s.setName('search').setDescription('View players you own')))
   .addSubcommandGroup(g=>g.setName('pack').setDescription('Player pack odds').addSubcommand(s=>s.setName('weight').setDescription('View pack odds')))
   .addSubcommandGroup(g=>g.setName('economy').setDescription('Player economy').addSubcommand(s=>s.setName('leaderboard').setDescription('View a leaderboard').addStringOption(o=>o.setName('stat').setDescription('Statistic').setRequired(true).addChoices(...stats.map(x=>({name:x.replace(/_/g,' '),value:x})))).addIntegerOption(o=>o.setName('limit').setDescription('Entries 1-25').setMinValue(1).setMaxValue(25))))
@@ -94,7 +95,8 @@ module.exports = {
  async execute(i,client) {
   const g=i.options.getSubcommandGroup(false), s=i.options.getSubcommand();
   if(g==='8') return lineup.execute(proxy(i, s==='remove'||s==='clear'?'remove':null, s==='remove'?'slot':s==='clear'?'all':s));
-  if(g==='player') return s==='search'?cards.execute(i,client):futbot.execute(proxy(i,'player',s));
+  if(g==='player') return futbot.execute(proxy(i,'player',s));
+  if(g==='card'&&s==='search') return cards.execute(i,client);
   if(g==='club') return club.execute(i,client);
   if(g==='pack'||g==='economy') return futbot.execute(proxy(i,g,s));
   if(g==='admin') {
