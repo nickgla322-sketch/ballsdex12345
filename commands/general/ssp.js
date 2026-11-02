@@ -100,7 +100,7 @@ module.exports = {
   if(g==='club') return club.execute(i,client);
   if(g==='pack'||g==='economy') return futbot.execute(proxy(i,g,s));
   if(g==='admin') {
-   if(!i.memberPermissions?.has(PermissionFlagsBits.Administrator)) return i.reply({content:'You need Administrator permissions to use SSP admin commands.',ephemeral:true});
+   if(!i.memberPermissions?.has(PermissionFlagsBits.Administrator)) return i.reply({content:'You need Administrator permissions to use SSP admin commands.',ephemeral:false});
    return admin.execute(proxy(i,null,s));
   }
   if(!g && s==='help') return info.execute(proxy(i,null,'help'));
