@@ -18,18 +18,22 @@ module.exports = {
             name:'Getting started',
             value:'/ssp player profile - View your FutBot profile\n/ssp player starter - Claim your starter pack\n/ssp claim - Claim a player card\n/ssp daily - Claim your daily rewards',
           },
+          { name:'\u200b', value:'\u200b', inline:false },
           {
             name:'Players and lineup',
             value:'/ssp card search - Browse the player card catalog\n/ssp club search - View the players you own\n/ssp 8 show - View your Starting 8\n/ssp 8 add - Add a player to your lineup\n/ssp 8 remove or /ssp 8 clear - Remove lineup players\n/ssp 8 swap - Swap lineup slots\n/ssp 8 formation - Change your formation',
           },
+          { name:'\u200b', value:'\u200b', inline:false },
           {
             name:'Packs and coins',
             value:'/ssp packs - Browse and buy player packs\n/ssp pack weight - View pack odds\n/ssp buy - Buy a player from the market\n/ssp sell - Sell one of your players\n/ssp economy leaderboard - View the coin or battle leaderboards',
           },
+          { name:'\u200b', value:'\u200b', inline:false },
           {
             name:'Trading and matches',
             value:'/ssp trade - Start a player and coin trade with someone\n/ssp friendly - Challenge someone to a friendly match',
           },
+          { name:'\u200b', value:'\u200b', inline:false },
           {
             name:'Other',
             value:'/ssp player secret - Redeem a secret code\n',
