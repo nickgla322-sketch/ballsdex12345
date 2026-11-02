@@ -18,7 +18,7 @@ module.exports = {
         await command.handleButton(interaction);
       } catch (error) {
         console.error('Error opening FutBot player pack:', error);
-        const reply = { content: 'Could not open that player pack.', ephemeral: true };
+        const reply = { content: 'Could not open that player pack.', ephemeral: false };
         if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
         else await interaction.reply(reply).catch(() => {});
       }
@@ -32,7 +32,7 @@ module.exports = {
         await handleQuickSell(interaction);
       } catch (error) {
         console.error('Error quickselling FutBot card:', error);
-        const reply = { content: 'Could not quicksell that player card.', ephemeral: true };
+        const reply = { content: 'Could not quicksell that player card.', ephemeral: false };
         if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
         else await interaction.reply(reply).catch(() => {});
       }
@@ -46,7 +46,7 @@ module.exports = {
         await handlePlayerBuy(interaction);
       } catch (error) {
         console.error('Error buying FutBot player:', error);
-        const reply = { content: 'Could not buy that player.', ephemeral: true };
+        const reply = { content: 'Could not buy that player.', ephemeral: false };
         if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
         else await interaction.reply(reply).catch(() => {});
       }
@@ -59,7 +59,7 @@ module.exports = {
         await handlePlayerSell(interaction);
       } catch (error) {
         console.error('Error selling FutBot player:', error);
-        const reply = { content: 'Could not sell that player.', ephemeral: true };
+        const reply = { content: 'Could not sell that player.', ephemeral: false };
         if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
         else await interaction.reply(reply).catch(() => {});
       }
@@ -72,7 +72,7 @@ module.exports = {
         await handlePlayerSellCancel(interaction);
       } catch (error) {
         console.error('Error cancelling FutBot sale:', error);
-        const reply = { content: 'Could not cancel that sale.', ephemeral: true };
+        const reply = { content: 'Could not cancel that sale.', ephemeral: false };
         if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
         else await interaction.reply(reply).catch(() => {});
       }
@@ -86,7 +86,7 @@ module.exports = {
         await handleDailyCollect(interaction);
       } catch (error) {
         console.error('Error collecting daily FutBot card:', error);
-        const reply = { content: 'Could not collect that daily card.', ephemeral: true };
+        const reply = { content: 'Could not collect that daily card.', ephemeral: false };
         if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
         else await interaction.reply(reply).catch(() => {});
       }
@@ -121,7 +121,7 @@ module.exports = {
 
         const reply = {
           content: 'An error occurred while executing this command.',
-          ephemeral: true,
+          ephemeral: interaction.commandName === 'ssp' && interaction.options.getSubcommand(false) === 'help',
         };
 
         if (interaction.deferred || interaction.replied) {
@@ -145,7 +145,7 @@ module.exports = {
           await command.handleSelect(interaction);
         } catch (error) {
           console.error('Error handling FutBot pack menu:', error);
-          const reply = { content: 'Could not load that pack.', ephemeral: true };
+          const reply = { content: 'Could not load that pack.', ephemeral: false };
           if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
           else await interaction.reply(reply).catch(() => {});
         }
@@ -165,7 +165,7 @@ module.exports = {
 
           const reply = {
             content: 'An error occurred while loading the division.',
-            ephemeral: true,
+            ephemeral: false,
           };
 
           if (interaction.deferred || interaction.replied) {
@@ -189,7 +189,7 @@ module.exports = {
           if (!interaction.replied && !interaction.deferred) {
             await interaction.reply({
               content: 'The team information handler could not be found.',
-              ephemeral: true,
+              ephemeral: false,
             }).catch(() => {});
           }
 
@@ -203,7 +203,7 @@ module.exports = {
 
           const reply = {
             content: 'An error occurred while loading team information.',
-            ephemeral: true,
+            ephemeral: false,
           };
 
           if (interaction.deferred || interaction.replied) {
