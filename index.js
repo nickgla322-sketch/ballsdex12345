@@ -75,3 +75,5 @@ keepAlive();
   console.log("🔑 Logging in bot...");
   client.login(process.env.TOKEN);
 })();
+
+// Small redeploy trigger; no runtime behavior changed.
