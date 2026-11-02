@@ -6,7 +6,7 @@ module.exports = {
   data: null,
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply();
     try {
       const subcommandGroup = interaction.options.getSubcommandGroup(false);
       const subcommand = interaction.options.getSubcommand();
@@ -211,7 +211,7 @@ module.exports = {
         if (component.customId !== 'lineup-penalty-help-' + interaction.user.id) return;
         await component.reply({
           content: 'The minus sign (**-)** means this player is out of position, so their overall rating is reduced.',
-          ephemeral: true,
+          ephemeral: false,
         });
       });
       collector.on('end', () => interaction.editReply({ components: [] }).catch(() => {}));
