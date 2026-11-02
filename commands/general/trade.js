@@ -11,7 +11,7 @@ module.exports = {
 
   async execute(interaction) {
     const target = interaction.options.getUser('user');
-    if (target.bot || target.id === interaction.user.id) return interaction.reply({ content: 'Choose another player, not yourself or a bot.', ephemeral: true });
+    if (target.bot || target.id === interaction.user.id) return interaction.reply({ content: 'Choose another player, not yourself or a bot.', ephemeral: false });
     await interaction.deferReply();
     let session;
     try {
@@ -111,20 +111,20 @@ module.exports = {
       await build();
       const collector = msg.createMessageComponentCollector({ time: 30000 });
       collector.on('collect', async c => {
-        if (![interaction.user.id, target.id].includes(c.user.id)) return c.reply({ content: 'This is not your trade.', ephemeral: true });
+        if (![interaction.user.id, target.id].includes(c.user.id)) return c.reply({ content: 'This is not your trade.', ephemeral: false });
         const side = c.user.id === interaction.user.id ? 'p1' : 'p2';
         try {
           if (c.customId === 'tr_add' || c.customId === 'tr_remove') {
             const latest = await get('/api/v1/exchanges/' + session.session_id);
             const offered = latest[side + '_cards'] || [];
-            if (c.customId === 'tr_add' && offered.length >= MAX) return c.reply({ content: 'You already offered the maximum of 5 players.', ephemeral: true });
+            if (c.customId === 'tr_add' && offered.length >= MAX) return c.reply({ content: 'You already offered the maximum of 5 players.', ephemeral: false });
             const owned = await inventory(c.user.id);
             const uniqueOwned = [...new Map(owned.map(card => [String(card.card_id), card])).values()];
             const choices = (c.customId === 'tr_add' ? uniqueOwned.filter(x => !offered.some(id => String(id) === String(x.card_id))) : uniqueOwned.filter(x => offered.some(id => String(id) === String(x.card_id)))).slice(0, 25);
-            if (!choices.length) return c.reply({ content: 'No players available for that action.', ephemeral: true });
+            if (!choices.length) return c.reply({ content: 'No players available for that action.', ephemeral: false });
             const menu = new StringSelectMenuBuilder().setCustomId('tr_select_' + c.customId.slice(3)).setPlaceholder('Choose player card(s)').setMinValues(1).setMaxValues(c.customId === 'tr_add' ? Math.min(MAX - offered.length, choices.length) : choices.length)
               .addOptions(choices.map(x => ({ label: (x.name + ' · ' + x.overall + ' OVR').slice(0, 100), value: String(x.card_id) })));
-            await c.reply({ content: 'Select player card(s):', components: [new ActionRowBuilder().addComponents(menu)], ephemeral: true });
+            await c.reply({ content: 'Select player card(s):', components: [new ActionRowBuilder().addComponents(menu)], ephemeral: false });
             const reply = await c.fetchReply();
             const selected = await reply.awaitMessageComponent({ time: 60000, filter: x => x.user.id === c.user.id });
             const chosen = selected.values.map(Number);
@@ -139,21 +139,21 @@ module.exports = {
             await c.showModal(modal);
             const submitted = await c.awaitModalSubmit({ time: 60000, filter: x => x.user.id === c.user.id });
             const amount = Number(submitted.fields.getTextInputValue('amount'));
-            if (!Number.isSafeInteger(amount) || amount < 0) return submitted.reply({ content: 'Enter a whole number of 0 or more.', ephemeral: true });
+            if (!Number.isSafeInteger(amount) || amount < 0) return submitted.reply({ content: 'Enter a whole number of 0 or more.', ephemeral: false });
             const latest = await get('/api/v1/exchanges/' + session.session_id);
             const profile = await get('/api/v1/players/' + c.user.id);
             const balance = Number(profile.coins ?? profile.balance ?? 0);
             if (amount > balance) {
               return submitted.reply({
                 content: 'You only have **' + balance.toLocaleString() + ' coins**. Your offer cannot be higher than your balance.',
-                ephemeral: true,
+                ephemeral: false,
               });
             }
             await put('/api/v1/exchanges/' + session.session_id + '/offer', { user_id: c.user.id, card_ids: latest[side + '_cards'], coins: amount });
             await submitted.reply({
               content: '**Coin offer updated**\nCurrent balance: **' + balance.toLocaleString() +
                 ' coins**\nAfter trade: **' + (balance - amount).toLocaleString() + ' coins**\nBoth players must accept again.',
-              ephemeral: true,
+              ephemeral: false,
             });
             await build('Offer changed; both players must accept again.');
           } else if (c.customId === 'tr_accept') {
@@ -161,7 +161,7 @@ module.exports = {
             const beforeConfirm = await get('/api/v1/exchanges/' + session.session_id);
             const otherSide = side === 'p1' ? 'p2' : 'p1';
             if (!beforeConfirm[side + '_confirmed'] && beforeConfirm[otherSide + '_confirmed']) {
-              await c.followUp({ content: 'Both players are accepting. Trade will complete in 3 seconds unless an offer changes.', ephemeral: true }).catch(() => {});
+              await c.followUp({ content: 'Both players are accepting. Trade will complete in 3 seconds unless an offer changes.', ephemeral: false }).catch(() => {});
               await new Promise(resolve => setTimeout(resolve, 3000));
               const afterWait = await get('/api/v1/exchanges/' + session.session_id);
               if (afterWait.status !== 'open' || !afterWait[otherSide + '_confirmed']) return build('Trade confirmation was interrupted.');
@@ -176,8 +176,8 @@ module.exports = {
             collector.stop('cancelled');
           }
         } catch (error) {
-          if (!c.replied && !c.deferred) await c.reply({ content: String(error.message || 'Trade action failed.').slice(0, 1500), ephemeral: true }).catch(() => {});
-          else await c.followUp({ content: String(error.message || 'Trade action failed.').slice(0, 1500), ephemeral: true }).catch(() => {});
+          if (!c.replied && !c.deferred) await c.reply({ content: String(error.message || 'Trade action failed.').slice(0, 1500), ephemeral: false }).catch(() => {});
+          else await c.followUp({ content: String(error.message || 'Trade action failed.').slice(0, 1500), ephemeral: false }).catch(() => {});
         }
       });
       collector.on('end', async (_, reason) => {
