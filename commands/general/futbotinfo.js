@@ -9,14 +9,14 @@ module.exports = {
 
   async execute(interaction) {
     const sub=interaction.options.getSubcommand();
-    const embed=new EmbedBuilder().setColor(0x3498db).setFooter({text:'FutBot • '+VERSION});
+    const embed=new EmbedBuilder().setColor(0x3498db).setFooter({text:'SSP • '+VERSION});
     if(sub==='help') {
       embed.setTitle('⚽ SSP Help')
         .setDescription('Your league player collection, club, lineup, packs, and trading commands.')
         .addFields(
           {
             name:'Getting started',
-            value:'/ssp player profile - View your FutBot profile\n/ssp player starter - Claim your starter pack\n/ssp claim - Claim a player card\n/ssp daily - Claim your daily rewards',
+            value:'/ssp player profile - View your player profile\n/ssp player starter - Claim your starter pack\n/ssp claim - Claim a player card\n/ssp daily - Claim your daily rewards',
           },
           { name:'\u200b', value:'\u200b', inline:false },
           {
@@ -41,13 +41,13 @@ module.exports = {
         )
         .setFooter({ text:'Use the command options in Discord for required details.' });
     } else if(sub==='about') {
-      embed.setTitle('About FutBot').addFields(
+      embed.setTitle('About SSP').addFields(
         {name:'Version',value:VERSION,inline:true},
         {name:'Creator',value:CREATOR,inline:true},
         {name:'Description',value:DESCRIPTION}
       );
     } else if(sub==='version') {
-      embed.setTitle('FutBot Version').setDescription('Current version: **'+VERSION+'**');
+      embed.setTitle('SSP Version').setDescription('Current version: **'+VERSION+'**');
     }
     return interaction.reply({embeds:[embed],ephemeral:true});
   },
