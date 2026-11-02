@@ -165,7 +165,7 @@ module.exports = {
 
           const reply = {
             content: 'An error occurred while loading the division.',
-            ephemeral: false,
+            ephemeral: true,
           };
 
           if (interaction.deferred || interaction.replied) {
@@ -189,7 +189,7 @@ module.exports = {
           if (!interaction.replied && !interaction.deferred) {
             await interaction.reply({
               content: 'The team information handler could not be found.',
-              ephemeral: false,
+              ephemeral: true,
             }).catch(() => {});
           }
 
@@ -203,7 +203,7 @@ module.exports = {
 
           const reply = {
             content: 'An error occurred while loading team information.',
-            ephemeral: false,
+            ephemeral: true,
           };
 
           if (interaction.deferred || interaction.replied) {
