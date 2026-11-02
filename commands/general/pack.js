@@ -62,24 +62,24 @@ module.exports = {
     return interaction.reply({
       embeds: [embed],
       components: [packMenu(interaction.user.id)],
-      flags: MessageFlags.Ephemeral,
+      flags: 0,
     });
   },
 
   async handleSelect(interaction) {
     const ownerId = interaction.customId.split(':')[1];
     if (interaction.user.id !== ownerId) {
-      return interaction.reply({ content: 'This pack menu belongs to another player.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: 'This pack menu belongs to another player.', flags: 0 });
     }
     const tier = interaction.values[0];
     if (tier === 'special') {
       return interaction.reply({
         content: 'Special Player Packs are coming soon. There are no Special cards available yet.',
-        flags: MessageFlags.Ephemeral,
+        flags: 0,
       });
     }
     const pack = PACKS[tier];
-    if (!pack) return interaction.reply({ content: 'Invalid pack selection.', flags: MessageFlags.Ephemeral });
+    if (!pack) return interaction.reply({ content: 'Invalid pack selection.', flags: 0 });
     const embed = new EmbedBuilder()
       .setTitle(pack.name)
       .setColor(0x5865f2)
@@ -96,12 +96,12 @@ module.exports = {
   async handleButton(interaction) {
     const [, tier, rawSize, ownerId] = interaction.customId.split(':');
     if (interaction.user.id !== ownerId) {
-      return interaction.reply({ content: 'This pack menu belongs to another player.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: 'This pack menu belongs to another player.', flags: 0 });
     }
     const pack = PACKS[tier];
     const size = Number(rawSize);
     if (!pack || !pack.prices[size]) {
-      return interaction.reply({ content: 'That pack is not available.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: 'That pack is not available.', flags: 0 });
     }
 
     await interaction.deferUpdate();
@@ -145,7 +145,7 @@ module.exports = {
     } catch (error) {
       return interaction.followUp({
         content: '**Pack purchase failed:** ' + String(error.message || 'Unknown API error').slice(0, 1500),
-        flags: MessageFlags.Ephemeral,
+        flags: 0,
       });
     }
   },
