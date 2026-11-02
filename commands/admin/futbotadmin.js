@@ -67,7 +67,7 @@ module.exports = {
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
     const admin_id = userIdOption(interaction);
-    if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ ephemeral: true });
+    if (!interaction.deferred && !interaction.replied) await interaction.deferReply();
     if (sub === 'give-coins') {
       const user = interaction.options.getUser('user');
       return run(interaction, () => post('/api/v1/admin/coins', { admin_id, user_id: user.id, amount: interaction.options.getInteger('amount') }), 'Give coins');
