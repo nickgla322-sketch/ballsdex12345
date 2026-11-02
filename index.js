@@ -77,3 +77,5 @@ keepAlive();
 })();
 
 // Small redeploy trigger; no runtime behavior changed.
+
+// Railway redeploy trigger (November 2026).
