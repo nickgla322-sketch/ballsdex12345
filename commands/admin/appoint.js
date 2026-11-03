@@ -15,6 +15,7 @@ const {
 } = require('../../utils/permissions');
 
 const { logAction } = require('../../utils/logger');
+const { ROSTER_MAX, withRosterSlot } = require('../../utils/roster');
 
 const Teams = require('../../models/teams');
 const Staffs = require('../../models/staffs');
@@ -296,9 +297,24 @@ module.exports = {
                 });
               }
 
-              // Assign the team role
+              // Appointing a new person also adds them to the team roster.
               if (!member.roles.cache.has(team.roleId)) {
-                await member.roles.add(team.roleId);
+                const rosterResult = await withRosterSlot(
+                  interaction.guild,
+                  team.roleId,
+                  async () => {
+                    await member.roles.add(team.roleId);
+                  }
+                );
+
+                if (!rosterResult.ok) {
+                  return interaction.editReply({
+                    content: rosterResult.full
+                      ? 'You have reached the roster maximum. You must release players if you want to add anyone else to the team.'
+                      : 'A roster change for this team is already being processed. Please try again in a moment.',
+                    components: [],
+                  });
+                }
               }
 
               // Assign the staff hierarchy role
@@ -316,6 +332,9 @@ module.exports = {
                 teamName: team.name,
                 position,
               });
+
+              const rosterCount =
+                interaction.guild.roles.cache.get(team.roleId)?.members.size ?? 0;
 
               const guild = interaction.guild;
 
@@ -371,7 +390,7 @@ module.exports = {
                 content:
                   `<@${user.id}> has been appointed as **${pretty(position)}** ` +
                   `of ${team.emoji || ''} <@&${team.roleId}> in the division ` +
-                  `**${team.division || divisionName}**.`,
+                  `**${team.division || divisionName}**.\\nRoster is now **${rosterCount}/${ROSTER_MAX}**.`,
                 components: [],
                 allowedMentions: { parse: [] },
               });
