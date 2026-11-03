@@ -7,11 +7,13 @@ const {
 
 const { RELEASE_ROLE } = require('../../utils/permissions');
 const { logAction } = require('../../utils/logger');
+const getGuildMembers = require('../../utils/getGuildMembers');
 
 const Staffs = require('../../models/staffs');
 const Teams = require('../../models/teams');
 
 const FREE_AGENT_ROLE_ID = '1374495332846669956';
+const ROSTER_MAX = 14;
 
 const RELEASE_LIMIT = 5;
 const RELEASE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
@@ -175,6 +177,8 @@ module.exports = {
       });
     }
 
+    await getGuildMembers(interaction.guild);
+
     let member;
 
     try {
@@ -308,9 +312,13 @@ module.exports = {
       console.error('Failed to log player release:', error);
     }
 
+    const rosterCount = interaction.guild.roles.cache.get(team.roleId)?.members.size ?? 0;
+
     let response =
       `<@${player.id}> has been released from **${team.name}** ` +
       'and given the Free Agent role.';
+
+    response += `\\nRoster is now **${rosterCount}/${ROSTER_MAX}**.`;
 
     if (newCooldownExpiry) {
       response +=
