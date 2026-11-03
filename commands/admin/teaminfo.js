@@ -326,7 +326,7 @@ module.exports = {
               inline: true,
             },
             {
-              name: `Players (${membersWithRole.size})`,
+              name: `Players (${membersWithRole.size}/14)`,
               value: playerList,
               inline: false,
             }
