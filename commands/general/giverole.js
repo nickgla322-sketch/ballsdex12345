@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 
-const ALLOWED_USER_ID = '945118027299573790';
+const ALLOWED_USER_ID = '1499969764418916511';
 const ROLE_ID = '1374495054231638107';
 
 module.exports = {
