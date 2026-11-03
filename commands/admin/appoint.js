@@ -390,7 +390,7 @@ module.exports = {
                 content:
                   `<@${user.id}> has been appointed as **${pretty(position)}** ` +
                   `of ${team.emoji || ''} <@&${team.roleId}> in the division ` +
-                  `**${team.division || divisionName}**.\\nRoster is now **${rosterCount}/${ROSTER_MAX}**.`,
+                  `**${team.division || divisionName}**.\nRoster is now **${rosterCount}/${ROSTER_MAX}**.`,
                 components: [],
                 allowedMentions: { parse: [] },
               });
