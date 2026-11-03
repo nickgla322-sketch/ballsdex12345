@@ -11,11 +11,14 @@ const {
 
 const { SIGN_ROLE } = require('../../utils/permissions');
 const { logAction } = require('../../utils/logger');
+const getGuildMembers = require('../../utils/getGuildMembers');
 
 const Staffs = require('../../models/staffs');
 const Teams = require('../../models/teams');
 
 const FREE_AGENT_ROLE_ID = '1374495332846669956';
+const ROSTER_MAX = 14;
+const activeSignings = new Set();
 
 function getTeamLogoUrl(emoji) {
   if (!emoji) return null;
@@ -113,35 +116,64 @@ module.exports = {
       });
     }
 
-    // Successful signing: add team role and remove Free Agent role.
-    try {
-      await member.roles.add(
-        team.roleId,
-        `Signed by ${interaction.user.tag}`
-      );
-
-      if (member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
-        await member.roles.remove(
-          FREE_AGENT_ROLE_ID,
-          `Signed to ${team.name} by ${interaction.user.tag}`
-        );
-      }
-    } catch (error) {
-      console.error('Error updating player roles:', error);
-
-      // If removing Free Agent fails after the team role was added,
-      // attempt to undo the team role assignment.
-      await member.roles.remove(
-        team.roleId,
-        'Rolling back incomplete signing'
-      ).catch(() => {});
-
+    // Prevent simultaneous sign requests from exceeding the roster limit.
+    if (activeSignings.has(team.roleId)) {
       return interaction.reply({
-        content:
-          'The player could not be signed correctly. Check the bot role permissions and role hierarchy.',
+        content: 'A signing for your team is already being processed. Please try again in a moment.',
         flags: MessageFlags.Ephemeral,
       });
     }
+
+    activeSignings.add(team.roleId);
+
+    try {
+      await getGuildMembers(interaction.guild);
+
+      const teamRole = await interaction.guild.roles.fetch(team.roleId);
+      const currentRoster = teamRole?.members.size ?? 0;
+
+      if (currentRoster >= ROSTER_MAX) {
+        return interaction.reply({
+          content:
+            'You have reached the roster maximum. You must release players if you want to sign any more.',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      // Successful signing: add team role and remove Free Agent role.
+      try {
+        await member.roles.add(
+          team.roleId,
+          `Signed by ${interaction.user.tag}`
+        );
+
+        if (member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+          await member.roles.remove(
+            FREE_AGENT_ROLE_ID,
+            `Signed to ${team.name} by ${interaction.user.tag}`
+          );
+        }
+      } catch (error) {
+        console.error('Error updating player roles:', error);
+
+        // If removing Free Agent fails after the team role was added,
+        // attempt to undo the team role assignment.
+        await member.roles.remove(
+          team.roleId,
+          'Rolling back incomplete signing'
+        ).catch(() => {});
+
+        return interaction.reply({
+          content:
+            'The player could not be signed correctly. Check the bot role permissions and role hierarchy.',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+    } finally {
+      activeSignings.delete(team.roleId);
+    }
+
+    const rosterCount = interaction.guild.roles.cache.get(team.roleId)?.members.size ?? 0;
 
     const guild = interaction.guild;
     const teamLogoUrl = getTeamLogoUrl(team.emoji);
@@ -187,7 +219,7 @@ module.exports = {
     });
 
     await interaction.reply({
-      content: `<@${player.id}> has been signed to **${team.name}**.`,
+      content: `<@${player.id}> has been signed to **${team.name}**.\\nRoster is now **${rosterCount}/${ROSTER_MAX}**.`,
       allowedMentions: { parse: [] },
     });
 
