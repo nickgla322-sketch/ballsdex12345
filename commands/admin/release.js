@@ -318,7 +318,7 @@ module.exports = {
       `<@${player.id}> has been released from **${team.name}** ` +
       'and given the Free Agent role.';
 
-    response += `\\nRoster is now **${rosterCount}/${ROSTER_MAX}**.`;
+    response += `\nRoster is now **${rosterCount}/${ROSTER_MAX}**.`;
 
     if (newCooldownExpiry) {
       response +=
