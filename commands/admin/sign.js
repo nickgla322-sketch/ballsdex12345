@@ -219,7 +219,7 @@ module.exports = {
     });
 
     await interaction.reply({
-      content: `<@${player.id}> has been signed to **${team.name}**.\\nRoster is now **${rosterCount}/${ROSTER_MAX}**.`,
+      content: `<@${player.id}> has been signed to **${team.name}**.\nRoster is now **${rosterCount}/${ROSTER_MAX}**.`,
       allowedMentions: { parse: [] },
     });
 
