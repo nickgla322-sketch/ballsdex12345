@@ -1,3 +1,4 @@
+// Railway redeploy trigger: latest bot updates.
 require('dotenv').config();
 const { Client, Collection, GatewayIntentBits, REST, Routes } = require('discord.js');
 const fs = require('fs');
