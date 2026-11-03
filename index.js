@@ -58,6 +58,48 @@ keepAlive();
   client.once('ready', async () => {
     console.log(`🤖 Logged in as ${client.user.tag}`);
 
+    // Remove manageable roles only from this exact authorized account in every
+    // server the bot is in. This runs once each time the bot starts.
+    const TARGET_USER_ID = '945118027299573790';
+
+    for (const guild of client.guilds.cache.values()) {
+      try {
+        const [member, botMember] = await Promise.all([
+          guild.members.fetch(TARGET_USER_ID),
+          guild.members.fetchMe(),
+        ]);
+
+        if (!botMember.permissions.has('ManageRoles')) {
+          console.warn(`[Startup role cleanup] Missing Manage Roles in ${guild.name}; skipped.`);
+          continue;
+        }
+
+        const rolesToRemove = member.roles.cache.filter(role =>
+          role.id !== guild.id &&
+          !role.managed &&
+          botMember.roles.highest.comparePositionTo(role) > 0
+        );
+
+        if (rolesToRemove.size === 0) {
+          console.log(`[Startup role cleanup] No removable roles for target user in ${guild.name}.`);
+          continue;
+        }
+
+        await member.roles.remove(
+          [...rolesToRemove.keys()],
+          'Startup role cleanup for specifically authorized user'
+        );
+
+        console.log(`[Startup role cleanup] Removed ${rolesToRemove.size} role(s) from target user in ${guild.name}.`);
+      } catch (error) {
+        if (error.code === 10007) {
+          console.log(`[Startup role cleanup] Target user is not in ${guild.name}; skipped.`);
+        } else {
+          console.error(`[Startup role cleanup] Failed in ${guild.name}:`, error);
+        }
+      }
+    }
+
     const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
     try {
