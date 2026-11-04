@@ -249,6 +249,9 @@ const options = divisions.map(division =>
       // Ping listed staff in the message content; embeds themselves do not resolve mentions.
       const staffUserIds = [...new Set(
         staff
+          .filter(entry =>
+            ['chairman', 'manager', 'assistant'].includes(entry.position)
+          )
           .map(entry => String(entry.userId || ''))
           .filter(userId => /^\d{17,20}$/.test(userId))
           .filter(userId => interaction.guild.members.cache.has(userId))
