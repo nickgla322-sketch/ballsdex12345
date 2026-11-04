@@ -200,16 +200,27 @@ const options = divisions.map(division =>
             .catch(() => null);
 
           if (member) {
-            // The plain display name remains readable even if Discord fails
-            // to resolve the mention on another user's client.
-            return `**${member.displayName}** · <@${member.id}>`;
+            // Keep the readable name short so staff rows stay more even.
+            const displayName = member.displayName;
+            const shortName = displayName.length > 14
+              ? `${displayName.slice(0, 13)}…`
+              : displayName;
+
+            return `<@${member.id}> (**${shortName}**)`;
           }
 
           // If the person is no longer in the server, show their username
           // without leaving an unresolved mention ID in the embed.
           const user = await client.users.fetch(userId).catch(() => null);
 
-          return user ? `**@${user.username}** (not in server)` : 'User unavailable';
+          if (!user) return 'User unavailable';
+
+          const displayName = user.username;
+          const shortName = displayName.length > 14
+            ? `${displayName.slice(0, 13)}…`
+            : displayName;
+
+          return `@${user.username} (**${shortName}**, not in server)`;
         };
 
         const [chairmanText, managerText, assistantText] = await Promise.all([
