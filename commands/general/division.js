@@ -189,38 +189,9 @@ const options = divisions.map(division =>
           entry => entry.position === 'assistant'
         );
 
-        const getStaffDisplay = async staffMember => {
+        const getStaffDisplay = staffMember => {
           if (!staffMember?.userId) return 'Vacant';
-
-          const userId = String(staffMember.userId).trim();
-
-          // Only format a Discord mention when the ID resolves to a server member.
-          const member = await interaction.guild.members
-            .fetch(userId)
-            .catch(() => null);
-
-          if (member) {
-            // Keep the readable name short so staff rows stay more even.
-            const displayName = member.displayName;
-            const shortName = displayName.length > 14
-              ? `${displayName.slice(0, 13)}…`
-              : displayName;
-
-            return `<@${member.id}> (**${shortName}**)`;
-          }
-
-          // If the person is no longer in the server, show their username
-          // without leaving an unresolved mention ID in the embed.
-          const user = await client.users.fetch(userId).catch(() => null);
-
-          if (!user) return 'User unavailable';
-
-          const displayName = user.username;
-          const shortName = displayName.length > 14
-            ? `${displayName.slice(0, 13)}…`
-            : displayName;
-
-          return `@${user.username} (**${shortName}**, not in server)`;
+          return `<@${String(staffMember.userId).trim()}>`;
         };
 
         const [chairmanText, managerText, assistantText] = await Promise.all([
