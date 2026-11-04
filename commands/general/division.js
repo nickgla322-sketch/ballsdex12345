@@ -189,17 +189,19 @@ const options = divisions.map(division =>
           entry => entry.position === 'assistant'
         );
 
-        const chairmanText = chairman
-          ? `<@${chairman.userId}>`
-          : 'Vacant';
+        const getStaffDisplayName = staffMember => {
+          if (!staffMember?.userId) return 'Vacant';
 
-        const managerText = manager
-          ? `<@${manager.userId}>`
-          : 'Vacant';
+          const member = interaction.guild.members.cache.get(
+            String(staffMember.userId)
+          );
 
-        const assistantText = assistant
-          ? `<@${assistant.userId}>`
-          : 'Vacant';
+          return member ? `@${member.displayName}` : 'User not found';
+        };
+
+        const chairmanText = getStaffDisplayName(chairman);
+        const managerText = getStaffDisplayName(manager);
+        const assistantText = getStaffDisplayName(assistant);
 
         const role = interaction.guild.roles.cache.get(team.roleId);
 
@@ -244,10 +246,25 @@ const options = divisions.map(division =>
         });
       }
 
-      // Post the division information publicly in the channel.
+      // Ping listed staff in the message content; embeds themselves do not resolve mentions.
+      const staffUserIds = [...new Set(
+        staff
+          .map(entry => String(entry.userId || ''))
+          .filter(userId => /^\d{17,20}$/.test(userId))
+          .filter(userId => interaction.guild.members.cache.has(userId))
+      )];
+
+      const staffMentions = staffUserIds
+        .map(userId => `<@${userId}>`)
+        .join(' ');
+
       await interaction.channel.send({
+        content: staffMentions || undefined,
         embeds: [embed],
-        allowedMentions: { parse: [] },
+        allowedMentions: {
+          parse: [],
+          users: staffUserIds,
+        },
       });
 
       // Clean up the original private selection menu.
