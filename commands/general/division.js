@@ -199,13 +199,17 @@ const options = divisions.map(division =>
             .fetch(userId)
             .catch(() => null);
 
-          if (member) return `<@${member.id}>`;
+          if (member) {
+            // The plain display name remains readable even if Discord fails
+            // to resolve the mention on another user's client.
+            return `**${member.displayName}** · <@${member.id}>`;
+          }
 
-          // If the person is no longer in the server, show a readable name
-          // instead of exposing an unresolved raw Discord ID.
+          // If the person is no longer in the server, show their username
+          // without leaving an unresolved mention ID in the embed.
           const user = await client.users.fetch(userId).catch(() => null);
 
-          return user ? `@${user.username} (not in server)` : 'User unavailable';
+          return user ? `**@${user.username}** (not in server)` : 'User unavailable';
         };
 
         const [chairmanText, managerText, assistantText] = await Promise.all([
