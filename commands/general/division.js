@@ -189,19 +189,30 @@ const options = divisions.map(division =>
           entry => entry.position === 'assistant'
         );
 
-        const getStaffDisplayName = staffMember => {
+        const getStaffDisplay = async staffMember => {
           if (!staffMember?.userId) return 'Vacant';
 
-          const member = interaction.guild.members.cache.get(
-            String(staffMember.userId)
-          );
+          const userId = String(staffMember.userId).trim();
 
-          return member ? `@${member.displayName}` : 'User not found';
+          // Only format a Discord mention when the ID resolves to a server member.
+          const member = await interaction.guild.members
+            .fetch(userId)
+            .catch(() => null);
+
+          if (member) return `<@${member.id}>`;
+
+          // If the person is no longer in the server, show a readable name
+          // instead of exposing an unresolved raw Discord ID.
+          const user = await client.users.fetch(userId).catch(() => null);
+
+          return user ? `@${user.username} (not in server)` : 'User unavailable';
         };
 
-        const chairmanText = getStaffDisplayName(chairman);
-        const managerText = getStaffDisplayName(manager);
-        const assistantText = getStaffDisplayName(assistant);
+        const [chairmanText, managerText, assistantText] = await Promise.all([
+          getStaffDisplay(chairman),
+          getStaffDisplay(manager),
+          getStaffDisplay(assistant),
+        ]);
 
         const role = interaction.guild.roles.cache.get(team.roleId);
 
@@ -246,28 +257,11 @@ const options = divisions.map(division =>
         });
       }
 
-      // Ping listed staff in the message content; embeds themselves do not resolve mentions.
-      const staffUserIds = [...new Set(
-        staff
-          .filter(entry =>
-            ['chairman', 'manager', 'assistant'].includes(entry.position)
-          )
-          .map(entry => String(entry.userId || ''))
-          .filter(userId => /^\d{17,20}$/.test(userId))
-          .filter(userId => interaction.guild.members.cache.has(userId))
-      )];
-
-      const staffMentions = staffUserIds
-        .map(userId => `<@${userId}>`)
-        .join(' ');
-
+      // Keep all staff information inside the division embed.
+      // Embed mentions are clickable but do not trigger notification pings.
       await interaction.channel.send({
-        content: staffMentions || undefined,
         embeds: [embed],
-        allowedMentions: {
-          parse: [],
-          users: staffUserIds,
-        },
+        allowedMentions: { parse: [] },
       });
 
       // Clean up the original private selection menu.
