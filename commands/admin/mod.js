@@ -1,9 +1,9 @@
 const commands = {
-  purge: require('./purge'),
-  viewpoints: require('./viewpoints'),
-  editpoints: require('./editpoints'),
-  viewwarn: require('./viewwarn'),
-  warn: require('./warn'),
+  purge: require('./purge.js'),
+  viewpoints: require('./viewpoints.js'),
+  editpoints: require('./editpoints.js'),
+  viewwarn: require('./viewwarn.js'),
+  warn: require('./warn.js'),
 };
 
 const subcommands = Object.entries(commands).map(([name, command]) => ({
