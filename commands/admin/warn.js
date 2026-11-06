@@ -13,7 +13,7 @@ const ALLOWED_ROLE_IDS = [
   '1374495103049269298',
 ];
 const LOG_CHANNEL_ID = '1374495867691597976';
-const SUPPORT_INVITE = 'https://discord.gg/NekMKxgP5V';
+const SUPPORT_INVITE = 'https://discord.gg/CMpHwxNpF';
 const BAN_THRESHOLD = 100;
 const TIMEOUT_MINUTES_PER_POINT = 2;
 
@@ -70,9 +70,10 @@ module.exports = {
         .setRequired(false))
     .addStringOption(option =>
       option.setName('moderator_message')
-        .setDescription('Optional message to include in the warning DM')
+        .setDescription('Required message to include in the warning DM')
+        .setMinLength(1)
         .setMaxLength(500)
-        .setRequired(false))
+        .setRequired(true))
     .setDefaultMemberPermissions(null),
 
   async execute(interaction, client) {
@@ -94,7 +95,10 @@ module.exports = {
     const targetUser = interaction.options.getUser('member', true);
     const offense = OFFENSES[interaction.options.getString('reason', true)];
     const proof = interaction.options.getAttachment('proof');
-    const moderatorMessage = interaction.options.getString('moderator_message')?.trim();
+    const moderatorMessage = interaction.options.getString('moderator_message', true).trim();
+    if (!moderatorMessage) {
+      return interaction.reply({ content: 'A moderator message is required.', flags: MessageFlags.Ephemeral });
+    }
     if (!offense) {
       return interaction.reply({ content: 'That warning reason is not valid.', flags: MessageFlags.Ephemeral });
     }
@@ -175,7 +179,7 @@ module.exports = {
 
     const serverIcon = interaction.guild.iconURL({ extension: 'png', size: 256 });
     const dmEmbed = new EmbedBuilder()
-      .setColor(reachesBanThreshold ? 0xed4245 : 0xf1c40f)
+      .setColor(0xed4245)
       .setAuthor({
         name: interaction.guild.name,
         ...(serverIcon ? { iconURL: serverIcon } : {}),
@@ -186,15 +190,17 @@ module.exports = {
         { name: 'Points Added', value: String(offense.points), inline: true },
         { name: 'Your Total Points', value: String(totalPoints), inline: true },
         { name: 'Status', value: status === 'Under Watch' ? '⬛ Under Watch' : '🔴 Permanently Banned' },
+        { name: '\u200B', value: '\u200B' },
         {
-          name: 'What this means',
+          name: '**What this means**',
           value: reachesBanThreshold
             ? banNotice
             : `- ${pointsUntilBan} more points until you are permanently banned.\n- You have received a ${timeoutMinutes}-minute timeout.`,
         },
-        { name: 'Offense List and Point Values', value: OFFENSE_LIST },
+        { name: '\u200B', value: '\u200B' },
+        { name: '**Offense List and Point Values**', value: OFFENSE_LIST },
         { name: 'Proof', value: proofLine },
-        { name: 'Moderator Message', value: moderatorMessage || 'No additional message.' },
+        { name: 'Moderator Message', value: moderatorMessage },
         {
           name: reachesBanThreshold ? '🚫 Auto-Ban Notice' : '⏱️ Punishment Notice',
           value: reachesBanThreshold
@@ -203,6 +209,9 @@ module.exports = {
               : `You have been automatically banned from the server for reaching ${BAN_THRESHOLD} points. This is a permanent ban and you may not rejoin.\n\nIf you believe this was a mistake, you may appeal here: ${SUPPORT_INVITE}`)
             : `You have been timed out for ${timeoutMinutes} minutes.\n\nYou are currently under watch. Further offenses may lead to a permanent ban.`,
         },
+      )
+        { name: '\u200B', value: '\u200B' },
+        { name: '📩 Appeal', value: `If you believe this was a mistake, you may appeal here: ${SUPPORT_INVITE}` },
       )
       .setFooter({ text: `GFC • ${interaction.guild.name}` })
       .setTimestamp();
@@ -236,7 +245,7 @@ module.exports = {
         { name: 'New Total', value: String(totalPoints), inline: true },
         { name: 'Timeout Duration', value: reachesBanThreshold ? 'Permanent ban threshold reached' : `${timeoutMinutes} minutes`, inline: true },
         { name: 'Punishment Result', value: punishment },
-        { name: 'Moderator Message', value: moderatorMessage || 'None' },
+        { name: 'Moderator Message', value: moderatorMessage },
         { name: 'DM Delivered', value: dmSent ? 'Yes' : 'No (DMs may be closed)' },
         { name: 'Proof', value: proof ? `[Open proof attachment](${proof.url})` : 'No proof attachment provided.' },
       )
