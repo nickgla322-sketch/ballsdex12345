@@ -5,6 +5,9 @@ const commands = {
   viewwarn: require('./viewwarn.js'),
   warn: require('./warn.js'),
   slowmode: require('./slowmode.js'),
+  history: require('./history.js'),
+  stats: require('./stats.js'),
+  cases: require('./cases.js'),
 };
 
 const subcommands = Object.entries(commands).map(([name, command]) => ({
