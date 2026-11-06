@@ -174,7 +174,7 @@ module.exports = {
     const banNotice = reachesBanThreshold
       ? (punishmentError
         ? 'The automatic permanent ban could not be completed. Please contact league staff.'
-        : `You have been permanently banned from the league for reaching ${BAN_THRESHOLD} warning points. If you believe this was a mistake, contact support: ${SUPPORT_INVITE}`)
+        : `You have been permanently banned from the league for reaching ${BAN_THRESHOLD} warning points.`)
       : `${pointsUntilBan} more points until the automatic permanent ban.`;
 
     const serverIcon = interaction.guild.iconURL({ extension: 'png', size: 256 });
@@ -209,7 +209,6 @@ module.exports = {
               : `You have been automatically banned from the server for reaching ${BAN_THRESHOLD} points. This is a permanent ban and you may not rejoin.\n\nIf you believe this was a mistake, you may appeal here: ${SUPPORT_INVITE}`)
             : `You have been timed out for ${timeoutMinutes} minutes.\n\nYou are currently under watch. Further offenses may lead to a permanent ban.`,
         },
-      )
         { name: '\u200B', value: '\u200B' },
         { name: '📩 Appeal', value: `If you believe this was a mistake, you may appeal here: ${SUPPORT_INVITE}` },
       )
