@@ -179,7 +179,7 @@ module.exports = {
 
     const serverIcon = interaction.guild.iconURL({ extension: 'png', size: 256 });
     const dmEmbed = new EmbedBuilder()
-      .setColor(0xed4245)
+      .setColor(0xff0000)
       .setAuthor({
         name: interaction.guild.name,
         ...(serverIcon ? { iconURL: serverIcon } : {}),
@@ -197,7 +197,6 @@ module.exports = {
             ? banNotice
             : `- ${pointsUntilBan} more points until you are permanently banned.\n- You have received a ${timeoutMinutes}-minute timeout.`,
         },
-        { name: '\u200B', value: '\u200B' },
         { name: '**Offense List and Point Values**', value: OFFENSE_LIST },
         { name: 'Proof', value: proofLine },
         { name: 'Moderator Message', value: moderatorMessage },
