@@ -95,6 +95,49 @@ module.exports = {
 
     // Slash command handler
     if (interaction.isChatInputCommand()) {
+      const commandLogChannelId = '1374495867691597976';
+      const subcommand = interaction.commandName === 'mod'
+        ? interaction.options.getSubcommand(false)
+        : null;
+      const commandKey = subcommand || interaction.commandName;
+      const exemptCommandLogs = new Set(['stats', 'cases', 'viewpoints', 'history']);
+      const commandsWithDetailedLogs = new Set([
+        'purge', 'warn', 'editpoints', 'appoint', 'sack',
+        'sign', 'release', 'hire', 'fire',
+      ]);
+      const shouldLogCommand = !exemptCommandLogs.has(commandKey)
+        && !commandsWithDetailedLogs.has(commandKey);
+
+      if (shouldLogCommand) {
+        const optionLines = (interaction.options.data || []).map(option => {
+          const value = option.value ?? option.user?.tag ?? option.channel?.name ?? option.role?.name;
+          return value === undefined ? null : `• ${option.name}: ${String(value).slice(0, 300)}`;
+        }).filter(Boolean);
+        const commandLog = {
+          embeds: [{
+            color: 0x5865f2,
+            title: 'Command Used',
+            fields: [
+              { name: 'Command', value: `/${interaction.commandName}${subcommand ? ` ${subcommand}` : ''}`, inline: true },
+              { name: 'Used By', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
+              { name: 'Channel', value: interaction.channelId ? `<#${interaction.channelId}>` : 'Unknown', inline: true },
+              ...(optionLines.length ? [{ name: 'Options', value: optionLines.join('\\n').slice(0, 1024) }] : []),
+            ],
+            timestamp: new Date().toISOString(),
+          }],
+          allowedMentions: { parse: [] },
+        };
+        try {
+          const logChannel = await client.channels.fetch(commandLogChannelId);
+          if (logChannel?.isTextBased() && logChannel.send) {
+            await logChannel.send(commandLog);
+          } else {
+            console.error('Command audit log channel is unavailable.');
+          }
+        } catch (error) {
+          console.error('Failed to send command audit log:', error);
+        }
+      }
       const command = client.commands.get(interaction.commandName);
 
       if (!command) return;
