@@ -64,16 +64,16 @@ module.exports = {
           { name: 'Doxxing / Revealing Personal Info - 45 points', value: 'doxxing' },
           { name: 'Scamming - 25 points', value: 'scamming' },
         ))
-    .addAttachmentOption(option =>
-      option.setName('proof')
-        .setDescription('Optional proof attachment for this warning')
-        .setRequired(false))
     .addStringOption(option =>
       option.setName('moderator_message')
         .setDescription('Required message to include in the warning DM')
         .setMinLength(1)
         .setMaxLength(500)
         .setRequired(true))
+    .addAttachmentOption(option =>
+      option.setName('proof')
+        .setDescription('Optional proof attachment for this warning')
+        .setRequired(false))
     .setDefaultMemberPermissions(null),
 
   async execute(interaction, client) {
