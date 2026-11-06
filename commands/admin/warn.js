@@ -204,9 +204,10 @@ module.exports = {
             : `You have been timed out for ${timeoutMinutes} minutes.\n\nYou are currently under watch. Further offenses may lead to a permanent ban.`,
         },
       )
-      .setThumbnail(serverIcon)
       .setFooter({ text: `GFC • ${interaction.guild.name}` })
       .setTimestamp();
+
+    if (serverIcon) dmEmbed.setThumbnail(serverIcon);
 
     if (proof && proof.contentType?.startsWith('image/')) {
       dmEmbed.setImage(proof.url);
@@ -226,7 +227,6 @@ module.exports = {
         ...(serverIcon ? { iconURL: serverIcon } : {}),
       })
       .setTitle('⚠️ Member Warned')
-      .setThumbnail(serverIcon)
       .addFields(
         { name: 'Member', value: `<@${target.id}> (${target.user.tag})`, inline: true },
         { name: 'Moderator', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
@@ -241,6 +241,8 @@ module.exports = {
         { name: 'Proof', value: proof ? `[Open proof attachment](${proof.url})` : 'No proof attachment provided.' },
       )
       .setTimestamp();
+
+    if (serverIcon) logEmbed.setThumbnail(serverIcon);
 
     if (proof && proof.contentType?.startsWith('image/')) {
       logEmbed.setImage(proof.url);
