@@ -10,6 +10,8 @@ const commands = {
   cases: require('./cases.js'),
   lock: require('./lock.js'),
   unlock: require('./unlock.js'),
+  hire: require('./hire.js'),
+  fire: require('./fire.js'),
 };
 
 const subcommands = Object.entries(commands).map(([name, command]) => ({
