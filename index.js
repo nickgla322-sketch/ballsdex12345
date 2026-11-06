@@ -56,7 +56,7 @@ keepAlive();
   }
 
   // ⭐ READY EVENT
-  client.once('ready', async () => {
+  client.once('clientReady', async () => {
     console.log(`🤖 Logged in as ${client.user.tag}`);
 
     const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
