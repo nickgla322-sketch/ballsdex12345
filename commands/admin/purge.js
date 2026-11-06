@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { logModerationAction } = require('../../utils/moderationLogger');
 
 const ALLOWED_ROLE_IDS = [
   '1561183666976202832',
@@ -81,6 +82,15 @@ module.exports = {
           .setTimestamp();
         await logChannel.send({ embeds: [embed], allowedMentions: { parse: [] } });
       }
+
+      await logModerationAction({
+        guildId: interaction.guild.id,
+        moderatorId: interaction.user.id,
+        action: 'Purge',
+        reason,
+        details: `Deleted ${deletedMessages.length} of ${messages.size} messages in <#${channel.id}>`,
+        channelId: channel.id,
+      });
 
       return interaction.editReply({ content: `Successfully deleted **${deletedMessages.length}** of **${messages.size}** messages. Logged the action in the audit channel.` });
     } catch (error) {
