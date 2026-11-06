@@ -54,7 +54,7 @@ module.exports = {
         moderatorId: interaction.user.id,
         action: 'Unlock',
         reason: `Channel unlocked`,
-        details: `Channel: <#${channel.id}> • @everyone ${locked ? 'cannot' : 'can'} send messages`,
+        details: `Channel: <#${channel.id}> • @everyone can send messages`,
         channelId: channel.id,
       });
 
