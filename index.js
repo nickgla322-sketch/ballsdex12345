@@ -33,6 +33,10 @@ keepAlive();
       if (entry.isDirectory()) {
         loadCommands(fullPath);
       } else if (entry.name.endsWith('.js')) {
+        // These handlers are exposed only as subcommands of /mod.
+        if (['purge.js', 'viewpoints.js', 'editpoints.js', 'viewwarn.js', 'warn.js'].includes(entry.name)) {
+          continue;
+        }
         const command = require(fullPath);
         if (command.data && command.execute) {
           client.commands.set(command.data.name, command);
