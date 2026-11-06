@@ -103,16 +103,21 @@ module.exports = {
       const exemptCommandLogs = new Set(['stats', 'cases', 'viewpoints', 'history']);
       const commandsWithDetailedLogs = new Set([
         'purge', 'warn', 'editpoints', 'appoint', 'sack',
-        'sign', 'release', 'hire', 'fire',
+        'sign', 'release', 'hire', 'fire', 'addteam',
+        'changedivision', 'createdivision', 'demote', 'disband',
+        'promote', 'removedivision', 'removeteam',
+        'renamedivision', 'renameteam',
       ]);
       const shouldLogCommand = !exemptCommandLogs.has(commandKey)
         && !commandsWithDetailedLogs.has(commandKey);
 
       if (shouldLogCommand) {
-        const optionLines = (interaction.options.data || []).map(option => {
-          const value = option.value ?? option.user?.tag ?? option.channel?.name ?? option.role?.name;
-          return value === undefined ? null : `• ${option.name}: ${String(value).slice(0, 300)}`;
-        }).filter(Boolean);
+        const flattenOptions = options => (options || []).flatMap(option => {
+          if (Array.isArray(option.options)) return flattenOptions(option.options);
+          const value = option.value ?? option.user?.tag ?? option.channel?.name ?? option.role?.name ?? option.attachment?.name;
+          return value === undefined ? [] : [`• ${option.name}: ${String(value).slice(0, 300)}`];
+        });
+        const optionLines = flattenOptions(interaction.options.data);
         const commandLog = {
           embeds: [{
             color: 0x5865f2,
