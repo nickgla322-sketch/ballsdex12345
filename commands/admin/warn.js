@@ -15,7 +15,7 @@ const ALLOWED_ROLE_IDS = [
   '1374495103049269298',
 ];
 const LOG_CHANNEL_ID = '1374495867691597976';
-const SUPPORT_INVITE = 'https://discord.gg/CMpHwxNpF';
+const SUPPORT_INVITE = 'https://discord.gg/NekMKxgP5V';
 const BAN_THRESHOLD = 100;
 const TIMEOUT_MINUTES_PER_POINT = 2;
 
@@ -123,18 +123,46 @@ module.exports = {
       return interaction.editReply({ content: 'The server owner cannot be warned by this command.' });
     }
 
+    const timeoutMinutes = offense.points * TIMEOUT_MINUTES_PER_POINT;
+    const cooldownUntil = new Date(Date.now() + timeoutMinutes * 60 * 1000);
     let previousRecord;
     try {
-      previousRecord = await Warnings.findOneAndUpdate(
+      // Ensure the member has a record, then claim the cooldown and add points
+      // in one atomic update so two moderators cannot warn simultaneously.
+      await Warnings.updateOne(
         { guildId: interaction.guild.id, userId: target.id },
+        { $setOnInsert: { guildId: interaction.guild.id, userId: target.id } },
+        { upsert: true },
+      );
+      previousRecord = await Warnings.findOneAndUpdate(
+        {
+          guildId: interaction.guild.id,
+          userId: target.id,
+          $or: [
+            { warnCooldownUntil: null },
+            { warnCooldownUntil: { $exists: false } },
+            { warnCooldownUntil: { $lte: new Date() } },
+          ],
+        },
         {
           $inc: { points: offense.points, warningCount: 1 },
-          $setOnInsert: { guildId: interaction.guild.id, userId: target.id },
+          $set: { warnCooldownUntil: cooldownUntil },
         },
-        { upsert: true, new: false, setDefaultsOnInsert: true },
+        { new: false },
       );
+      if (!previousRecord) {
+        const currentRecord = await Warnings.findOne({
+          guildId: interaction.guild.id,
+          userId: target.id,
+        }).select('warnCooldownUntil');
+        const remainingMs = Math.max(0, new Date(currentRecord?.warnCooldownUntil || Date.now()).getTime() - Date.now());
+        const remainingMinutes = Math.ceil(remainingMs / 60000);
+        return interaction.editReply({
+          content: `<@${target.id}> already has an active warning cooldown. Nobody can warn them again for another **${remainingMinutes} minute(s)**.`,
+        });
+      }
     } catch (error) {
-      console.error('Failed to save warning points:', error);
+      console.error('Failed to save warning points or claim warning cooldown:', error);
       return interaction.editReply({ content: 'Could not save this warning. No punishment was applied.' });
     }
 
@@ -167,7 +195,6 @@ module.exports = {
 
     const caseId = warningCase.caseId;
     const reachesBanThreshold = totalPoints >= BAN_THRESHOLD;
-    const timeoutMinutes = offense.points * TIMEOUT_MINUTES_PER_POINT;
     let punishment = 'No automatic punishment was applied.';
     let punishmentError = null;
 
@@ -270,7 +297,7 @@ module.exports = {
         { name: 'Previous Points', value: String(previousPoints), inline: true },
         { name: 'Points Added', value: String(offense.points), inline: true },
         { name: 'New Total', value: String(totalPoints), inline: true },
-        { name: 'Timeout Duration', value: reachesBanThreshold ? 'Permanent ban threshold reached' : `${timeoutMinutes} minutes`, inline: true },
+        { name: 'Timeout / Warning Cooldown', value: `${timeoutMinutes} minutes`, inline: true },
         { name: 'Punishment Result', value: punishment },
         { name: 'Moderator Message', value: moderatorMessage },
         { name: 'DM Delivered', value: dmSent ? 'Yes' : 'No (DMs may be closed)' },
