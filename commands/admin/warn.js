@@ -4,6 +4,8 @@ const {
   MessageFlags,
 } = require('discord.js');
 const Warnings = require('../../models/warnings');
+const WarningCase = require('../../models/warningCases');
+const { randomInt } = require('crypto');
 
 const ALLOWED_ROLE_IDS = [
   '1561183666976202832',
@@ -138,6 +140,32 @@ module.exports = {
 
     const previousPoints = previousRecord?.points || 0;
     const totalPoints = previousPoints + offense.points;
+
+    let warningCase;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        warningCase = await WarningCase.create({
+          caseId: randomInt(100000, 1000000),
+          guildId: interaction.guild.id,
+          userId: target.id,
+          moderatorId: interaction.user.id,
+          offense: offense.label,
+          pointsAdded: offense.points,
+          totalPointsAfter: totalPoints,
+          moderatorMessage,
+          proofUrl: proof?.url || null,
+          proofName: proof?.name || null,
+        });
+        break;
+      } catch (error) {
+        if (error.code !== 11000 || attempt === 4) {
+          console.error('Failed to create warning case:', error);
+          return interaction.editReply({ content: 'Could not create a warning case ID. Please try again.' });
+        }
+      }
+    }
+
+    const caseId = warningCase.caseId;
     const reachesBanThreshold = totalPoints >= BAN_THRESHOLD;
     const timeoutMinutes = offense.points * TIMEOUT_MINUTES_PER_POINT;
     let punishment = 'No automatic punishment was applied.';
@@ -189,6 +217,7 @@ module.exports = {
         { name: '**Offense**', value: offense.label, inline: true },
         { name: '**Points Added**', value: String(offense.points), inline: true },
         { name: '**Your Total Points**', value: String(totalPoints), inline: true },
+        { name: '**Case ID**', value: String(caseId), inline: true },
         { name: 'Status', value: status === 'Under Watch' ? '⬛ Under Watch' : '🔴 Permanently Banned' },
         { name: '\u200B', value: '\u200B' },
         {
@@ -200,6 +229,7 @@ module.exports = {
         { name: '**Offense List and Point Values**', value: OFFENSE_LIST },
         { name: 'Proof', value: proofLine },
         { name: 'Moderator Message', value: moderatorMessage },
+        { name: 'Case ID', value: String(caseId), inline: true },
         {
           name: reachesBanThreshold ? '🚫 Auto-Ban Notice' : '⏱️ Punishment Notice',
           value: reachesBanThreshold
@@ -233,7 +263,7 @@ module.exports = {
         name: interaction.guild.name,
         ...(serverIcon ? { iconURL: serverIcon } : {}),
       })
-      .setTitle('⚠️ Member Warned')
+      .setTitle(`⚠️ Member Warned | Case #${caseId}`)
       .addFields(
         { name: 'Member', value: `<@${target.id}> (${target.user.tag})`, inline: true },
         { name: 'Moderator', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
@@ -265,7 +295,7 @@ module.exports = {
       console.error('Failed to send warning log:', error);
     }
 
-    let response = `Warned <@${target.id}> for **${offense.label}** (+${offense.points} points). Their total is now **${totalPoints}**.\n${punishment}`;
+    let response = `Warned <@${target.id}> for **${offense.label}** (+${offense.points} points). Their total is now **${totalPoints}**.\nCase ID: **${caseId}**\n${punishment}`;
     if (!dmSent) response += '\nTheir DM could not be delivered.';
     if (punishmentError) response += '\nThe punishment failed; please check the bot permissions and take action manually.';
     return interaction.editReply({ content: response });
