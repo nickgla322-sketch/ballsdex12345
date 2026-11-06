@@ -6,6 +6,7 @@ const warningSchema = new mongoose.Schema({
   userId: { type: String, required: true },
   points: { type: Number, default: 0 },
   warningCount: { type: Number, default: 0 },
+  warnCooldownUntil: { type: Date, default: null },
 }, { timestamps: true });
 
 warningSchema.index({ guildId: 1, userId: 1 }, { unique: true });
