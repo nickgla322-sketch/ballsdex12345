@@ -58,14 +58,18 @@ module.exports = {
       details: `Removed moderation roles: ${rolesToRemove.join(', ')}`,
       channelId: interaction.channelId,
     });
-    await recordRateEvent({
-      guildId: interaction.guild.id,
-      moderatorId: interaction.user.id,
-      action: 'staff_management',
-      type: 'fire',
-      targetId: target.id,
-      threshold: 2,
-    });
+    try {
+      await recordRateEvent({
+        guildId: interaction.guild.id,
+        moderatorId: interaction.user.id,
+        action: 'staff_management',
+        type: 'fire',
+        targetId: target.id,
+        threshold: 2,
+      });
+    } catch (error) {
+      console.error('Failed to update staff action rate limit:', error);
+    }
 
     const embed = new EmbedBuilder()
       .setColor(0xff0000)
