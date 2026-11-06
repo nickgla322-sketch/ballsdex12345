@@ -20,7 +20,8 @@ module.exports = {
     "1374495059470188636", // [Vice President]
     "1374495054231638107", // [President]
     "1374495075819847680", // [League Coordinator]
-    "1374495070157406219"  // [Director]
+    "1374495070157406219", // [Director]
+    "1374495087509114901"  // Additional appoint permission
   ],
 
   SACK_ROLE: [
