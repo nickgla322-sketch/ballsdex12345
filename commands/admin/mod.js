@@ -8,6 +8,8 @@ const commands = {
   history: require('./history.js'),
   stats: require('./stats.js'),
   cases: require('./cases.js'),
+  lock: require('./lock.js'),
+  unlock: require('./unlock.js'),
 };
 
 const subcommands = Object.entries(commands).map(([name, command]) => ({
