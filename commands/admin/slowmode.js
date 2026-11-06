@@ -2,9 +2,10 @@ const { SlashCommandBuilder, MessageFlags, PermissionsBitField } = require('disc
 const { logModerationAction } = require('../../utils/moderationLogger');
 
 const ALLOWED_ROLE_IDS = [
-  '1561183666976202832',
-  '1374495087509114901',
   '1374495097961578656',
+  '1374495092521566260',
+  '1374495087509114901',
+  '1561183666976202832',
 ];
 
 module.exports = {
