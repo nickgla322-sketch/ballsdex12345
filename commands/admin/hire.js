@@ -56,14 +56,18 @@ module.exports = {
       details: 'Granted Trial Mod role.',
       channelId: interaction.channelId,
     });
-    await recordRateEvent({
-      guildId: interaction.guild.id,
-      moderatorId: interaction.user.id,
-      action: 'staff_management',
-      type: 'hire',
-      targetId: target.id,
-      threshold: 2,
-    });
+    try {
+      await recordRateEvent({
+        guildId: interaction.guild.id,
+        moderatorId: interaction.user.id,
+        action: 'staff_management',
+        type: 'hire',
+        targetId: target.id,
+        threshold: 2,
+      });
+    } catch (error) {
+      console.error('Failed to update staff action rate limit:', error);
+    }
 
     const embed = new EmbedBuilder()
       .setColor(0x2ecc71)
