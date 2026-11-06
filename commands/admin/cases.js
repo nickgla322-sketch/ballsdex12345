@@ -1,7 +1,13 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const WarningCase = require('../../models/warningCases');
 const ModerationAction = require('../../models/moderationActions');
-const { hasModPermission } = require('../../utils/modPermissions');
+const ALLOWED_ROLES = ['1561183666976202832', '1374495087509114901', '1374495092521566260'];
+
+async function hasStatsCasesPermission(interaction) {
+  if (!interaction.guild) return false;
+  const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+  return Boolean(member && member.roles.cache.some(role => ALLOWED_ROLES.includes(role.id)));
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -12,7 +18,7 @@ module.exports = {
     .setDefaultMemberPermissions(null),
 
   async execute(interaction) {
-    if (!await hasModPermission(interaction)) {
+    if (!await hasStatsCasesPermission(interaction)) {
       return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
     }
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
