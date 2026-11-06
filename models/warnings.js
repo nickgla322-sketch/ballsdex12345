@@ -1,3 +1,4 @@
+// Persistent warning points for league moderation.
 const mongoose = require('mongoose');
 
 const warningSchema = new mongoose.Schema({
