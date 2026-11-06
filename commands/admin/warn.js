@@ -5,6 +5,7 @@ const {
 } = require('discord.js');
 const Warnings = require('../../models/warnings');
 const WarningCase = require('../../models/warningCases');
+const { getActiveRateLimit, recordRateEvent } = require('../../utils/moderationRateLimiter');
 const { randomInt } = require('crypto');
 
 const ALLOWED_ROLE_IDS = [
@@ -92,6 +93,15 @@ module.exports = {
         content: 'You do not have permission to use this command.',
         flags: MessageFlags.Ephemeral,
       });
+    }
+
+    try {
+      if (await getActiveRateLimit(interaction.guild.id, interaction.user.id, 'warnings')) {
+        return interaction.reply({ content: 'You cannot use this command right now.', flags: MessageFlags.Ephemeral });
+      }
+    } catch (error) {
+      console.error('Failed to check moderator warning restriction:', error);
+      return interaction.reply({ content: 'Could not verify your moderation permissions right now. Please try again.', flags: MessageFlags.Ephemeral });
     }
 
     const targetUser = interaction.options.getUser('member', true);
@@ -194,6 +204,18 @@ module.exports = {
     }
 
     const caseId = warningCase.caseId;
+    try {
+      await recordRateEvent({
+        guildId: interaction.guild.id,
+        moderatorId: interaction.user.id,
+        action: 'warnings',
+        type: 'warn',
+        targetId: target.id,
+        threshold: 3,
+      });
+    } catch (error) {
+      console.error('Failed to update moderator warning rate limit:', error);
+    }
     const reachesBanThreshold = totalPoints >= BAN_THRESHOLD;
     let punishment = 'No automatic punishment was applied.';
     let punishmentError = null;
