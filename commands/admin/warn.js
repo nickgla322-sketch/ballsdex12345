@@ -25,6 +25,8 @@ const OFFENSES = {
   major_nsfw: { label: 'Major NSFW', points: 40 },
   racism: { label: 'Racism', points: 25 },
   major_racism: { label: 'Major Racism', points: 45 },
+  minor_nsfw: { label: 'Minor NSFW', points: 10 },
+  minor_racism: { label: 'Minor Racism', points: 15 },
   spamming_messages: { label: 'Spamming (messages)', points: 5 },
   spamming_pings: { label: 'Spamming (pings)', points: 10 },
   advertising: { label: 'Advertising', points: 10 },
@@ -53,6 +55,8 @@ module.exports = {
         .setDescription('Select the offense')
         .setRequired(true)
         .addChoices(
+          { name: 'Minor NSFW - 10 points', value: 'minor_nsfw' },
+          { name: 'Minor Racism - 15 points', value: 'minor_racism' },
           { name: 'NSFW - 20 points', value: 'nsfw' },
           { name: 'Major NSFW - 40 points', value: 'major_nsfw' },
           { name: 'Racism - 25 points', value: 'racism' },
