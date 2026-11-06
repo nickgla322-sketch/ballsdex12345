@@ -1,5 +1,9 @@
 const { SlashCommandBuilder, MessageFlags, PermissionsBitField } = require('discord.js');
-const { hasModPermission } = require('../../utils/modPermissions');
+const ALLOWED_ROLE_IDS = [
+  '1374495092521566260',
+  '1374495087509114901',
+  '1561183666976202832',
+];
 const { logModerationAction } = require('../../utils/moderationLogger');
 
 module.exports = {
@@ -16,7 +20,8 @@ module.exports = {
       });
     }
 
-    if (!await hasModPermission(interaction)) {
+    const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+    if (!member || !member.roles.cache.some(role => ALLOWED_ROLE_IDS.includes(role.id))) {
       return interaction.reply({
         content: 'You do not have permission to use this command.',
         flags: MessageFlags.Ephemeral,
