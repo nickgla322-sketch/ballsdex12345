@@ -2,11 +2,15 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const { logModerationAction } = require('../../utils/moderationLogger');
 const { getActiveRateLimit, recordRateEvent } = require('../../utils/moderationRateLimiter');
 
-const ALLOWED_ROLE_IDS = ['1561183666976202832', '1374495087509114901'];
-const MODERATION_ROLE_IDS = [
+const SENIOR_MOD_ROLE_ID = '1374495092521566260';
+const SENIOR_AND_ABOVE_ROLE_IDS = ['1561183666976202832', '1374495087509114901'];
+const TRIAL_AND_MOD_ROLE_IDS = [
   '1374495103049269298',
   '1374495097961578656',
-  '1374495092521566260',
+];
+const ALL_MODERATION_ROLE_IDS = [
+  ...TRIAL_AND_MOD_ROLE_IDS,
+  SENIOR_MOD_ROLE_ID,
 ];
 const LOG_CHANNEL_ID = '1374495867691597976';
 
@@ -23,7 +27,7 @@ module.exports = {
       return interaction.reply({ content: 'This command can only be used in the league server.', flags: MessageFlags.Ephemeral });
     }
     const moderator = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-    if (!moderator || !moderator.roles.cache.some(role => ALLOWED_ROLE_IDS.includes(role.id))) {
+    if (!moderator || !moderator.roles.cache.some(role => [...SENIOR_AND_ABOVE_ROLE_IDS, SENIOR_MOD_ROLE_ID].includes(role.id))) {
       return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
     }
     if (await getActiveRateLimit(interaction.guild.id, interaction.user.id, 'staff_management')) {
@@ -37,9 +41,11 @@ module.exports = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const target = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
     if (!target) return interaction.editReply({ content: 'That member is not in this server.' });
-    const rolesToRemove = MODERATION_ROLE_IDS.filter(roleId => target.roles.cache.has(roleId));
+    const canFireSeniorMods = moderator.roles.cache.some(role => SENIOR_AND_ABOVE_ROLE_IDS.includes(role.id));
+    const permittedRoleIds = canFireSeniorMods ? ALL_MODERATION_ROLE_IDS : TRIAL_AND_MOD_ROLE_IDS;
+    const rolesToRemove = permittedRoleIds.filter(roleId => target.roles.cache.has(roleId));
     if (!rolesToRemove.length) {
-      return interaction.editReply({ content: 'That member does not have any of the specified moderation roles.' });
+      return interaction.editReply({ content: 'That member does not have any moderation roles you are allowed to remove.' });
     }
 
     try {
@@ -89,6 +95,6 @@ module.exports = {
     } catch (error) {
       console.error('Failed to send moderator fire log:', error);
     }
-    return interaction.editReply({ content: `Successfully removed the moderation roles from <@${target.id}>.` });
+    return interaction.editReply({ content: `Successfully removed ${rolesToRemove.map(id => `<@&${id}>`).join(', ')} from <@${target.id}>.`, allowedMentions: { parse: [] } });
   },
 };
