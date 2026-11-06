@@ -10,11 +10,7 @@ const ALLOWED_ROLE_IDS = [
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('slowmode')
-    .setDescription('Set the slowmode cooldown for a channel.')
-    .addChannelOption(option =>
-      option.setName('channel')
-        .setDescription('The channel whose slowmode you want to change.')
-        .setRequired(true))
+    .setDescription('Set the slowmode cooldown for the current channel.')
     .addIntegerOption(option =>
       option.setName('seconds')
         .setDescription('Slowmode cooldown in seconds (0 disables slowmode).')
@@ -24,9 +20,9 @@ module.exports = {
     .setDefaultMemberPermissions(null),
 
   async execute(interaction) {
-    if (!interaction.guild) {
+    if (!interaction.guild || !interaction.channel) {
       return interaction.reply({
-        content: 'This command can only be used in a server.',
+        content: 'This command can only be used in a server channel.',
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -39,12 +35,12 @@ module.exports = {
       });
     }
 
-    const channel = interaction.options.getChannel('channel', true);
+    const channel = interaction.channel;
     const seconds = interaction.options.getInteger('seconds', true);
 
     if (typeof channel.setRateLimitPerUser !== 'function') {
       return interaction.reply({
-        content: 'That channel does not support slowmode.',
+        content: 'This channel does not support slowmode.',
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -52,7 +48,7 @@ module.exports = {
     const botMember = interaction.guild.members.me;
     if (!botMember || !channel.permissionsFor(botMember)?.has(PermissionsBitField.Flags.ManageChannels)) {
       return interaction.reply({
-        content: 'I need the Manage Channels permission in that channel to change its slowmode.',
+        content: 'I need the Manage Channels permission in this channel to change its slowmode.',
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -68,7 +64,7 @@ module.exports = {
         : `Slowmode is now **${seconds} seconds**.`;
 
       return interaction.reply({
-        content: `Updated slowmode for <#${channel.id}>. ${setting}`,
+        content: `Updated slowmode for this channel (<#${channel.id}>). ${setting}`,
         flags: MessageFlags.Ephemeral,
       });
     } catch (error) {
