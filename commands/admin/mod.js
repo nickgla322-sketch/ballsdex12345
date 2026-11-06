@@ -4,6 +4,7 @@ const commands = {
   editpoints: require('./editpoints.js'),
   viewwarn: require('./viewwarn.js'),
   warn: require('./warn.js'),
+  slowmode: require('./slowmode.js'),
 };
 
 const subcommands = Object.entries(commands).map(([name, command]) => ({
