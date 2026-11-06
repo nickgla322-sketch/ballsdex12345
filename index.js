@@ -34,7 +34,7 @@ keepAlive();
         loadCommands(fullPath);
       } else if (entry.name.endsWith('.js')) {
         // These handlers are exposed only as subcommands of /mod.
-        if (['purge.js', 'viewpoints.js', 'editpoints.js', 'viewwarn.js', 'warn.js', 'slowmode.js', 'history.js', 'stats.js', 'cases.js'].includes(entry.name)) {
+        if (['purge.js', 'viewpoints.js', 'editpoints.js', 'viewwarn.js', 'warn.js', 'slowmode.js', 'history.js', 'stats.js', 'cases.js', 'lock.js', 'unlock.js'].includes(entry.name)) {
           continue;
         }
         const command = require(fullPath);
