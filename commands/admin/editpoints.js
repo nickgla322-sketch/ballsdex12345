@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const Warnings = require('../../models/warnings');
+const { logModerationAction } = require('../../utils/moderationLogger');
 
 const EDIT_ROLE_ID = '1374495054231638107';
 const LOG_CHANNEL_ID = '1374495867691597976';
@@ -45,6 +46,15 @@ module.exports = {
       { upsert: true, new: false, setDefaultsOnInsert: true },
     );
     const oldPoints = record?.points || 0;
+
+    await logModerationAction({
+      guildId: interaction.guild.id,
+      moderatorId: interaction.user.id,
+      action: 'Edit Warning Points',
+      targetId: target.id,
+      reason,
+      details: `Changed warning points from ${oldPoints} to ${newPoints}`,
+    });
 
     const embed = new EmbedBuilder()
       .setColor(0xff0000)
