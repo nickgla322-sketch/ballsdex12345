@@ -229,7 +229,6 @@ module.exports = {
         { name: '**Offense List and Point Values**', value: OFFENSE_LIST },
         { name: 'Proof', value: proofLine },
         { name: 'Moderator Message', value: moderatorMessage },
-        { name: 'Case ID', value: String(caseId), inline: true },
         {
           name: reachesBanThreshold ? '🚫 Auto-Ban Notice' : '⏱️ Punishment Notice',
           value: reachesBanThreshold
@@ -258,7 +257,7 @@ module.exports = {
     }
 
     const logEmbed = new EmbedBuilder()
-      .setColor(reachesBanThreshold ? 0xed4245 : 0xf1c40f)
+      .setColor(0xff0000)
       .setAuthor({
         name: interaction.guild.name,
         ...(serverIcon ? { iconURL: serverIcon } : {}),
