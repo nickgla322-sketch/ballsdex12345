@@ -1,8 +1,8 @@
 const { SlashCommandBuilder, MessageFlags, PermissionsBitField } = require('discord.js');
 const ALLOWED_ROLE_IDS = [
-  '1374495092521566260',
-  '1374495087509114901',
   '1561183666976202832',
+  '1374495087509114901',
+  '1374495097961578656',
 ];
 const { logModerationAction } = require('../../utils/moderationLogger');
 
