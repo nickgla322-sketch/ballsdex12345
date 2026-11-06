@@ -2,15 +2,21 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const { logModerationAction } = require('../../utils/moderationLogger');
 const { getActiveRateLimit, recordRateEvent } = require('../../utils/moderationRateLimiter');
 
-const ALLOWED_ROLE_IDS = ['1561183666976202832', '1374495087509114901'];
+const SENIOR_MOD_ROLE_ID = '1374495092521566260';
+const SENIOR_AND_ABOVE_ROLE_IDS = ['1561183666976202832', '1374495087509114901'];
 const TRIAL_MOD_ROLE_ID = '1374495103049269298';
+const MOD_ROLE_ID = '1374495097961578656';
 const LOG_CHANNEL_ID = '1374495867691597976';
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('hire')
-    .setDescription('Hire a member as a Trial Moderator.')
+    .setDescription('Hire a member as a Trial Moderator or Moderator.')
     .addUserOption(option => option.setName('member').setDescription('Member to hire').setRequired(true))
+    .addStringOption(option => option.setName('rank').setDescription('Moderation rank to assign').setRequired(true).addChoices(
+      { name: 'Trial Moderator', value: 'trial' },
+      { name: 'Moderator', value: 'moderator' },
+    ))
     .addStringOption(option => option.setName('reason').setDescription('Reason for hiring this member').setMinLength(1).setMaxLength(500).setRequired(true))
     .setDefaultMemberPermissions(null),
 
@@ -19,7 +25,7 @@ module.exports = {
       return interaction.reply({ content: 'This command can only be used in the league server.', flags: MessageFlags.Ephemeral });
     }
     const moderator = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-    if (!moderator || !moderator.roles.cache.some(role => ALLOWED_ROLE_IDS.includes(role.id))) {
+    if (!moderator || !moderator.roles.cache.some(role => [...SENIOR_AND_ABOVE_ROLE_IDS, SENIOR_MOD_ROLE_ID].includes(role.id))) {
       return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
     }
     if (await getActiveRateLimit(interaction.guild.id, interaction.user.id, 'staff_management')) {
@@ -27,6 +33,13 @@ module.exports = {
     }
 
     const targetUser = interaction.options.getUser('member', true);
+    const rank = interaction.options.getString('rank', true);
+    const canHireModerator = moderator.roles.cache.some(role => SENIOR_AND_ABOVE_ROLE_IDS.includes(role.id));
+    if (rank === 'moderator' && !canHireModerator) {
+      return interaction.reply({ content: 'You can only hire Trial Moderators.', flags: MessageFlags.Ephemeral });
+    }
+    const roleId = rank === 'moderator' ? MOD_ROLE_ID : TRIAL_MOD_ROLE_ID;
+    const rankLabel = rank === 'moderator' ? 'Moderator' : 'Trial Moderator';
     const reason = interaction.options.getString('reason', true).trim();
     if (!reason) return interaction.reply({ content: 'A reason is required.', flags: MessageFlags.Ephemeral });
     if (targetUser.bot) return interaction.reply({ content: 'Bots cannot be hired as moderators.', flags: MessageFlags.Ephemeral });
@@ -34,13 +47,13 @@ module.exports = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const target = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
     if (!target) return interaction.editReply({ content: 'That member is not in this server.' });
-    if (target.roles.cache.has(TRIAL_MOD_ROLE_ID)) {
-      return interaction.editReply({ content: 'That member is already a Trial Moderator.' });
+    if (target.roles.cache.has(TRIAL_MOD_ROLE_ID) || target.roles.cache.has(MOD_ROLE_ID)) {
+      return interaction.editReply({ content: 'That member already has a moderation role.' });
     }
 
     try {
-      const role = await interaction.guild.roles.fetch(TRIAL_MOD_ROLE_ID);
-      if (!role) return interaction.editReply({ content: 'The Trial Mod role could not be found.' });
+      const role = await interaction.guild.roles.fetch(roleId);
+      if (!role) return interaction.editReply({ content: `The ${rankLabel} role could not be found.` });
       await target.roles.add(role, `Hired by ${interaction.user.tag}: ${reason}`);
     } catch (error) {
       console.error('Failed to hire moderator:', error);
@@ -53,7 +66,7 @@ module.exports = {
       action: 'Moderator Hire',
       targetId: target.id,
       reason,
-      details: 'Granted Trial Mod role.',
+      details: `Granted ${rankLabel} role (${roleId}).`,
       channelId: interaction.channelId,
     });
     try {
@@ -75,7 +88,7 @@ module.exports = {
       .addFields(
         { name: 'Member', value: `<@${target.id}> (${target.user.tag})`, inline: true },
         { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
-        { name: 'Role Given', value: 'Trial Mod', inline: true },
+        { name: 'Role Given', value: rankLabel, inline: true },
         { name: 'Reason', value: reason },
       )
       .setTimestamp();
@@ -87,6 +100,6 @@ module.exports = {
     } catch (error) {
       console.error('Failed to send moderator hire log:', error);
     }
-    return interaction.editReply({ content: `Successfully hired <@${target.id}> as a Trial Moderator.` });
+    return interaction.editReply({ content: `Successfully hired <@${target.id}> as a ${rankLabel}.` });
   },
 };
