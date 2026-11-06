@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, MessageFlags, PermissionsBitField } = require('discord.js');
+const { logModerationAction } = require('../../utils/moderationLogger');
 
 const ALLOWED_ROLE_IDS = [
   '1561183666976202832',
@@ -58,6 +59,15 @@ module.exports = {
         seconds,
         `Slowmode changed by ${interaction.user.tag}`,
       );
+
+      await logModerationAction({
+        guildId: interaction.guild.id,
+        moderatorId: interaction.user.id,
+        action: 'Slowmode',
+        reason: seconds === 0 ? 'Disabled slowmode' : `Set slowmode to ${seconds} seconds`,
+        details: `Channel: <#${channel.id}> • ${seconds} seconds`,
+        channelId: channel.id,
+      });
 
       const setting = seconds === 0
         ? 'Slowmode has been disabled.'
