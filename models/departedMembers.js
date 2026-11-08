@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const departedMemberSchema = new mongoose.Schema({
   guildId: { type: String, required: true },
   userId: { type: String, required: true },
+  freeAgent: { type: Boolean, default: false },
   memberships: [{
     teamName: String,
     teamRoleId: String,
