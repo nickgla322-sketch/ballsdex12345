@@ -19,6 +19,7 @@ const { logAction } = require('../../utils/logger');
 const Teams = require('../../models/teams');
 const Staffs = require('../../models/staffs');
 const Divisions = require('../../models/divisions');
+const getGuildMembers = require('../../utils/getGuildMembers');
 
 const FREE_AGENT_ROLE_ID = '1374495332846669956';
 
@@ -296,8 +297,19 @@ module.exports = {
                 });
               }
 
-              // Assign the team role
+              // Enforce the 16-member roster limit when adding a new team member.
               if (!member.roles.cache.has(team.roleId)) {
+                await getGuildMembers(interaction.guild);
+                const teamRole = interaction.guild.roles.cache.get(team.roleId);
+                const rosterSize = teamRole ? teamRole.members.size : 0;
+
+                if (rosterSize >= 16) {
+                  return interaction.editReply({
+                    content: `**${team.name}** already has 16 members and has reached its roster limit.`,
+                    components: [],
+                  });
+                }
+
                 await member.roles.add(team.roleId);
               }
 
