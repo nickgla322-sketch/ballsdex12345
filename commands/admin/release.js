@@ -312,6 +312,7 @@ module.exports = {
       console.error('Failed to log player release:', error);
     }
 
+    await getGuildMembers(interaction.guild);
     const rosterCount = interaction.guild.roles.cache.get(team.roleId)?.members.size ?? 0;
 
     let response =
