@@ -1,6 +1,6 @@
 const getGuildMembers = require('./getGuildMembers');
 
-const ROSTER_MAX = 14;
+const ROSTER_MAX = 16;
 const activeTeams = new Set();
 
 /**
