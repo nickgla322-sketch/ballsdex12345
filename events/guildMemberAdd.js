@@ -10,7 +10,7 @@ module.exports = {
         userId: member.id,
       });
 
-      if (!departed || !departed.memberships?.length) return;
+      if (!departed || (!departed.memberships?.length && !departed.freeAgent)) return;
 
       // Restore only the saved team role and the matching staff-position role.
       const roleIds = new Set();
