@@ -81,7 +81,7 @@ const options = divisions.map(division =>
     .setLabel(
       `${division.emoji || ''} ${division.name}`.trim().slice(0, 100)
     )
-    .setValue(division.name)
+    .setValue(division._id.toString())
 );
       const select = new StringSelectMenuBuilder()
         .setCustomId('select_division')
@@ -122,15 +122,8 @@ const options = divisions.map(division =>
     await interaction.deferUpdate();
 
     try {
-      const rawName = interaction.values[0];
-      const normalizedName = normalizeName(rawName);
-      const safeName = escapeRegex(normalizedName);
-
-      const division = await Divisions.findOne({
-        name: {
-          $regex: new RegExp(`^${safeName}$`, 'i'),
-        },
-      });
+      const divisionId = interaction.values[0];
+      const division = await Divisions.findById(divisionId);
 
       if (!division) {
         return interaction.editReply({
@@ -213,7 +206,7 @@ const options = divisions.map(division =>
             `> **Chairman:** ${chairmanText}\n` +
             `> **Manager:** ${managerText}\n` +
             `> **Assistant Manager:** ${assistantText}\n` +
-            `> **Players:** ${playerCount}`,
+            `> **Players:** ${playerCount}/16`,
           inline: false,
         };
 
