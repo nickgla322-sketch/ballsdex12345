@@ -11,7 +11,7 @@ const Staffs = require('../../models/staffs');
 const DemandCooldown = require('../../models/demandCooldown');
 
 const FREE_AGENT_ROLE_ID = '1374495332846669956';
-const COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
+const COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 const activeDemands = new Set();
 
 function formatRemaining(ms) {
@@ -115,7 +115,7 @@ module.exports = {
       });
 
       return interaction.reply({
-        content: `You have left **${team.name}** and are now a Free Agent. You can use /demand again in **14 days**.`,
+        content: `You have left **${team.name}** and are now a Free Agent. You can use /demand again in **30 days**.`,
         allowedMentions: { parse: [] },
       });
     } catch (error) {
