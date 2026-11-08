@@ -175,18 +175,23 @@ module.exports = {
       });
     }
 
-    let member;
+    const member = await interaction.guild.members
+      .fetch(player.id)
+      .catch(() => null);
 
-    try {
-      member = await interaction.guild.members.fetch(player.id);
-    } catch {
-      return interaction.reply({
-        content: 'That player could not be found in the server.',
-        flags: MessageFlags.Ephemeral,
-      });
-    }
+    const departedRecord = member ? null : await require('../../models/departedMembers').findOne({
+      guildId: interaction.guild.id,
+      userId: player.id,
+    });
 
-    if (!member.roles.cache.has(team.roleId)) {
+    const savedTeamMembership = departedRecord?.memberships?.some(
+      membership => membership.teamRoleId === team.roleId
+    );
+
+    if (
+      (member && !member.roles.cache.has(team.roleId)) ||
+      (!member && !savedTeamMembership)
+    ) {
       return interaction.reply({
         content: `<@${player.id}> is not on **${team.name}**.`,
         flags: MessageFlags.Ephemeral,
@@ -227,17 +232,29 @@ module.exports = {
     activeReleases.add(actorId);
 
     try {
-      // Remove the team role.
-      await member.roles.remove(
-        team.roleId,
-        `Released from ${team.name} by ${interaction.user.tag}`
-      );
+      if (member) {
+        // Remove the team role.
+        await member.roles.remove(
+          team.roleId,
+          `Released from ${team.name} by ${interaction.user.tag}`
+        );
 
-      // Give the Free Agent role if they don't already have it.
-      if (!member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
-        await member.roles.add(
-          FREE_AGENT_ROLE_ID,
-          `Released from ${team.name}: returning to Free Agent status`
+        // Give the Free Agent role if they don't already have it.
+        if (!member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+          await member.roles.add(
+            FREE_AGENT_ROLE_ID,
+            `Released from ${team.name}: returning to Free Agent status`
+          );
+        }
+      } else {
+        // The player is away: remove the saved team membership and mark
+        // Free Agent for the rejoin handler to apply.
+        await require('../../models/departedMembers').updateOne(
+          { guildId: interaction.guild.id, userId: player.id },
+          {
+            $pull: { memberships: { teamRoleId: team.roleId } },
+            $set: { freeAgent: true },
+          }
         );
       }
     } catch (error) {
