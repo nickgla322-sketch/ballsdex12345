@@ -103,7 +103,7 @@ module.exports = {
           { name: 'Player', value: `<@${userId}>`, inline: false },
           { name: 'Former Team', value: `${currentTeam.emoji || ''} <@&${currentTeam.roleId}>`, inline: false },
           { name: 'New Status', value: 'Free Agent', inline: false },
-          { name: 'Next Demand Available', value: '<t:${Math.floor((Date.now() + COOLDOWN_MS) / 1000)}:F>', inline: false }
+          { name: 'Next Demand Available', value: `<t:${Math.floor((Date.now() + COOLDOWN_MS) / 1000)}:F>`, inline: false }
         )
         .setTimestamp();
 
