@@ -274,6 +274,10 @@ module.exports = {
     // Count the release only after the role updates succeed.
     const newCooldownExpiry = recordRelease(actorId, player.id);
 
+    await require('../../utils/getGuildMembers')(interaction.guild);
+    const updatedTeamRole = interaction.guild.roles.cache.get(team.roleId);
+    const rosterCount = updatedTeamRole ? updatedTeamRole.members.size : 0;
+
     const embed = new EmbedBuilder()
       .setColor('#9b59b6')
       .setAuthor({
@@ -327,7 +331,8 @@ module.exports = {
 
     let response =
       `<@${player.id}> has been released from **${team.name}** ` +
-      'and given the Free Agent role.';
+      'and given the Free Agent role.' +
+      `\n**Roster:** ${rosterCount}/16`;
 
     if (newCooldownExpiry) {
       response +=
