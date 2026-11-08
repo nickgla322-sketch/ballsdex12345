@@ -310,7 +310,7 @@ module.exports = {
                 if (!rosterResult.ok) {
                   return interaction.editReply({
                     content: rosterResult.full
-                      ? 'You have reached the roster maximum. You must release players if you want to add anyone else to the team.'
+                      ? 'This team is full (**${rosterResult.count}/16**). Release a player before adding anyone else.'
                       : 'A roster change for this team is already being processed. Please try again in a moment.',
                     components: [],
                   });
