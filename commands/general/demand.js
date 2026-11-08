@@ -76,13 +76,6 @@ module.exports = {
         });
       }
 
-      if (activeDemands.has(`${userId}:roles`)) {
-        return interaction.reply({
-          content: 'Your demand is already being processed. Please wait.',
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
       try {
         await member.roles.remove(
           team.roleId,
