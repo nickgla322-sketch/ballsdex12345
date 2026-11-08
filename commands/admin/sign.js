@@ -160,7 +160,7 @@ module.exports = {
     if (!rosterResult.ok) {
       return interaction.reply({
         content: rosterResult.full
-          ? 'You have reached the roster maximum. You must release players if you want to sign any more.'
+          ? 'Your team is full (**${rosterResult.count}/16**). You must release a player before signing anyone else.'
           : 'A roster change for your team is already being processed. Please try again in a moment.',
         flags: MessageFlags.Ephemeral,
       });
