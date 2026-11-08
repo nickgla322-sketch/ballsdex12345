@@ -46,9 +46,17 @@ module.exports = {
 
           // Restore a staff role only when the current staff record still exists.
           const currentStaff = staffByTeam.get(team.roleId);
-          if (currentStaff) {
-            const staffRoleId = getStaffRoleId(currentStaff.position);
-            if (staffRoleId && !member.roles.cache.has(staffRoleId)) {
+          if (
+            saved.position &&
+            currentStaff &&
+            currentStaff.position === saved.position
+          ) {
+            const staffRoleId = getStaffRoleId(saved.position);
+            if (
+              staffRoleId &&
+              saved.staffRoleId === staffRoleId &&
+              !member.roles.cache.has(staffRoleId)
+            ) {
               await member.roles.add(staffRoleId, 'Restoring saved team staff position after rejoining');
             }
           }
