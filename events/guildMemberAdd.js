@@ -46,6 +46,10 @@ module.exports = {
         }
       }
 
+      if (departed.freeAgent) {
+        roleIds.add('1374495332846669956');
+      }
+
       const validRoleIds = [...roleIds].filter(roleId =>
         member.guild.roles.cache.has(roleId)
       );
