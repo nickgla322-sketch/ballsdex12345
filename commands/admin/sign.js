@@ -14,6 +14,7 @@ const { logAction } = require('../../utils/logger');
 
 const Staffs = require('../../models/staffs');
 const Teams = require('../../models/teams');
+const getGuildMembers = require('../../utils/getGuildMembers');
 
 const FREE_AGENT_ROLE_ID = '1374495332846669956';
 
@@ -109,6 +110,26 @@ module.exports = {
       return interaction.reply({
         content: `<@${player.id}> is already on **${alreadyOnTeam.name}**.`,
         allowedMentions: { parse: [] },
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    // Enforce the 16-member roster limit (players and staff both count).
+    try {
+      await getGuildMembers(interaction.guild);
+      const teamRole = interaction.guild.roles.cache.get(team.roleId);
+      const rosterSize = teamRole ? teamRole.members.size : 0;
+
+      if (rosterSize >= 16) {
+        return interaction.reply({
+          content: `**${team.name}** already has 16 members and has reached its roster limit.`,
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+    } catch (error) {
+      console.error('Could not verify team roster size:', error);
+      return interaction.reply({
+        content: 'Could not verify the team roster. Please try again.',
         flags: MessageFlags.Ephemeral,
       });
     }
