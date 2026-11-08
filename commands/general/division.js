@@ -205,7 +205,7 @@ const options = divisions.map(division =>
             `> **Chairman:** ${chairmanText}\n` +
             `> **Manager:** ${managerText}\n` +
             `> **Assistant Manager:** ${assistantText}\n` +
-            `> **Players:** ${playerCount}/14`,
+            `> **Players:** ${playerCount}/16`,
           inline: false,
         };
 
