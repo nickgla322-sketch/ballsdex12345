@@ -133,15 +133,17 @@ module.exports = {
         .fetch(targetUser.id)
         .catch(() => null);
 
-      if (!guildMember) {
-        return interaction.reply({
-          content: 'That user is not a member of this server.',
-          flags: MessageFlags.Ephemeral,
-        });
-      }
+      // The staff database is also used to verify team membership when the
+      // target has left the server.
+      const targetEntry = await Staffs.findOne({
+        userId: targetUser.id,
+        teamRoleId: executorEntry.teamRoleId,
+      });
 
-      // Target must be on the same team
-      if (!guildMember.roles.cache.has(executorEntry.teamRoleId)) {
+      if (
+        guildMember &&
+        !guildMember.roles.cache.has(executorEntry.teamRoleId)
+      ) {
         return interaction.reply({
           content: `<@${targetUser.id}> is not on your team.`,
           flags: MessageFlags.Ephemeral,
@@ -150,11 +152,6 @@ module.exports = {
       }
 
       // Target must already be staff on this team
-      const targetEntry = await Staffs.findOne({
-        userId: targetUser.id,
-        teamRoleId: executorEntry.teamRoleId,
-      });
-
       if (!targetEntry) {
         return interaction.reply({
           content:
@@ -214,8 +211,9 @@ module.exports = {
       const newRoleId = getStaffRoleId(toPosition);
       const guild = interaction.guild;
 
-      // Remove the old staff role
-      if (oldRoleId && guildMember.roles.cache.has(oldRoleId)) {
+      // Update Discord roles when the target is present. If they are away,
+      // update the database and saved rejoin record instead.
+      if (guildMember && oldRoleId && guildMember.roles.cache.has(oldRoleId)) {
         await guildMember.roles.remove(oldRoleId);
       }
 
@@ -225,7 +223,7 @@ module.exports = {
           _id: targetEntry._id,
         });
       } else {
-        // Apply the new staff role
+        // Apply the new staff role when the target is present.
         if (!newRoleId) {
           return interaction.reply({
             content: 'The selected staff role is not configured correctly.',
@@ -233,11 +231,37 @@ module.exports = {
           });
         }
 
-        await guildMember.roles.add(newRoleId);
+        if (guildMember) {
+          await guildMember.roles.add(newRoleId);
+        }
 
         // Update staff record
         targetEntry.position = toPosition;
         await targetEntry.save();
+      }
+
+      // Keep the saved roles in sync for members who are currently away.
+      if (!guildMember) {
+        const DepartedMembers = require('../../models/departedMembers');
+        await DepartedMembers.updateOne(
+          {
+            guildId: interaction.guild.id,
+            userId: targetUser.id,
+          },
+          {
+            $set: {
+              'memberships.$[membership].staffRoleId':
+                toPosition === 'none' ? null : newRoleId,
+              'memberships.$[membership].position':
+                toPosition === 'none' ? null : toPosition,
+            },
+          },
+          {
+            arrayFilters: [
+              { 'membership.teamRoleId': executorEntry.teamRoleId },
+            ],
+          }
+        );
       }
 
       // Build demotion log
