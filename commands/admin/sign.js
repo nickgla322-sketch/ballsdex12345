@@ -165,6 +165,9 @@ module.exports = {
     }
 
     const guild = interaction.guild;
+    await getGuildMembers(guild);
+    const updatedTeamRole = guild.roles.cache.get(team.roleId);
+    const rosterCount = updatedTeamRole ? updatedTeamRole.members.size : 0;
     const teamLogoUrl = getTeamLogoUrl(team.emoji);
 
     const logEmbed = new EmbedBuilder()
@@ -208,7 +211,7 @@ module.exports = {
     });
 
     await interaction.reply({
-      content: `<@${player.id}> has been signed to **${team.name}**.`,
+      content: `<@${player.id}> has been signed to **${team.name}**.\n**Roster:** ${rosterCount}/16`,
       allowedMentions: { parse: [] },
     });
 
