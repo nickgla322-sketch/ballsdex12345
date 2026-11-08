@@ -103,7 +103,7 @@ module.exports = {
       const exemptCommandLogs = new Set(['stats', 'cases', 'viewpoints', 'history']);
       const commandsWithDetailedLogs = new Set([
         'purge', 'warn', 'editpoints', 'appoint', 'sack',
-        'sign', 'release', 'hire', 'fire', 'addteam',
+        'sign', 'release', 'demand', 'hire', 'fire', 'addteam',
         'changedivision', 'createdivision', 'demote', 'disband',
         'promote', 'removedivision', 'removeteam',
         'renamedivision', 'renameteam',
