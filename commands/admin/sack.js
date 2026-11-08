@@ -354,17 +354,12 @@ async function sackStaff(interaction, client, user, staffEntry) {
 
     const staffRoleId = getStaffRoleId(staffEntry.position);
 
-    let member;
-
-    try {
-      member = await interaction.guild.members.fetch(user.id);
-    } catch {
-      return interaction.editReply({
-        content:
-          'This user could not be found in the server. No changes were made.',
-        components: [],
-      });
-    }
+    // The target may have left the server. Their staff database record can
+    // still be removed, and the rejoin handler will use that current record
+    // to avoid restoring an outdated staff position.
+    const member = await interaction.guild.members
+      .fetch(user.id)
+      .catch(() => null);
 
     const staffRoleIds = (
       Array.isArray(staffRoleId) ? staffRoleId : [staffRoleId]
@@ -390,7 +385,7 @@ async function sackStaff(interaction, client, user, staffEntry) {
     });
 
     // Remove the management role only if the user has no other matching position.
-    if (!remainingPosition) {
+    if (!remainingPosition && member) {
       for (const roleId of staffRoleIds) {
         if (member.roles.cache.has(roleId)) {
           await member.roles.remove(
@@ -400,6 +395,27 @@ async function sackStaff(interaction, client, user, staffEntry) {
         }
       }
     }
+
+    // If the person is away, clear the saved staff position immediately.
+    // Keep their team membership so they rejoin as a regular team player.
+    const DepartedMembers = require('../../models/departedMembers');
+    await DepartedMembers.updateOne(
+      {
+        guildId: interaction.guild.id,
+        userId: user.id,
+      },
+      {
+        $set: {
+          'memberships.$[membership].staffRoleId': null,
+          'memberships.$[membership].position': null,
+        },
+      },
+      {
+        arrayFilters: [
+          { 'membership.teamRoleId': staffEntry.teamRoleId },
+        ],
+      }
+    );
 
     // Record the sack after the staff record has been removed.
     // The third distinct person sacked within five minutes triggers the cooldown.
