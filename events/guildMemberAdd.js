@@ -15,12 +15,33 @@ module.exports = {
       // Restore only the saved team role and the matching staff-position role.
       const roleIds = new Set();
 
+      const Staffs = require('../models/staffs');
+      const Teams = require('../models/teams');
+      const [currentStaffEntries, currentTeams] = await Promise.all([
+        Staffs.find({ userId: member.id }),
+        Teams.find(),
+      ]);
+
+      const currentStaffByTeam = new Map(
+        currentStaffEntries.map(entry => [entry.teamRoleId, entry])
+      );
+      const validTeamRoleIds = new Set(currentTeams.map(team => team.roleId));
+
       for (const membership of departed.memberships) {
-        if (membership.teamRoleId) {
+        // Do not restore a team that has since been removed from the database.
+        if (membership.teamRoleId && validTeamRoleIds.has(membership.teamRoleId)) {
           roleIds.add(membership.teamRoleId);
         }
 
-        if (membership.staffRoleId) {
+        // Restore a staff role only if the database still confirms that
+        // exact staff position. This prevents stale promotions/positions
+        // from being restored after a demotion or sack while absent.
+        const currentStaff = currentStaffByTeam.get(membership.teamRoleId);
+        if (
+          currentStaff &&
+          currentStaff.position === membership.position &&
+          membership.staffRoleId
+        ) {
           roleIds.add(membership.staffRoleId);
         }
       }
