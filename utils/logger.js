@@ -1,4 +1,4 @@
-const LOG_CHANNEL_ID = "1374495867691597976";
+const LOG_CHANNEL_ID = "1374495742151884810";
 
 async function logAction(client, message) {
   if (!LOG_CHANNEL_ID) return;
