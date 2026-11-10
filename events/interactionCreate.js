@@ -99,19 +99,7 @@ module.exports = {
       const subcommand = interaction.commandName === 'mod'
         ? interaction.options.getSubcommand(false)
         : null;
-      const commandKey = subcommand || interaction.commandName;
-      const exemptCommandLogs = new Set(['stats', 'cases', 'viewpoints', 'history']);
-      const commandsWithDetailedLogs = new Set([
-        'purge', 'warn', 'editpoints', 'appoint', 'sack',
-        'sign', 'release', 'demand', 'hire', 'fire', 'addteam',
-        'changedivision', 'createdivision', 'demote', 'disband',
-        'promote', 'removedivision', 'removeteam',
-        'renamedivision', 'renameteam',
-      ]);
-      const shouldLogCommand = !exemptCommandLogs.has(commandKey)
-        && !commandsWithDetailedLogs.has(commandKey);
-
-      if (shouldLogCommand) {
+      {
         const flattenOptions = options => (options || []).flatMap(option => {
           if (Array.isArray(option.options)) return flattenOptions(option.options);
           const value = option.value ?? option.user?.tag ?? option.channel?.name ?? option.role?.name ?? option.attachment?.name;
