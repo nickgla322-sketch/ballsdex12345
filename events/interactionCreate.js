@@ -100,12 +100,6 @@ module.exports = {
         ? interaction.options.getSubcommand(false)
         : null;
       {
-        const flattenOptions = options => (options || []).flatMap(option => {
-          if (Array.isArray(option.options)) return flattenOptions(option.options);
-          const value = option.value ?? option.user?.tag ?? option.channel?.name ?? option.role?.name ?? option.attachment?.name;
-          return value === undefined ? [] : [`• ${option.name}: ${String(value).slice(0, 300)}`];
-        });
-        const optionLines = flattenOptions(interaction.options.data);
         const commandLog = {
           embeds: [{
             color: 0x5865f2,
