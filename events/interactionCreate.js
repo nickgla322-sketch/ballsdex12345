@@ -108,7 +108,6 @@ module.exports = {
               { name: 'Command', value: `/${interaction.commandName}${subcommand ? ` ${subcommand}` : ''}`, inline: true },
               { name: 'Used By', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: true },
               { name: 'Channel', value: interaction.channelId ? `<#${interaction.channelId}>` : 'Unknown', inline: true },
-              ...(optionLines.length ? [{ name: 'Options', value: optionLines.join('\n').slice(0, 1024) }] : []),
             ],
             timestamp: new Date().toISOString(),
           }],
