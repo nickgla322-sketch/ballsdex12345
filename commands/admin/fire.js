@@ -12,7 +12,7 @@ const ALL_MODERATION_ROLE_IDS = [
   ...TRIAL_AND_MOD_ROLE_IDS,
   SENIOR_MOD_ROLE_ID,
 ];
-const LOG_CHANNEL_ID = '1374495867691597976';
+const LOG_CHANNEL_ID = '1374495742151884810';
 
 module.exports = {
   data: new SlashCommandBuilder()
