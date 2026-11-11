@@ -24,6 +24,9 @@ module.exports = {
     if (!interaction.guild) {
       return interaction.reply({ content: 'This command can only be used in the league server.', flags: MessageFlags.Ephemeral });
     }
+    if (interaction.user.id === '1567727410324054048') {
+      return interaction.reply({ content: 'You are not allowed to hire staff.', flags: MessageFlags.Ephemeral });
+    }
     const moderator = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
     if (!moderator || !moderator.roles.cache.some(role => [...SENIOR_AND_ABOVE_ROLE_IDS, SENIOR_MOD_ROLE_ID].includes(role.id))) {
       return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
