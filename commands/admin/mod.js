@@ -5,6 +5,7 @@ const commands = {
   viewwarn: require('./viewwarn.js'),
   warn: require('./warn.js'),
   slowmode: require('./slowmode.js'),
+  untimeout: require('./untimeout.js'),
   history: require('./history.js'),
   stats: require('./stats.js'),
   cases: require('./cases.js'),
