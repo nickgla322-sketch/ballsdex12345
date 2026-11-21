@@ -4,11 +4,13 @@ const { getActiveRateLimit, recordRateEvent } = require('../../utils/moderationR
 
 const FULL_STAFF_MANAGEMENT_ROLE_IDS = ['1374495075819847680', '1561183666976202832'];
 const MOD_OVERSEER_ROLE_ID = '1374495087509114901';
+const MEDIA_OVERSEER_ROLE_ID = '1374495108224909455';
 const MODERATION_RANK_ROLE_IDS = [
   '1374495103049269298',
   '1374495097961578656',
   '1374495092521566260',
 ];
+const MEDIA_RANK_ROLE_IDS = ['1374495118794555433', '1374495113396486234'];
 const STAFF_RANKS = [
   { name: 'Trial Moderator', value: 'trial_mod', roleId: '1374495103049269298' },
   { name: 'Moderator', value: 'mod', roleId: '1374495097961578656' },
@@ -45,7 +47,8 @@ module.exports = {
     }
     const hasFullAccess = moderator.roles.cache.some(role => FULL_STAFF_MANAGEMENT_ROLE_IDS.includes(role.id));
     const hasModOverseerAccess = moderator.roles.cache.has(MOD_OVERSEER_ROLE_ID);
-    if (!hasFullAccess && !hasModOverseerAccess) {
+    const hasMediaOverseerAccess = moderator.roles.cache.has(MEDIA_OVERSEER_ROLE_ID);
+    if (!hasFullAccess && !hasModOverseerAccess && !hasMediaOverseerAccess) {
       return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
     }
     if (await getActiveRateLimit(interaction.guild.id, interaction.user.id, 'staff_management')) {
@@ -56,7 +59,10 @@ module.exports = {
     const rank = STAFF_RANKS.find(item => item.value === interaction.options.getString('rank', true));
     const reason = interaction.options.getString('reason', true).trim();
     if (!rank) return interaction.reply({ content: 'That staff rank is not valid.', flags: MessageFlags.Ephemeral });
-    if (!hasFullAccess && !MODERATION_RANK_ROLE_IDS.includes(rank.roleId)) {
+    const canHireRank = hasFullAccess ||
+      (hasModOverseerAccess && MODERATION_RANK_ROLE_IDS.includes(rank.roleId)) ||
+      (hasMediaOverseerAccess && MEDIA_RANK_ROLE_IDS.includes(rank.roleId));
+    if (!canHireRank) {
       return interaction.reply({ content: 'You do not have permission to hire that staff rank.', flags: MessageFlags.Ephemeral });
     }
     if (!reason) return interaction.reply({ content: 'A reason is required.', flags: MessageFlags.Ephemeral });
