@@ -2,7 +2,13 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const { logModerationAction } = require('../../utils/moderationLogger');
 const { getActiveRateLimit, recordRateEvent } = require('../../utils/moderationRateLimiter');
 
-const STAFF_MANAGEMENT_ROLE_IDS = ['1374495075819847680', '1561183666976202832'];
+const FULL_STAFF_MANAGEMENT_ROLE_IDS = ['1374495075819847680', '1561183666976202832'];
+const MOD_OVERSEER_ROLE_ID = '1374495087509114901';
+const MODERATION_RANK_ROLE_IDS = [
+  '1374495103049269298',
+  '1374495097961578656',
+  '1374495092521566260',
+];
 const STAFF_RANKS = [
   { name: 'Trial Moderator', value: 'trial_mod', roleId: '1374495103049269298' },
   { name: 'Moderator', value: 'mod', roleId: '1374495097961578656' },
@@ -34,7 +40,12 @@ module.exports = {
       return interaction.reply({ content: 'You are not allowed to hire staff.', flags: MessageFlags.Ephemeral });
     }
     const moderator = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-    if (!moderator || !moderator.roles.cache.some(role => STAFF_MANAGEMENT_ROLE_IDS.includes(role.id))) {
+    if (!moderator) {
+      return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
+    }
+    const hasFullAccess = moderator.roles.cache.some(role => FULL_STAFF_MANAGEMENT_ROLE_IDS.includes(role.id));
+    const hasModOverseerAccess = moderator.roles.cache.has(MOD_OVERSEER_ROLE_ID);
+    if (!hasFullAccess && !hasModOverseerAccess) {
       return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
     }
     if (await getActiveRateLimit(interaction.guild.id, interaction.user.id, 'staff_management')) {
@@ -45,6 +56,9 @@ module.exports = {
     const rank = STAFF_RANKS.find(item => item.value === interaction.options.getString('rank', true));
     const reason = interaction.options.getString('reason', true).trim();
     if (!rank) return interaction.reply({ content: 'That staff rank is not valid.', flags: MessageFlags.Ephemeral });
+    if (!hasFullAccess && !MODERATION_RANK_ROLE_IDS.includes(rank.roleId)) {
+      return interaction.reply({ content: 'You do not have permission to hire that staff rank.', flags: MessageFlags.Ephemeral });
+    }
     if (!reason) return interaction.reply({ content: 'A reason is required.', flags: MessageFlags.Ephemeral });
     if (targetUser.bot) return interaction.reply({ content: 'Bots cannot be hired into staff roles.', flags: MessageFlags.Ephemeral });
 
