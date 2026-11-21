@@ -4,6 +4,8 @@ const { getActiveRateLimit, recordRateEvent } = require('../../utils/moderationR
 
 const FULL_STAFF_MANAGEMENT_ROLE_IDS = ['1374495075819847680', '1561183666976202832'];
 const MOD_OVERSEER_ROLE_ID = '1374495087509114901';
+const MEDIA_OVERSEER_ROLE_ID = '1374495108224909455';
+const MEDIA_RANK_ROLE_IDS = ['1374495118794555433', '1374495113396486234'];
 const FIREABLE_STAFF_ROLES = [
   { name: 'Trial Moderator', roleId: '1374495103049269298' },
   { name: 'Moderator', roleId: '1374495097961578656' },
@@ -39,7 +41,8 @@ module.exports = {
     }
     const hasFullAccess = moderator.roles.cache.some(role => FULL_STAFF_MANAGEMENT_ROLE_IDS.includes(role.id));
     const hasModOverseerAccess = moderator.roles.cache.has(MOD_OVERSEER_ROLE_ID);
-    if (!hasFullAccess && !hasModOverseerAccess) {
+    const hasMediaOverseerAccess = moderator.roles.cache.has(MEDIA_OVERSEER_ROLE_ID);
+    if (!hasFullAccess && !hasModOverseerAccess && !hasMediaOverseerAccess) {
       return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
     }
     if (await getActiveRateLimit(interaction.guild.id, interaction.user.id, 'staff_management')) {
@@ -55,7 +58,9 @@ module.exports = {
     if (!target) return interaction.editReply({ content: 'That member is not in this server.' });
     const rolesToRemove = FIREABLE_STAFF_ROLES.filter(item =>
       target.roles.cache.has(item.roleId) &&
-      (hasFullAccess || MODERATION_RANK_ROLE_IDS.includes(item.roleId))
+      (hasFullAccess ||
+        (hasModOverseerAccess && MODERATION_RANK_ROLE_IDS.includes(item.roleId)) ||
+        (hasMediaOverseerAccess && MEDIA_RANK_ROLE_IDS.includes(item.roleId)))
     );
     if (!rolesToRemove.length) {
       return interaction.editReply({ content: 'That member does not have any staff roles you are allowed to remove.' });
