@@ -2,7 +2,8 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const { logModerationAction } = require('../../utils/moderationLogger');
 const { getActiveRateLimit, recordRateEvent } = require('../../utils/moderationRateLimiter');
 
-const STAFF_MANAGEMENT_ROLE_IDS = ['1374495075819847680', '1561183666976202832'];
+const FULL_STAFF_MANAGEMENT_ROLE_IDS = ['1374495075819847680', '1561183666976202832'];
+const MOD_OVERSEER_ROLE_ID = '1374495087509114901';
 const FIREABLE_STAFF_ROLES = [
   { name: 'Trial Moderator', roleId: '1374495103049269298' },
   { name: 'Moderator', roleId: '1374495097961578656' },
@@ -12,6 +13,11 @@ const FIREABLE_STAFF_ROLES = [
   { name: 'Media', roleId: '1374495113396486234' },
   { name: 'Media Overseer', roleId: '1374495108224909455' },
   { name: 'Stats Committee', roleId: '1374495123647369279' },
+];
+const MODERATION_RANK_ROLE_IDS = [
+  '1374495103049269298',
+  '1374495097961578656',
+  '1374495092521566260',
 ];
 const LOG_CHANNEL_ID = '1374495742151884810';
 
@@ -28,7 +34,12 @@ module.exports = {
       return interaction.reply({ content: 'This command can only be used in the league server.', flags: MessageFlags.Ephemeral });
     }
     const moderator = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-    if (!moderator || !moderator.roles.cache.some(role => STAFF_MANAGEMENT_ROLE_IDS.includes(role.id))) {
+    if (!moderator) {
+      return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
+    }
+    const hasFullAccess = moderator.roles.cache.some(role => FULL_STAFF_MANAGEMENT_ROLE_IDS.includes(role.id));
+    const hasModOverseerAccess = moderator.roles.cache.has(MOD_OVERSEER_ROLE_ID);
+    if (!hasFullAccess && !hasModOverseerAccess) {
       return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
     }
     if (await getActiveRateLimit(interaction.guild.id, interaction.user.id, 'staff_management')) {
@@ -42,9 +53,12 @@ module.exports = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const target = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
     if (!target) return interaction.editReply({ content: 'That member is not in this server.' });
-    const rolesToRemove = FIREABLE_STAFF_ROLES.filter(item => target.roles.cache.has(item.roleId));
+    const rolesToRemove = FIREABLE_STAFF_ROLES.filter(item =>
+      target.roles.cache.has(item.roleId) &&
+      (hasFullAccess || MODERATION_RANK_ROLE_IDS.includes(item.roleId))
+    );
     if (!rolesToRemove.length) {
-      return interaction.editReply({ content: 'That member does not have any removable staff roles.' });
+      return interaction.editReply({ content: 'That member does not have any staff roles you are allowed to remove.' });
     }
 
     try {
@@ -81,7 +95,7 @@ module.exports = {
       .addFields(
         { name: 'Member', value: `<@${target.id}> (${target.user.tag})`, inline: true },
         { name: 'Removed By', value: `<@${interaction.user.id}>`, inline: true },
-        { name: 'Roles Removed', value: rolesToRemove.map(item => `<@&${item.roleId}> (${item.name})`).join('\n') },
+        { name: 'Roles Removed', value: rolesToRemove.map(item => `<@&${item.roleId}> (${item.name})`).join('\\n') },
         { name: 'Reason', value: reason },
       )
       .setTimestamp();
