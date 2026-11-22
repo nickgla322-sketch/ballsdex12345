@@ -284,19 +284,31 @@ module.exports = {
           return;
         }
 
-        // Force signing: remove team role and add Free Agent role.
-        if (currentMember.roles.cache.has(team.roleId)) {
-          await currentMember.roles.remove(
-            team.roleId,
-            'Player reported a forced signing'
-          );
-        }
-
-        if (!currentMember.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+        // Add Free Agent first; if removing the team role fails, restore
+        // the member's original role state.
+        const addedFreeAgent = !currentMember.roles.cache.has(FREE_AGENT_ROLE_ID);
+        if (addedFreeAgent) {
           await currentMember.roles.add(
             FREE_AGENT_ROLE_ID,
             'Player reported a forced signing'
           );
+        }
+
+        try {
+          if (currentMember.roles.cache.has(team.roleId)) {
+            await currentMember.roles.remove(
+              team.roleId,
+              'Player reported a forced signing'
+            );
+          }
+        } catch (roleError) {
+          if (addedFreeAgent) {
+            await currentMember.roles.remove(
+              FREE_AGENT_ROLE_ID,
+              'Rolling back incomplete forced-sign report'
+            ).catch(() => {});
+          }
+          throw roleError;
         }
 
         const forcedEmbed = new EmbedBuilder()
