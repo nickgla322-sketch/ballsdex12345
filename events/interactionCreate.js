@@ -18,7 +18,7 @@ module.exports = {
         await command.handleButton(interaction);
       } catch (error) {
         console.error('Error opening FutBot player pack:', error);
-        const reply = { content: 'Could not open that player pack.', ephemeral: false };
+        const reply = { content: 'Could not open that player pack.' };
         if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
         else await interaction.reply(reply).catch(() => {});
       }
@@ -32,7 +32,7 @@ module.exports = {
         await handleQuickSell(interaction);
       } catch (error) {
         console.error('Error quickselling FutBot card:', error);
-        const reply = { content: 'Could not quicksell that player card.', ephemeral: false };
+        const reply = { content: 'Could not quicksell that player card.' };
         if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
         else await interaction.reply(reply).catch(() => {});
       }
@@ -46,7 +46,7 @@ module.exports = {
         await handlePlayerBuy(interaction);
       } catch (error) {
         console.error('Error buying FutBot player:', error);
-        const reply = { content: 'Could not buy that player.', ephemeral: false };
+        const reply = { content: 'Could not buy that player.' };
         if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
         else await interaction.reply(reply).catch(() => {});
       }
@@ -59,7 +59,7 @@ module.exports = {
         await handlePlayerSell(interaction);
       } catch (error) {
         console.error('Error selling FutBot player:', error);
-        const reply = { content: 'Could not sell that player.', ephemeral: false };
+        const reply = { content: 'Could not sell that player.' };
         if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
         else await interaction.reply(reply).catch(() => {});
       }
@@ -72,7 +72,7 @@ module.exports = {
         await handlePlayerSellCancel(interaction);
       } catch (error) {
         console.error('Error cancelling FutBot sale:', error);
-        const reply = { content: 'Could not cancel that sale.', ephemeral: false };
+        const reply = { content: 'Could not cancel that sale.' };
         if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
         else await interaction.reply(reply).catch(() => {});
       }
@@ -86,7 +86,7 @@ module.exports = {
         await handleDailyCollect(interaction);
       } catch (error) {
         console.error('Error collecting daily FutBot card:', error);
-        const reply = { content: 'Could not collect that daily card.', ephemeral: false };
+        const reply = { content: 'Could not collect that daily card.' };
         if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
         else await interaction.reply(reply).catch(() => {});
       }
@@ -174,7 +174,7 @@ module.exports = {
           await command.handleSelect(interaction);
         } catch (error) {
           console.error('Error handling FutBot pack menu:', error);
-          const reply = { content: 'Could not load that pack.', ephemeral: false };
+          const reply = { content: 'Could not load that pack.' };
           if (interaction.deferred || interaction.replied) await interaction.followUp(reply).catch(() => {});
           else await interaction.reply(reply).catch(() => {});
         }
