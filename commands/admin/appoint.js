@@ -23,6 +23,26 @@ const Divisions = require('../../models/divisions');
 
 const FREE_AGENT_ROLE_ID = '1374495332846669956';
 
+function getValidSelectEmoji(value) {
+  if (typeof value !== 'string') return undefined;
+  const emoji = value.trim();
+  if (!emoji) return undefined;
+
+  // Discord custom emoji must include a valid name and snowflake ID.
+  const custom = emoji.match(/^<(a?):([A-Za-z0-9_]{2,32}):(\d{17,20})>$/);
+  if (custom) {
+    return { name: custom[2], id: custom[3], animated: custom[1] === 'a' };
+  }
+
+  // Accept Unicode emoji sequences, but never pass arbitrary database text
+  // into Discord's component payload.
+  if (/^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\uFE0F|\u200D|\p{Emoji_Modifier}|\u20E3)+$/u.test(emoji)) {
+    return { name: emoji };
+  }
+
+  return undefined;
+}
+
 function getStaffRoleId(position) {
   switch (position) {
     case 'assistant':
@@ -130,7 +150,7 @@ module.exports = {
           divisions.map(division => ({
             label: division.name.slice(0, 100),
             value: division.name,
-            ...(division.emoji ? { emoji: division.emoji } : {}),
+            ...(getValidSelectEmoji(division.emoji) ? { emoji: getValidSelectEmoji(division.emoji) } : {}),
           }))
         );
 
@@ -188,7 +208,7 @@ module.exports = {
               teams.map(team => ({
                 label: team.name.slice(0, 100),
                 value: team.roleId,
-                ...(team.emoji ? { emoji: team.emoji } : {}),
+                ...(getValidSelectEmoji(team.emoji) ? { emoji: getValidSelectEmoji(team.emoji) } : {}),
               }))
             );
 
