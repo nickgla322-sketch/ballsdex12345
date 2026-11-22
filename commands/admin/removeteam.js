@@ -340,17 +340,22 @@ module.exports = {
             }
           }
 
-          // Delete staff records and the team record after role updates
-          // have been attempted for all affected members.
+          // Keep the database records intact if Discord cleanup was incomplete.
+          // This makes the operation retryable instead of orphaning role holders.
           const removedStaff = staffEntries.length;
+          if (failedMembers.length || staffRoleErrors.length || freeAgentErrors.length) {
+            collector.stop('cleanup-incomplete');
+            return interaction.editReply({
+              content:
+                'Team removal was not finalized because one or more Discord role updates failed or affected members could not be found. ' +
+                'The team and staff database records were kept so cleanup can be retried. ' +
+                `Team role errors: ${failedMembers.length}; staff role errors: ${staffRoleErrors.length}; Free Agent errors: ${freeAgentErrors.length}.`,
+              components: [],
+            });
+          }
 
-          await Staffs.deleteMany({
-            teamRoleId: team.roleId,
-          });
-
-          await Teams.deleteOne({
-            _id: team._id,
-          });
+          await Staffs.deleteMany({ teamRoleId: team.roleId });
+          await Teams.deleteOne({ _id: team._id });
 
           const playerList = affectedMembers.length
             ? affectedMembers
