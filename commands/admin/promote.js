@@ -210,9 +210,16 @@ module.exports = {
       }
       await targetEntry.save();
 
-      for (const roleId of oldRoleIds) {
-        if (roleId !== newRoleId && guildMember.roles.cache.has(roleId)) {
-          await guildMember.roles.remove(roleId, `Promoting to ${toPosition}`);
+      const stillHasOldPosition = await Staffs.exists({
+        userId: targetUser.id,
+        position: oldPosition,
+        _id: { $ne: targetEntry._id },
+      });
+      if (!stillHasOldPosition) {
+        for (const roleId of oldRoleIds) {
+          if (roleId !== newRoleId && guildMember.roles.cache.has(roleId)) {
+            await guildMember.roles.remove(roleId, `Promoting to ${toPosition}`);
+          }
         }
       }
     } catch (operationError) {
