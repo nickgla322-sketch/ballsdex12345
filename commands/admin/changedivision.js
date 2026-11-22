@@ -7,7 +7,7 @@ const {
   MessageFlags,
 } = require('discord.js');
 
-const { ADD_TEAM_ROLE } = require('../../utils/permissions');
+const { DIVISION_ROLE } = require('../../utils/permissions');
 const { logAction } = require('../../utils/logger');
 
 const Divisions = require('../../models/divisions');
@@ -31,7 +31,7 @@ module.exports = {
 
   async execute(interaction, client) {
     const allowedRoles = (
-      Array.isArray(ADD_TEAM_ROLE) ? ADD_TEAM_ROLE : [ADD_TEAM_ROLE]
+      Array.isArray(DIVISION_ROLE) ? DIVISION_ROLE : [DIVISION_ROLE]
     ).filter(Boolean);
 
     if (
