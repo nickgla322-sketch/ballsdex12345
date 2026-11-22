@@ -7,11 +7,12 @@ const {
   MessageFlags,
 } = require('discord.js');
 
-const { REMOVE_DIVISION_ROLE } = require('../../utils/permissions');
+const { REMOVE_DIVISION_ROLE, ASSISTANT_MANAGER_ROLE, MANAGER_ROLE, CHAIRMAN_ROLE } = require('../../utils/permissions');
 const { logAction } = require('../../utils/logger');
 
 const Divisions = require('../../models/divisions');
 const Teams = require('../../models/teams');
+const Staffs = require('../../models/staffs');
 
 const FREE_AGENT_ROLE_ID = '1374495332846669956';
 
@@ -140,11 +141,14 @@ module.exports = {
           });
 
           const removedTeams = teamsInDivision.length;
+          const staffEntries = await Staffs.find({ teamRoleId: { $in: teamsInDivision.map(team => team.roleId) } });
           const guild = interaction.guild;
 
           const removedPlayers = new Set();
           const failedRoleRemovals = new Set();
           const freeAgentErrors = new Set();
+          const staffRoleErrors = new Set();
+          const staffRoleByPosition = { assistant: ASSISTANT_MANAGER_ROLE, manager: MANAGER_ROLE, chairman: CHAIRMAN_ROLE };
 
           // Fetch all server members before changing roles or deleting records.
           let members;
@@ -220,14 +224,44 @@ module.exports = {
             }
           }
 
-          // Delete the division and its teams after processing member roles.
-          await Divisions.deleteOne({
-            _id: division._id,
-          });
+          // Remove staff hierarchy roles only when the member no longer
+          // has that position on another team.
+          for (const staff of staffEntries) {
+            const roleId = staffRoleByPosition[staff.position];
+            if (!roleId) continue;
+            const stillHoldsPosition = await Staffs.exists({
+              userId: staff.userId,
+              position: staff.position,
+              teamRoleId: { $nin: teamsInDivision.map(team => team.roleId) },
+            });
+            if (stillHoldsPosition) continue;
+            const member = members.get(staff.userId);
+            if (!member) {
+              staffRoleErrors.add(staff.userId);
+              continue;
+            }
+            if (member.roles.cache.has(roleId)) {
+              try {
+                await member.roles.remove(roleId, `Division ${division.name} was removed`);
+              } catch (error) {
+                console.error('Failed to remove staff hierarchy role:', error);
+                staffRoleErrors.add(staff.userId);
+              }
+            }
+          }
 
-          await Teams.deleteMany({
-            division: division.name,
-          });
+          // Never delete records while any role transition is incomplete.
+          if (failedRoleRemovals.size || freeAgentErrors.size || staffRoleErrors.size) {
+            return interaction.editReply({
+              content:
+                `Division cleanup was incomplete. The division, teams, and staff records were retained. Team role errors: ${failedRoleRemovals.size}; Free Agent errors: ${freeAgentErrors.size}; staff role errors: ${staffRoleErrors.size}. Fix the role permissions/member access and retry.`,
+              components: [],
+            });
+          }
+
+          await Staffs.deleteMany({ teamRoleId: { $in: teamsInDivision.map(team => team.roleId) } });
+          await Divisions.deleteOne({ _id: division._id });
+          await Teams.deleteMany({ division: division.name });
 
           const teamList = removedTeams
             ? teamsInDivision
