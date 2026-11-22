@@ -123,10 +123,8 @@ module.exports = {
         interaction.guild,
         team.roleId,
         async () => {
+          const hadFreeAgentRole = member.roles.cache.has(FREE_AGENT_ROLE_ID);
           try {
-          let hadFreeAgentRole = false;
-          try {
-            hadFreeAgentRole = member.roles.cache.has(FREE_AGENT_ROLE_ID);
             await member.roles.add(
               team.roleId,
               `Signed by ${interaction.user.tag}`
@@ -140,19 +138,16 @@ module.exports = {
             }
           } catch (error) {
             console.error('Error updating player roles:', error);
-
             await member.roles.remove(
               team.roleId,
               'Rolling back incomplete signing'
             ).catch(() => {});
-
             if (hadFreeAgentRole) {
               await member.roles.add(
                 FREE_AGENT_ROLE_ID,
                 'Restoring Free Agent role after failed signing'
               ).catch(() => {});
             }
-
             throw error;
           }
         }
