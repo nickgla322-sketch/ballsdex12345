@@ -424,36 +424,33 @@ module.exports = {
                   );
 
                   for (const member of teamRoleMembers.values()) {
+                    const addedFreeAgent = !member.roles.cache.has(FREE_AGENT_ROLE_ID);
                     try {
-                      // Remove the team role.
-                      await member.roles.remove(
-                        team.roleId,
-                        `Disbanding ${team.name}: emptying team roster`
-                      );
-
-                      removedTeamRoles.push(member.id);
-
-                      // Give the Free Agent role after removing the team role.
-                      if (!member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+                      // Give Free Agent first. If this fails, keep the team role.
+                      if (addedFreeAgent) {
                         await member.roles.add(
                           FREE_AGENT_ROLE_ID,
                           `Disbanding ${team.name}: returning member to Free Agent status`
                         );
-
                         givenFreeAgentRoles.push(member.id);
-                      } else {
-                        // They already have the Free Agent role.
-                        // Do not count it as newly given.
                       }
-                    } catch (error) {
-                      console.error(
-                        `Failed to update roles for ${member.id}:`,
-                        error
-                      );
 
-                      if (!failedMembers.includes(member.id)) {
-                        failedMembers.push(member.id);
+                      await member.roles.remove(
+                        team.roleId,
+                        `Disbanding ${team.name}: emptying team roster`
+                      );
+                      removedTeamRoles.push(member.id);
+                    } catch (error) {
+                      console.error(`Failed to update roles for ${member.id}:`, error);
+                      if (addedFreeAgent && member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+                        await member.roles.remove(
+                          FREE_AGENT_ROLE_ID,
+                          'Rolling back incomplete disband'
+                        ).catch(() => {});
+                        const index = givenFreeAgentRoles.indexOf(member.id);
+                        if (index !== -1) givenFreeAgentRoles.splice(index, 1);
                       }
+                      if (!failedMembers.includes(member.id)) failedMembers.push(member.id);
                     }
                   }
 
