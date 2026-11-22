@@ -322,8 +322,13 @@ module.exports = {
               }
             }
 
-            // Give everyone affected the Free Agent role.
-            if (!member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+            // Do not give Free Agent while the team role is still present.
+            // The team and staff records remain available for a retry.
+            if (
+              !failedMembers.includes(userId) &&
+              !member.roles.cache.has(team.roleId) &&
+              !member.roles.cache.has(FREE_AGENT_ROLE_ID)
+            ) {
               try {
                 await member.roles.add(
                   FREE_AGENT_ROLE_ID,
