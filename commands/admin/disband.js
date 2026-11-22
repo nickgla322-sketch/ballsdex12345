@@ -387,7 +387,17 @@ module.exports = {
                   for (const staff of staffEntries) {
                     const member = members.get(staff.userId);
 
-                    if (!member) continue;
+                    if (!member) {
+                      if (!failedMembers.includes(staff.userId)) failedMembers.push(staff.userId);
+                      continue;
+                    }
+
+                    const stillHasPositionElsewhere = await Staffs.exists({
+                      userId: staff.userId,
+                      position: staff.position,
+                      teamRoleId: { $ne: team.roleId },
+                    });
+                    if (stillHasPositionElsewhere) continue;
 
                     const staffRoleId = getStaffRoleId(staff.position);
 
