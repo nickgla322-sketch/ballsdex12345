@@ -191,32 +191,47 @@ module.exports = {
 
     const guild = interaction.guild;
 
-    for (const roleId of oldRoleIds) {
-      if (guildMember.roles.cache.has(roleId)) {
-        await guildMember.roles.remove(
-          roleId,
-          `Promoting to ${toPosition}`
-        );
+    const hadNewRole = guildMember.roles.cache.has(newRoleId);
+    const oldPositionBeforeChange = targetEntry?.position;
+    try {
+      // Add the new role and persist the new position before removing the old role.
+      if (!hadNewRole) await guildMember.roles.add(newRoleId, `Promoting to ${toPosition}`);
+
+      if (!targetEntry) {
+        targetEntry = new Staffs({
+          userId: targetUser.id,
+          teamRoleId: executorEntry.teamRoleId,
+          teamName: executorEntry.teamName,
+          position: toPosition,
+        });
+      } else {
+        targetEntry.position = toPosition;
       }
+      await targetEntry.save();
+
+      for (const roleId of oldRoleIds) {
+        if (roleId !== newRoleId && guildMember.roles.cache.has(roleId)) {
+          await guildMember.roles.remove(roleId, `Promoting to ${toPosition}`);
+        }
+      }
+    } catch (operationError) {
+      // Best-effort compensation keeps Discord and MongoDB aligned.
+      if (targetEntry && oldPositionBeforeChange) {
+        targetEntry.position = oldPositionBeforeChange;
+        await targetEntry.save().catch(() => {});
+      } else if (targetEntry?.isNew) {
+        await Staffs.deleteOne({ _id: targetEntry._id }).catch(() => {});
+      }
+      if (!hadNewRole && guildMember.roles.cache.has(newRoleId)) {
+        await guildMember.roles.remove(newRoleId, 'Rolling back failed promotion').catch(() => {});
+      }
+      for (const roleId of oldRoleIds) {
+        if (!guildMember.roles.cache.has(roleId)) {
+          await guildMember.roles.add(roleId, 'Restoring previous staff position').catch(() => {});
+        }
+      }
+      throw operationError;
     }
-
-    await guildMember.roles.add(
-      newRoleId,
-      `Promoting to ${toPosition}`
-    );
-
-    if (!targetEntry) {
-      targetEntry = new Staffs({
-        userId: targetUser.id,
-        teamRoleId: executorEntry.teamRoleId,
-        teamName: executorEntry.teamName,
-        position: toPosition,
-      });
-    } else {
-      targetEntry.position = toPosition;
-    }
-
-    await targetEntry.save();
 
     const embed = new EmbedBuilder()
       .setColor('#2ecc71')
