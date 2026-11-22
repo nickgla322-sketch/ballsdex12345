@@ -150,7 +150,7 @@ module.exports = {
 
         const reply = {
           content: 'An error occurred while executing this command.',
-          ephemeral: interaction.commandName === 'ssp' && interaction.options.getSubcommand(false) === 'help',
+          flags: interaction.commandName === 'ssp' && interaction.options.getSubcommand(false) === 'help' ? require('discord.js').MessageFlags.Ephemeral : undefined,
         };
 
         if (interaction.deferred || interaction.replied) {
@@ -194,7 +194,7 @@ module.exports = {
 
           const reply = {
             content: 'An error occurred while loading the division.',
-            ephemeral: true,
+            flags: require('discord.js').MessageFlags.Ephemeral,
           };
 
           if (interaction.deferred || interaction.replied) {
@@ -218,7 +218,7 @@ module.exports = {
           if (!interaction.replied && !interaction.deferred) {
             await interaction.reply({
               content: 'The team information handler could not be found.',
-              ephemeral: true,
+              flags: require('discord.js').MessageFlags.Ephemeral,
             }).catch(() => {});
           }
 
@@ -232,7 +232,7 @@ module.exports = {
 
           const reply = {
             content: 'An error occurred while loading team information.',
-            ephemeral: true,
+            flags: require('discord.js').MessageFlags.Ephemeral,
           };
 
           if (interaction.deferred || interaction.replied) {
