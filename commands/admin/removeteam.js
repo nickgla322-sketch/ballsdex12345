@@ -268,79 +268,55 @@ module.exports = {
               staff => staff.userId === userId
             );
 
-            // Remove the team role.
-            if (member.roles.cache.has(team.roleId)) {
-              try {
-                await member.roles.remove(
-                  team.roleId,
-                  `Team ${team.name} was removed`
-                );
-
-                removedPlayers.push(member);
-              } catch (error) {
-                console.error(
-                  `Failed to remove team role from ${member.user.tag}:`,
-                  error
-                );
-
-                failedMembers.push(userId);
-              }
-            }
-
-            // Remove every applicable staff role.
             const staffRoleIds = new Set(
               memberStaffEntries
                 .map(staff => getStaffRoleId(staff.position))
                 .filter(Boolean)
             );
 
+            // Remove staff roles first. If any fail, leave the team role and
+            // roster state untouched so the staff record can be retried.
+            let staffCleanupSucceeded = true;
             for (const staffRoleId of staffRoleIds) {
-              if (!member.roles.cache.has(staffRoleId)) {
-                continue;
-              }
-
+              if (!member.roles.cache.has(staffRoleId)) continue;
               try {
                 await member.roles.remove(
                   staffRoleId,
                   `Staff position removed because team ${team.name} was removed`
                 );
-
-                removedStaffRoles.push({
-                  userId,
-                  roleId: staffRoleId,
-                });
+                removedStaffRoles.push({ userId, roleId: staffRoleId });
               } catch (error) {
-                console.error(
-                  `Failed to remove staff role ${staffRoleId} from ${member.user.tag}:`,
-                  error
-                );
-
-                staffRoleErrors.push({
-                  userId,
-                  roleId: staffRoleId,
-                });
+                console.error(`Failed to remove staff role ${staffRoleId} from ${member.user.tag}:`, error);
+                staffRoleErrors.push({ userId, roleId: staffRoleId });
+                staffCleanupSucceeded = false;
               }
             }
 
-            // Do not give Free Agent while the team role is still present.
-            // The team and staff records remain available for a retry.
-            if (
-              !failedMembers.includes(userId) &&
-              !member.roles.cache.has(team.roleId) &&
-              !member.roles.cache.has(FREE_AGENT_ROLE_ID)
-            ) {
-              try {
-                await member.roles.add(
-                  FREE_AGENT_ROLE_ID,
-                  `Team ${team.name} was removed`
-                );
-              } catch (error) {
-                console.error(
-                  `Failed to add Free Agent role to ${member.user.tag}:`,
-                  error
-                );
+            if (!staffCleanupSucceeded) continue;
 
+            // Add Free Agent before removing the team role. This prevents a
+            // failed Free Agent grant from making the member untraceable.
+            const addedFreeAgent = !member.roles.cache.has(FREE_AGENT_ROLE_ID);
+            if (addedFreeAgent) {
+              try {
+                await member.roles.add(FREE_AGENT_ROLE_ID, `Team ${team.name} was removed`);
+              } catch (error) {
+                console.error(`Failed to add Free Agent role to ${member.user.tag}:`, error);
                 freeAgentErrors.push(userId);
+                continue;
+              }
+            }
+
+            if (member.roles.cache.has(team.roleId)) {
+              try {
+                await member.roles.remove(team.roleId, `Team ${team.name} was removed`);
+                removedPlayers.push(member);
+              } catch (error) {
+                console.error(`Failed to remove team role from ${member.user.tag}:`, error);
+                failedMembers.push(userId);
+                if (addedFreeAgent) {
+                  await member.roles.remove(FREE_AGENT_ROLE_ID, 'Rolling back incomplete team removal').catch(() => {});
+                }
               }
             }
           }
