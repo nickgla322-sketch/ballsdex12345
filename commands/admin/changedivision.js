@@ -77,7 +77,6 @@ module.exports = {
           divisions.map(division => ({
             label: division.name.slice(0, 100),
             value: division.name,
-            ...(division.emoji ? { emoji: division.emoji } : {}),
           }))
         );
 
@@ -153,7 +152,6 @@ module.exports = {
                 teams.map(team => ({
                   label: team.name.slice(0, 100),
                   value: team.roleId,
-                  ...(team.emoji ? { emoji: team.emoji } : {}),
                 }))
               );
 
@@ -205,7 +203,6 @@ module.exports = {
                 targetDivisions.map(division => ({
                   label: division.name.slice(0, 100),
                   value: division.name,
-                  ...(division.emoji ? { emoji: division.emoji } : {}),
                 }))
               );
 
