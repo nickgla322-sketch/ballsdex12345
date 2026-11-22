@@ -151,20 +151,28 @@ module.exports = {
           // Add the new role to every current holder before changing the team record.
           // The old role stays in place if any assignment fails.
           let membersToMigrate = [];
+          const newlyAddedMembers = [];
 
           if (oldRole && oldRole.id !== newRole.id) {
             await interaction.guild.members.fetch();
             membersToMigrate = [...oldRole.members.values()];
 
             const additions = await Promise.allSettled(
-              membersToMigrate.map(member =>
-                member.roles.add(newRole, 'Team role updated through /renameteam')
-              )
+              membersToMigrate.map(async member => {
+                if (member.roles.cache.has(newRole.id)) return;
+                await member.roles.add(newRole, 'Team role updated through /renameteam');
+                newlyAddedMembers.push(member);
+              })
             );
 
             const failedAdds = additions.filter(result => result.status === 'rejected');
 
             if (failedAdds.length) {
+              await Promise.allSettled(
+                newlyAddedMembers.map(member =>
+                  member.roles.remove(newRole, 'Rolling back incomplete team role migration')
+                )
+              );
               collector.stop('error');
               return interaction.editReply({
                 content:
@@ -187,6 +195,11 @@ module.exports = {
           );
 
           if (updateResult.matchedCount !== 1) {
+            await Promise.allSettled(
+              newlyAddedMembers.map(member =>
+                member.roles.remove(newRole, 'Rolling back incomplete team role migration')
+              )
+            );
             collector.stop('error');
             return interaction.editReply({
               content:
@@ -197,15 +210,28 @@ module.exports = {
           }
 
           // Keep staff assignments linked to the team's new role and name.
-          await Staffs.updateMany(
-            { teamRoleId: oldRoleId },
-            {
-              $set: {
-                teamRoleId: newRole.id,
-                teamName: newRole.name,
-              },
-            }
-          );
+          try {
+            await Staffs.updateMany(
+              { teamRoleId: oldRoleId },
+              { $set: { teamRoleId: newRole.id, teamName: newRole.name } }
+            );
+          } catch (staffUpdateError) {
+            // Restore both collections and remove only role assignments added here.
+            await Teams.updateOne(
+              { _id: team._id, roleId: newRole.id },
+              { $set: { name: oldName, roleId: oldRoleId, emoji: oldEmoji } }
+            ).catch(() => {});
+            await Staffs.updateMany(
+              { teamRoleId: newRole.id },
+              { $set: { teamRoleId: oldRoleId, teamName: oldName } }
+            ).catch(() => {});
+            await Promise.allSettled(
+              newlyAddedMembers.map(member =>
+                member.roles.remove(newRole, 'Rolling back failed team rename')
+              )
+            );
+            throw staffUpdateError;
+          }
 
           // Remove the old team role only after the database update succeeds.
           let failedRemovals = 0;
