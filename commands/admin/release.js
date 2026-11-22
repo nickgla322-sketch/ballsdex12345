@@ -231,18 +231,27 @@ module.exports = {
     activeReleases.add(actorId);
 
     try {
-      // Remove the team role.
-      await member.roles.remove(
-        team.roleId,
-        `Released from ${team.name} by ${interaction.user.tag}`
-      );
-
-      // Give the Free Agent role if they don't already have it.
-      if (!member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+      // Add Free Agent first so a failed team-role removal never leaves
+      // the player without either roster status.
+      const addedFreeAgent = !member.roles.cache.has(FREE_AGENT_ROLE_ID);
+      if (addedFreeAgent) {
         await member.roles.add(
           FREE_AGENT_ROLE_ID,
           `Released from ${team.name}: returning to Free Agent status`
         );
+      }
+
+      try {
+        await member.roles.remove(
+          team.roleId,
+          `Released from ${team.name} by ${interaction.user.tag}`
+        );
+      } catch (error) {
+        // Roll back the temporary Free Agent role if release did not complete.
+        if (addedFreeAgent) {
+          await member.roles.remove(FREE_AGENT_ROLE_ID, 'Rolling back incomplete release').catch(() => {});
+        }
+        throw error;
       }
     } catch (error) {
       console.error('Failed to update player roles:', error);
