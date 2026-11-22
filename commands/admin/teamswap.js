@@ -59,7 +59,6 @@ module.exports = {
           .addOptions(options.slice(0, 25).map(division => ({
             label: division.name.slice(0, 100),
             value: division.name,
-            ...(division.emoji ? { emoji: division.emoji } : {}),
           })));
 
       const makeTeamMenu = (customId, placeholder, teams) =>
@@ -69,7 +68,6 @@ module.exports = {
           .addOptions(teams.slice(0, 25).map(team => ({
             label: team.name.slice(0, 100),
             value: team.roleId,
-            ...(team.emoji ? { emoji: team.emoji } : {}),
           })));
 
       const firstDivisionMenu = makeDivisionMenu(
