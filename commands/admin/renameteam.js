@@ -98,7 +98,6 @@ module.exports = {
           teams.map(team => ({
             label: team.name.slice(0, 100),
             value: String(team._id),
-            ...(team.emoji ? { emoji: team.emoji } : {}),
             description: team.division
               ? `Division: ${team.division}`.slice(0, 100)
               : undefined,
