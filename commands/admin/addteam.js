@@ -4,6 +4,7 @@ const {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   EmbedBuilder,
+  MessageFlags,
 } = require('discord.js');
 
 const { ADD_TEAM_ROLE } = require('../../utils/permissions');
@@ -53,7 +54,7 @@ module.exports = {
     ) {
       return interaction.reply({
         content: 'You do not have permission to use this command.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -66,14 +67,14 @@ module.exports = {
     if (!divisions.length) {
       return interaction.reply({
         content: 'No divisions exist yet.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
     if (divisions.length > 25) {
       return interaction.reply({
         content: 'There are too many divisions to display in one menu. Please reduce the number of divisions.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -93,7 +94,7 @@ module.exports = {
     await interaction.reply({
       content: 'Select the division you want to add this team to:',
       components: [row],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
 
     const response = await interaction.fetchReply();
