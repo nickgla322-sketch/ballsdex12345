@@ -234,10 +234,6 @@ module.exports = {
             .slice(0, 100)
         );
 
-      if (team?.emoji) {
-        option.setEmoji(team.emoji);
-      }
-
       return option;
     });
 
