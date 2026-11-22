@@ -237,26 +237,39 @@ module.exports = {
               });
             }
 
-            // Update only the division field on each existing team document.
-            const result = await Teams.bulkWrite([
-              {
-                updateOne: {
-                  filter: { _id: firstTeam._id, division: selected.firstDivision },
-                  update: { $set: { division: selected.secondDivision } },
-                },
-              },
-              {
-                updateOne: {
-                  filter: { _id: secondTeam._id, division: selected.secondDivision },
-                  update: { $set: { division: selected.firstDivision } },
-                },
-              },
-            ]);
+            // Move the first team with an optimistic condition, then the second.
+            // If the second update fails, restore the first team's original division.
+            const firstUpdate = await Teams.updateOne(
+              { _id: firstTeam._id, division: selected.firstDivision },
+              { $set: { division: selected.secondDivision } }
+            );
 
-            if (result.matchedCount !== 2 || result.modifiedCount !== 2) {
+            if (firstUpdate.modifiedCount !== 1) {
               collector.stop('error');
               return interaction.editReply({
-                content: 'The swap could not be completed safely. Please check both teams and try again.',
+                content: 'The first team changed before the swap could be applied. Nothing was swapped; run /teamswap again.',
+                components: [],
+              });
+            }
+
+            try {
+              const secondUpdate = await Teams.updateOne(
+                { _id: secondTeam._id, division: selected.secondDivision },
+                { $set: { division: selected.firstDivision } }
+              );
+              if (secondUpdate.modifiedCount !== 1) {
+                throw new Error('Second team changed during swap.');
+              }
+            } catch (swapError) {
+              await Teams.updateOne(
+                { _id: firstTeam._id, division: selected.secondDivision },
+                { $set: { division: selected.firstDivision } }
+              ).catch(rollbackError => {
+                console.error('CRITICAL: failed to roll back partial team swap:', rollbackError);
+              });
+              collector.stop('error');
+              return interaction.editReply({
+                content: 'The second team could not be moved. The bot attempted to restore the first team; verify both division assignments before retrying.',
                 components: [],
               });
             }
