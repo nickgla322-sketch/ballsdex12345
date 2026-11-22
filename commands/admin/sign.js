@@ -124,12 +124,15 @@ module.exports = {
         team.roleId,
         async () => {
           try {
+          let hadFreeAgentRole = false;
+          try {
+            hadFreeAgentRole = member.roles.cache.has(FREE_AGENT_ROLE_ID);
             await member.roles.add(
               team.roleId,
               `Signed by ${interaction.user.tag}`
             );
 
-            if (member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+            if (hadFreeAgentRole) {
               await member.roles.remove(
                 FREE_AGENT_ROLE_ID,
                 `Signed to ${team.name} by ${interaction.user.tag}`
@@ -142,6 +145,13 @@ module.exports = {
               team.roleId,
               'Rolling back incomplete signing'
             ).catch(() => {});
+
+            if (hadFreeAgentRole) {
+              await member.roles.add(
+                FREE_AGENT_ROLE_ID,
+                'Restoring Free Agent role after failed signing'
+              ).catch(() => {});
+            }
 
             throw error;
           }
