@@ -231,7 +231,12 @@ module.exports = {
         }
 
         if (toPosition === 'none') {
-          if (oldRoleId && guildMember.roles.cache.has(oldRoleId)) {
+          const stillHasOldPosition = await Staffs.exists({
+            userId: targetUser.id,
+            position: oldPosition,
+            _id: { $ne: targetEntry._id },
+          });
+          if (!stillHasOldPosition && oldRoleId && guildMember.roles.cache.has(oldRoleId)) {
             await guildMember.roles.remove(oldRoleId);
           }
           const deleteResult = await Staffs.deleteOne({ _id: targetEntry._id });
@@ -239,7 +244,12 @@ module.exports = {
         } else {
           targetEntry.position = toPosition;
           await targetEntry.save();
-          if (oldRoleId && oldRoleId !== newRoleId && guildMember.roles.cache.has(oldRoleId)) {
+          const stillHasOldPosition = await Staffs.exists({
+            userId: targetUser.id,
+            position: oldPosition,
+            _id: { $ne: targetEntry._id },
+          });
+          if (!stillHasOldPosition && oldRoleId && oldRoleId !== newRoleId && guildMember.roles.cache.has(oldRoleId)) {
             await guildMember.roles.remove(oldRoleId);
           }
         }
