@@ -248,6 +248,37 @@ module.exports = {
             ).length;
           }
 
+          if (failedRemovals) {
+            // Do not leave the database pointing at a new role while some
+            // members still have the old role. Restore the original mapping.
+            await Teams.updateOne(
+              { _id: team._id, roleId: newRole.id },
+              { $set: { name: oldName, roleId: oldRoleId, emoji: oldEmoji } }
+            ).catch(error => console.error('CRITICAL: failed to restore team record:', error));
+            await Staffs.updateMany(
+              { teamRoleId: newRole.id },
+              { $set: { teamRoleId: oldRoleId, teamName: oldName } }
+            ).catch(error => console.error('CRITICAL: failed to restore staff references:', error));
+            const rollbackResults = await Promise.allSettled(
+              membersToMigrate.map(async member => {
+                if (oldRole && !member.roles.cache.has(oldRoleId)) {
+                  await member.roles.add(oldRole, 'Restoring old team role after failed rename');
+                }
+                if (newlyAddedMembers.includes(member) && member.roles.cache.has(newRole.id)) {
+                  await member.roles.remove(newRole, 'Rolling back failed team rename');
+                }
+              })
+            );
+            const rollbackFailures = rollbackResults.filter(result => result.status === 'rejected').length;
+            collector.stop('error');
+            return interaction.editReply({
+              content:
+                `I couldn't remove the old team role from ${failedRemovals} member(s). The rename was rolled back. ` +
+                `Role rollback errors: ${rollbackFailures}. Check the team record and affected members before retrying.`,
+              components: [],
+            });
+          }
+
           const embed = new EmbedBuilder()
             .setColor('#3498db')
             .setTitle('Team Updated')
