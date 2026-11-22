@@ -181,8 +181,23 @@ module.exports = {
 
             if (!memberTeamRoles.length) continue;
 
-            let allTeamRolesRemoved = true;
+            // Add Free Agent first. If this fails, leave every team role
+            // untouched so the member remains in a valid roster state.
+            const addedFreeAgent = !member.roles.cache.has(FREE_AGENT_ROLE_ID);
+            if (addedFreeAgent) {
+              try {
+                await member.roles.add(
+                  FREE_AGENT_ROLE_ID,
+                  `Division ${division.name} was removed`
+                );
+              } catch (error) {
+                console.error(`Failed to add Free Agent role to ${member.user.tag}:`, error);
+                freeAgentErrors.add(member.id);
+                continue;
+              }
+            }
 
+            let allTeamRolesRemoved = true;
             for (const { team } of memberTeamRoles) {
               try {
                 await member.roles.remove(
@@ -194,33 +209,18 @@ module.exports = {
                   `Failed to remove team role ${team.roleId} from ${member.user.tag}:`,
                   error
                 );
-
                 failedRoleRemovals.add(member.id);
                 allTeamRolesRemoved = false;
               }
             }
 
-            // Only add Free Agent if all of this member's roles
-            // from the deleted division were successfully removed.
-            if (allTeamRolesRemoved) {
-              try {
-                if (!member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
-                  await member.roles.add(
-                    FREE_AGENT_ROLE_ID,
-                    `Division ${division.name} was removed`
-                  );
-                }
-
-                removedPlayers.add(member.id);
-              } catch (error) {
-                console.error(
-                  `Failed to add Free Agent role to ${member.user.tag}:`,
-                  error
-                );
-
-                freeAgentErrors.add(member.id);
-                removedPlayers.add(member.id);
-              }
+            if (!allTeamRolesRemoved && addedFreeAgent) {
+              await member.roles.remove(
+                FREE_AGENT_ROLE_ID,
+                'Rolling back incomplete division removal'
+              ).catch(() => {});
+            } else if (allTeamRolesRemoved) {
+              removedPlayers.add(member.id);
             }
           }
 
