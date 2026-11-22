@@ -176,7 +176,8 @@ module.exports = {
             }
           }
 
-          // Rename team references so every team stays in its division.
+          // Rename team references and the division record as one recoverable
+          // operation. If saving the division fails, restore the team references.
           if (finalName !== oldName) {
             await Teams.updateMany(
               { division: oldName },
@@ -184,9 +185,21 @@ module.exports = {
             );
           }
 
-          division.name = finalName;
-          division.emoji = finalEmoji;
-          await division.save();
+          try {
+            division.name = finalName;
+            division.emoji = finalEmoji;
+            await division.save();
+          } catch (saveError) {
+            if (finalName !== oldName) {
+              await Teams.updateMany(
+                { division: finalName },
+                { $set: { division: oldName } }
+              ).catch(rollbackError => {
+                console.error('CRITICAL: failed to roll back division team references:', rollbackError);
+              });
+            }
+            throw saveError;
+          }
 
           const embed = new EmbedBuilder()
             .setColor('#f1c40f')
