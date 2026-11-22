@@ -366,26 +366,15 @@ async function sackStaff(interaction, client, user, staffEntry) {
       Array.isArray(staffRoleId) ? staffRoleId : [staffRoleId]
     ).filter(Boolean);
 
-    // Remove only this staff position from the database.
-    const deleteResult = await Staffs.deleteOne({
-      _id: staffEntry._id,
-    });
-
-    if (!deleteResult.deletedCount) {
-      return interaction.editReply({
-        content:
-          'This staff position has already been removed. No further changes were made.',
-        components: [],
-      });
-    }
-
-    // Keep the hierarchy role if the user still holds this position in another team.
+    // Check for another position before changing anything.
     const remainingPosition = await Staffs.exists({
       userId: user.id,
       position: staffEntry.position,
+      _id: { $ne: staffEntry._id },
     });
 
-    // Remove the management role only if the user has no other matching position.
+    // Remove the hierarchy role first. If Discord rejects this operation,
+    // retain the database record so the position can be retried safely.
     if (!remainingPosition) {
       for (const roleId of staffRoleIds) {
         if (member.roles.cache.has(roleId)) {
@@ -395,6 +384,14 @@ async function sackStaff(interaction, client, user, staffEntry) {
           );
         }
       }
+    }
+
+    const deleteResult = await Staffs.deleteOne({ _id: staffEntry._id });
+    if (!deleteResult.deletedCount) {
+      return interaction.editReply({
+        content: 'This staff position changed during processing. Please check the staff records.',
+        components: [],
+      });
     }
 
     // Record the sack after the staff record has been removed.
