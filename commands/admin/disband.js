@@ -457,7 +457,19 @@ module.exports = {
                     }
                   }
 
-                  // Keep the team record. Delete only its staff records.
+                  // Keep staff records if any Discord role update failed. They
+                  // provide the only reliable retry/reconciliation reference.
+                  if (failedMembers.length) {
+                    collector.stop('cleanup-incomplete');
+                    return interaction.editReply({
+                      content:
+                        `Disband was only partially completed: ${failedMembers.length} member(s) had role-update errors. Staff records were retained so cleanup can be retried. Check the bot's role hierarchy and permissions, then run /disband again.`,
+                      components: [],
+                    });
+                  }
+
+                  // Keep the team record. Delete only its staff records after
+                  // every affected role operation has succeeded.
                   const deleteResult = await Staffs.deleteMany({
                     teamRoleId: team.roleId,
                   });
