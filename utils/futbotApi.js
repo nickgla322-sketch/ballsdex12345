@@ -1,4 +1,7 @@
-const BASE_URL = (process.env.FUTBOT_API_URL || '').replace(/\/+$/, '');
+const RAW_BASE_URL = (process.env.FUTBOT_API_URL || '').trim();
+const BASE_URL = RAW_BASE_URL
+  ? ( /^https?:\/\//i.test(RAW_BASE_URL) ? RAW_BASE_URL : `https://${RAW_BASE_URL}` ).replace(/\/+$/, '')
+  : '';
 const API_KEY = process.env.FUTBOT_API_KEY || '';
 
 async function request(endpoint, options = {}) {
@@ -10,7 +13,9 @@ async function request(endpoint, options = {}) {
     throw new Error('FUTBOT_API_KEY is not configured.');
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
+  const requestUrl = new URL(endpoint, `${BASE_URL}/`).toString();
+
+  const response = await fetch(requestUrl, {
     ...options,
     headers: {
       Accept: 'application/json',
