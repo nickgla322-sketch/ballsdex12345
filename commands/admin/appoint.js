@@ -315,41 +315,49 @@ module.exports = {
                 });
               }
 
-              // Appointing a new person also adds them to the team roster.
-              if (!member.roles.cache.has(team.roleId)) {
-                const rosterResult = await withRosterSlot(
-                  interaction.guild,
-                  team.roleId,
-                  async () => {
-                    await member.roles.add(team.roleId);
+              // Track original roles and compensate if any later step fails.
+              const addedTeamRole = !member.roles.cache.has(team.roleId);
+              const hadStaffRole = member.roles.cache.has(staffRoleId);
+              const hadFreeAgentRole = member.roles.cache.has(FREE_AGENT_ROLE_ID);
+
+              try {
+                if (addedTeamRole) {
+                  const rosterResult = await withRosterSlot(
+                    interaction.guild,
+                    team.roleId,
+                    async () => member.roles.add(team.roleId)
+                  );
+                  if (!rosterResult.ok) {
+                    return interaction.editReply({
+                      content: rosterResult.full
+                        ? `This team is full (**${rosterResult.count}/16**). Release a player before adding anyone else.`
+                        : 'A roster change for this team is already being processed. Please try again in a moment.',
+                      components: [],
+                    });
                   }
-                );
-
-                if (!rosterResult.ok) {
-                  return interaction.editReply({
-                    content: rosterResult.full
-                      ? `This team is full (**${rosterResult.count}/16**). Release a player before adding anyone else.`
-                      : 'A roster change for this team is already being processed. Please try again in a moment.',
-                    components: [],
-                  });
                 }
+
+                if (!hadStaffRole) await member.roles.add(staffRoleId);
+                if (hadFreeAgentRole) await member.roles.remove(FREE_AGENT_ROLE_ID);
+
+                await Staffs.create({
+                  userId: user.id,
+                  teamRoleId: team.roleId,
+                  teamName: team.name,
+                  position,
+                });
+              } catch (operationError) {
+                if (hadFreeAgentRole && !member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
+                  await member.roles.add(FREE_AGENT_ROLE_ID, 'Rolling back failed appointment').catch(() => {});
+                }
+                if (!hadStaffRole && member.roles.cache.has(staffRoleId)) {
+                  await member.roles.remove(staffRoleId, 'Rolling back failed appointment').catch(() => {});
+                }
+                if (addedTeamRole && member.roles.cache.has(team.roleId)) {
+                  await member.roles.remove(team.roleId, 'Rolling back failed appointment').catch(() => {});
+                }
+                throw operationError;
               }
-
-              // Assign the staff hierarchy role
-              await member.roles.add(staffRoleId);
-
-              // Remove the Free Agent role if they have it
-              if (member.roles.cache.has(FREE_AGENT_ROLE_ID)) {
-                await member.roles.remove(FREE_AGENT_ROLE_ID);
-              }
-
-              // Save the staff record
-              await Staffs.create({
-                userId: user.id,
-                teamRoleId: team.roleId,
-                teamName: team.name,
-                position,
-              });
 
               const rosterCount =
                 interaction.guild.roles.cache.get(team.roleId)?.members.size ?? 0;
