@@ -214,30 +214,45 @@ module.exports = {
       const newRoleId = getStaffRoleId(toPosition);
       const guild = interaction.guild;
 
-      // Remove the old staff role
-      if (oldRoleId && guildMember.roles.cache.has(oldRoleId)) {
-        await guildMember.roles.remove(oldRoleId);
+      if (toPosition !== 'none' && !newRoleId) {
+        return interaction.reply({
+          content: 'The selected staff role is not configured correctly.',
+          flags: MessageFlags.Ephemeral,
+        });
       }
 
-      // Demote to a normal team member
-      if (toPosition === 'none') {
-        await Staffs.deleteOne({
-          _id: targetEntry._id,
-        });
-      } else {
-        // Apply the new staff role
-        if (!newRoleId) {
-          return interaction.reply({
-            content: 'The selected staff role is not configured correctly.',
-            flags: MessageFlags.Ephemeral,
-          });
+      const hadNewRole = newRoleId ? guildMember.roles.cache.has(newRoleId) : false;
+      const oldPositionBeforeChange = targetEntry.position;
+      try {
+        // Apply the replacement position first, then persist it, and only then
+        // remove the old role. For a full demotion, delete after role cleanup.
+        if (toPosition !== 'none' && !hadNewRole) {
+          await guildMember.roles.add(newRoleId);
         }
 
-        await guildMember.roles.add(newRoleId);
-
-        // Update staff record
-        targetEntry.position = toPosition;
-        await targetEntry.save();
+        if (toPosition === 'none') {
+          if (oldRoleId && guildMember.roles.cache.has(oldRoleId)) {
+            await guildMember.roles.remove(oldRoleId);
+          }
+          const deleteResult = await Staffs.deleteOne({ _id: targetEntry._id });
+          if (!deleteResult.deletedCount) throw new Error('Staff record was not deleted.');
+        } else {
+          targetEntry.position = toPosition;
+          await targetEntry.save();
+          if (oldRoleId && oldRoleId !== newRoleId && guildMember.roles.cache.has(oldRoleId)) {
+            await guildMember.roles.remove(oldRoleId);
+          }
+        }
+      } catch (operationError) {
+        targetEntry.position = oldPositionBeforeChange;
+        await targetEntry.save().catch(() => {});
+        if (oldRoleId && !guildMember.roles.cache.has(oldRoleId)) {
+          await guildMember.roles.add(oldRoleId, 'Restoring previous staff position').catch(() => {});
+        }
+        if (newRoleId && !hadNewRole && guildMember.roles.cache.has(newRoleId)) {
+          await guildMember.roles.remove(newRoleId, 'Rolling back failed demotion').catch(() => {});
+        }
+        throw operationError;
       }
 
       // Build demotion log
