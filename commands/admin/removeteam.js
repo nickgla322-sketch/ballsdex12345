@@ -278,7 +278,17 @@ module.exports = {
             // roster state untouched so the staff record can be retried.
             let staffCleanupSucceeded = true;
             for (const staffRoleId of staffRoleIds) {
-              if (!member.roles.cache.has(staffRoleId)) continue;
+              const positionForRole = memberStaffEntries.find(
+                staff => getStaffRoleId(staff.position) === staffRoleId
+              )?.position;
+              const stillHasPositionElsewhere = positionForRole
+                ? await Staffs.exists({
+                    userId,
+                    position: positionForRole,
+                    teamRoleId: { $ne: team.roleId },
+                  })
+                : false;
+              if (stillHasPositionElsewhere || !member.roles.cache.has(staffRoleId)) continue;
               try {
                 await member.roles.remove(
                   staffRoleId,
